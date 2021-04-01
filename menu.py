@@ -87,7 +87,7 @@ def show_table(entries,keys,headings,title,enable_events=False,max_col_width=60)
     layout = [[sg.SaveAs(button_text = 'CSV-Export',
                          default_extension = 'csv',enable_events=True)],
               [sg.Table(values=data, headings=headings, max_col_width=max_col_width,
-               auto_size_columns=True,
+               auto_size_columns=len(data) > 0,
                display_row_numbers=True,
                justification='left',
                num_rows=30,
