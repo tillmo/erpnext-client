@@ -49,7 +49,10 @@ def show_data():
                       utils.show_date4(bacc.doc['last_integration_date']),
                       end="")
             if bacc.balance:
-                print(", Kontostand: {:.2f}".format(bacc.balance))
+                print(", Kontostand laut ERPNext: {:.2f}".format(bacc.balance), end="")
+            if bacc.statement_balance:
+                print(", laut Auszug: {:.2f}".format(bacc.statement_balance),
+                      end="")
             print()
         comp = company.Company.get_company(comp_name)
         server_info = "weiter unter Anzeigen oder im ERPNext-Webclient unter {}".format(settings['-server-'])
