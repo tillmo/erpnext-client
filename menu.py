@@ -43,10 +43,14 @@ def show_data():
         comp_name = settings['-company-']
         print("Bereich: "+comp_name)
         for bacc in bank.BankAccount.baccounts_by_company[comp_name]:
+            print("Konto:",bacc.name, end="")
             if bacc.doc['last_integration_date']:
-                print("Konto :",bacc.name,"letzter Auszug",bacc.doc['last_integration_date'])
-            else:    
-                print("Konto :",bacc.name)
+                print(", letzter Auszug:",
+                      utils.show_date4(bacc.doc['last_integration_date']),
+                      end="")
+            if bacc.balance:
+                print(", Kontostand: {:.2f}".format(bacc.balance))
+            print()
         comp = company.Company.get_company(comp_name)
         server_info = "weiter unter Anzeigen oder im ERPNext-Webclient unter {}".format(settings['-server-'])
         if comp:
