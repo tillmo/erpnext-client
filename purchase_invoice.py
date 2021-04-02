@@ -352,7 +352,7 @@ class PurchaseInvoice(object):
         self.doc = gui_api_wrapper(Api.api.update,self.doc)
         #doc = gui_api_wrapper(Api.api.get_doc,'Purchase Invoice',self.doc['name'])
         if easygui.buttonbox("Einkaufsrechnung {0} als Entwurf an ERPNext übertragen.\n\nSoll die Rechnung auch gleich gebucht werden oder nicht?".format(self.e_invoice['title']),"Sofort buchen?",["Sofort buchen","Später buchen"]) == "Sofort buchen":
-            gui_api_wrapper(Api.api.submit,self.doc)
+            self.doc = gui_api_wrapper(Api.api.submit,self.doc)
         return self    
 
             
