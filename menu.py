@@ -48,7 +48,7 @@ def show_data():
             else:    
                 print("Konto :",bacc.name)
         comp = company.Company.get_company(comp_name)
-        server_info = "weiter untern Anzeigen oder im ERPNext-Webclient unter {}".format(settings['-server-'])
+        server_info = "weiter unter Anzeigen oder im ERPNext-Webclient unter {}".format(settings['-server-'])
         if comp:
             num_bts = len(comp.open_bank_transactions())
             if num_bts:
