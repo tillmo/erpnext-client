@@ -63,6 +63,7 @@ class BankTransaction:
                  'title': self.description[0:140],
                  'voucher_type': 'Journal Entry',
                  'company': self.company_name,
+                 'finance_book' : self.company.default_finance_book,
                  'posting_date': self.date,
                  'user_remark': self.description,
                  'accounts':accounts}
@@ -92,6 +93,7 @@ class BankTransaction:
                  'party' : inv.party,
                  'party_type' : inv.party_type,
                  'company': self.company_name,
+                 'finance_book' : self.company.default_finance_book,
                  'paid_from' : settings.DEBIT_TO_ACCOUNT if inv.is_sales else self.baccount.e_account,
                  'paid_to': self.baccount.e_account if inv.is_sales else settings.CREDIT_TO_ACCOUNT,
                  'paid_amount' : abs(self.amount),
