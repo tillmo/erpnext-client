@@ -331,11 +331,13 @@ class PurchaseInvoice(object):
                     [sg.Input(default_text = str(amount))],
                     [sg.Text('Buchungskonto')],
                     [sg.OptionMenu(values=account_names, k='-OPTION MENU-')],
+                    [sg.Checkbox('Schon selbst bezahlt',
+                                 default=False, k='-paid-')],
                     [sg.Button('Speichern')] ]
         window1 = sg.Window("Einkaufsrechnung", layout, finalize=True)
         window1.bring_to_front()
         event, values = window1.read()
-        print(event, values)             
+        #print(event, values)             
         window1.close()
         if values:
             if len(values)>0 and values[0]:
@@ -350,6 +352,8 @@ class PurchaseInvoice(object):
                 self.total = float(values[4])-self.mwst
             if '-OPTION MENU-' in values:
                 account = values['-OPTION MENU-']
+            if '-paid-' in values and values['-paid-']:
+                self.remarks = 'Schon selbst bezahlt'
         else:
             return None
         self.e_items = [{'item_code' : settings.DEFAULT_ITEM_CODE,
@@ -381,6 +385,7 @@ class PurchaseInvoice(object):
             'title': self.supplier.split()[0]+" "+self.no,
             'bill_no': self.no,
             'posting_date' : self.date,
+            'remarks' : self.remarks,
             'set_posting_time': 1,
             'credit_to' : CREDIT_TO_ACCOUNT,
             'naming_series' : STANDARD_NAMING_SERIES_PINV,
@@ -434,6 +439,7 @@ class PurchaseInvoice(object):
     def __init__(self):
         self.company_name = sg.UserSettings()['-company-']
         self.company = company.Company.get_company(self.company_name)
+        self.remarks = None
 
     @classmethod
     def create_and_read_pdf(cls,infile,update_stock):
@@ -457,9 +463,9 @@ class PurchaseInvoice(object):
             if not ask_if_to_continue(self.check_duplicates()):
                 return None
         self.create_e_invoice(update_stock)
-        print(self.e_invoice)
+        #print(self.e_invoice)
         self.doc = gui_api_wrapper(Api.api.insert,self.e_invoice)
-        print(self.doc)
+        #print(self.doc)
         upload = gui_api_wrapper(Api.api.read_and_attach_file,
                                  "Purchase Invoice",self.doc['name'],
                                  infile,True)
