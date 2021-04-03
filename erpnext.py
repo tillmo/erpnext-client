@@ -3,7 +3,7 @@
 import purchase_invoice
 import bank
 import company
-from settings import STANDARD_PRICE_LIST, VALIDITY_DATE, COMPANY
+from settings import STANDARD_PRICE_LIST, VALIDITY_DATE
 from api_wrapper import gui_api_wrapper, api_wrapper_test
 from api import Api, LIMIT
 import menu
@@ -141,6 +141,8 @@ if __name__ == '__main__':
         print(Api.items_by_code)
     # for experiments and debugging    
     elif args.p:
+        print(gui_api_wrapper(Api.api.get_list,'Supplier'))
+        exit(0)
         doc = gui_api_wrapper(Api.api.get_doc,'Journal Entry','ACC-JV-2021-00129')
         print(gui_api_wrapper(Api.api.submit,doc))
         exit(0)

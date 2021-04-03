@@ -1,16 +1,69 @@
 #!/usr/bin/python3
 
-from settings import WAREHOUSE, COMPANY, STANDARD_PRICE_LIST, STANDARD_ITEM_GROUP, STANDARD_NAMING_SERIES_PINV, CREDIT_TO_ACCOUNT, VAT_ACCOUNT, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, DELIVERY_COST_DESCRIPTION
+from settings import WAREHOUSE, STANDARD_PRICE_LIST, STANDARD_ITEM_GROUP, STANDARD_NAMING_SERIES_PINV, CREDIT_TO_ACCOUNT, VAT_ACCOUNT, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, DELIVERY_COST_DESCRIPTION
 
 import utils
+import PySimpleGUI as sg
 import easygui
 import subprocess
 import re
-from api import Api, COMPANY, WAREHOUSE
+from api import Api, WAREHOUSE
 from api_wrapper import gui_api_wrapper
+import settings
+import company
 from collections import defaultdict
 import random
 import string
+import csv
+
+# extract amounts of form xxx,xx from string
+def extract_amounts(s):
+    amounts = re.findall(r"([0-9]+,[0-9][0-9])",s)
+    return list(map(lambda s: float(s.replace(",",".")),amounts))
+
+# try to extract gross amount and vat from an invoice
+def extract_amount_and_vat(lines):
+    amounts = extract_amounts(" ".join(lines))
+    amount = max(amounts)
+    for vat_rate in settings.VAT_RATES:
+        vat = round(amount / (1+vat_rate) * vat_rate,2)
+        if vat in amounts:
+            return(amount,vat)
+    vat_lines = [l for l in lines if "mwst" in l.lower()]
+    for line in vat_lines:
+        v_amounts = extract_amounts(line)
+        for vat in v_amounts:
+            for vat_rate in settings.VAT_RATES:
+                for amount in amounts:
+                    if vat == round(amount / (1+vat_rate) * vat_rate,2):
+                        return(amount,vat)
+    return (max(amounts),0)
+
+def extract_date(lines):
+    for line in lines:
+        for word in line.split():
+            d = utils.convert_date4(word)
+            if d:
+                return d
+    return None
+
+def extract_no(lines):
+    for line in lines:
+        lline = line.lower()
+        if "rechnungsnr" in lline\
+          or "rechnungs-Nr" in lline\
+          or "rechnungsnummer" in lline\
+          or ("rechnung" in lline and "nr" in lline):
+            s = re.search(r"[nN][rR][:. ]*([A-Za-z0-9-]+)",line)
+            if s:
+                return s.group(1)
+            s = re.search(r"nummer[:. ]*([A-Za-z0-9-]+)",line)
+            if s:
+                return s.group(1)
+    return None
+
+def extract_supplier(lines):
+    return " ".join(lines[0].split())
 
 def pdf_to_text(file,raw=False):
     cmd = ["pdftotext","-nopgbrk","-layout"]
@@ -27,8 +80,8 @@ def ask_if_to_continue(err,msg=""):
     return True    
 
 class SupplierItem(object):
-    def __init__(self):
-        pass
+    def __init__(self,inv):
+        self.purchase_invoice = inv
 
     def search_item(self,supplier):
         if self.item_code:
@@ -75,12 +128,13 @@ class SupplierItem(object):
             if easygui.ccbox(msg, title):
                 item_code = "new"+''.join(random.choices(\
                                 string.ascii_uppercase + string.digits, k=8))
+                company_name = self.purchase_invoce.company_name
                 e_item = {'doctype' : 'Item',
                           'item_code' : item_code,
                           'item_name' : self.description,
                           'description' : self.long_description,
                           'item_group' : STANDARD_ITEM_GROUP,
-                          'item_defaults': [{'company': COMPANY,
+                          'item_defaults': [{'company': company_name,
                                              'default_warehouse': WAREHOUSE}],
                           'stock_uom' : self.qty_unit}  
                 e_item = gui_api_wrapper(Api.api.insert,e_item)
@@ -129,7 +183,7 @@ class PurchaseInvoice(object):
     def get_amount_krannich(cls,lines):
         return sum(map(lambda line: utils.read_float(line[-9:-1]),lines))
     
-    def parse_krannich(self,lines,file):
+    def parse_krannich(self,lines):
         items = []
         item = []
         for line in lines:
@@ -151,7 +205,7 @@ class PurchaseInvoice(object):
         for item_lines in items[1:]:
             item_str = item_lines[0]
             clutter = ['Einzelpreis','Krannich','IBAN','Rechnung','Übertrag']
-            s_item = SupplierItem()
+            s_item = SupplierItem(self)
             s_item.description = " ".join(item_lines[1][0:82].split())
             long_description_lines = \
                 [l for l in item_lines[1:] \
@@ -197,7 +251,7 @@ class PurchaseInvoice(object):
         self.mwst = PurchaseInvoice.get_amount_krannich([mwst_line])
         self.shipping += rounding_error
 
-    def parse_pvxchange(self,lines,file):
+    def parse_pvxchange(self,lines):
         items = []
         item = []
         preamble = True
@@ -232,7 +286,7 @@ class PurchaseInvoice(object):
         mypos = 0
         for item_lines in items[1:-1]:
             parts = " ".join(map(lambda s: s.strip(),item_lines)).split()
-            s_item = SupplierItem()
+            s_item = SupplierItem(self)
             s_item.qty = int(parts[1])
             s_item.rate = utils.read_float(parts[-4])
             s_item.amount = utils.read_float(parts[-2])
@@ -252,15 +306,73 @@ class PurchaseInvoice(object):
         total_line = [line for line in items[-1] if 'Nettosumme' in line][0]
         self.total = utils.read_float(total_line.split()[-2])
 
-    def parse_invoice(self,infile):
+    def parse_generic(self,lines):
+        (amount,mwst) = extract_amount_and_vat(lines)
+        self.mwst = mwst
+        self.total = amount-self.mwst
+        self.shipping = 0.0
+        self.date = extract_date(lines)
+        self.no = extract_no(lines)
+        self.supplier = extract_supplier(lines)
+        if self.check_if_present():
+            return None
+        accounts = self.company.leaf_accounts_for_credit
+        account_names = [acc['name'] for acc in accounts]
+        account = None
+        layout = [  [sg.Text('Lieferant')],     
+                    [sg.Input(default_text = self.supplier)],
+                    [sg.Text('Rechnungsnr.')],     
+                    [sg.Input(default_text = self.no)],
+                    [sg.Text('Datum')],     
+                    [sg.Input(default_text = self.date)],
+                    [sg.Text('MWSt')],     
+                    [sg.Input(default_text = str(self.mwst))],
+                    [sg.Text('Brutto')],     
+                    [sg.Input(default_text = str(amount))],
+                    [sg.Text('Buchungskonto')],
+                    [sg.OptionMenu(values=account_names, k='-OPTION MENU-')],
+                    [sg.Button('Speichern')] ]
+        window1 = sg.Window("Einkaufsrechnung", layout, finalize=True)
+        window1.bring_to_front()
+        event, values = window1.read()
+        print(event, values)             
+        window1.close()
+        if values:
+            if len(values)>0 and values[0]:
+                self.supplier = values[0]
+            if len(values)>1 and values[1]:
+                self.no = values[1]
+            if len(values)>2 and values[2]:
+                self.date = values[2]
+            if len(values)>3 and values[3]:
+                self.mwst = float(values[3])
+            if len(values)>4 and values[4]:
+                self.total = float(values[4])-self.mwst
+            if '-OPTION MENU-' in values:
+                account = values['-OPTION MENU-']
+        else:
+            return None
+        self.e_items = [{'item_code' : settings.DEFAULT_ITEM_CODE,
+                         'qty' : 1,
+                         'rate' : self.total,
+                         'expense_account' : account}]
+        Api.create_supplier(self.supplier)
+        return self
+    
+    def parse_invoice(self,infile,update_stock):
         lines = pdf_to_text(infile)
         head = lines[0]
         for supplier,info in PurchaseInvoice.suppliers.items():
             if supplier in head:
                 if info['raw']:
                     lines = pdf_to_text(infile,True)
-                info['parser'](self,lines,infile)
+                info['parser'](self,lines)
                 self.supplier = supplier
+                return self
+        if update_stock:
+            easygui.msgbox('Kann keine Artikel aus der Rechnung extrahieren.\nFür die Option "mit Lagerhaltung" ist dies jedoch notwendig')
+            return None
+        return self.parse_generic(lines)
 
     def create_e_invoice(self,update_stock):
         self.e_invoice = {
@@ -320,31 +432,34 @@ class PurchaseInvoice(object):
         return False
 
     def __init__(self):
-        pass
+        self.company_name = sg.UserSettings()['-company-']
+        self.company = company.Company.get_company(self.company_name)
 
     @classmethod
     def create_and_read_pdf(cls,infile,update_stock):
         return PurchaseInvoice().read_pdf(infile,update_stock)
 
     def read_pdf(self,infile,update_stock):
-        self.parse_invoice(infile)
+        if not self.parse_invoice(infile,update_stock):
+            return None
         if self.check_if_present():
             return None
-        yesterd = utils.yesterday(self.date)
-        self.e_items = list(map(lambda item: \
-            item.process_item(self.supplier,yesterd),
-            self.items))
-        if None in self.e_items:
-            easygui.msgbox("Nicht alle Artikel wurden eingetragen.\n Deshalb kann keine Einkaufsrechnung in ERPNext erstellt werden.")
+        if update_stock:
+            yesterd = utils.yesterday(self.date)
+            self.e_items = list(map(lambda item: \
+                item.process_item(self.supplier,yesterd),
+                self.items))
+            if None in self.e_items:
+                easygui.msgbox("Nicht alle Artikel wurden eingetragen.\n Deshalb kann keine Einkaufsrechnung in ERPNext erstellt werden.")
             return None
-        if not ask_if_to_continue(self.check_total(),"Fortsetzen?"):
-            return None
-        if not ask_if_to_continue(self.check_duplicates()):
-            return None
+            if not ask_if_to_continue(self.check_total(),"Fortsetzen?"):
+                return None
+            if not ask_if_to_continue(self.check_duplicates()):
+                return None
         self.create_e_invoice(update_stock)
-        #print(e_invoice)
+        print(self.e_invoice)
         self.doc = gui_api_wrapper(Api.api.insert,self.e_invoice)
-        #print(self.doc)
+        print(self.doc)
         upload = gui_api_wrapper(Api.api.read_and_attach_file,
                                  "Purchase Invoice",self.doc['name'],
                                  infile,True)

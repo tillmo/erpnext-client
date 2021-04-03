@@ -32,7 +32,7 @@ def text_input(text,default_text =""):
 def purchase_inv(update_stock):
     filename = sg.popup_get_file('Einkaufsrechnung als PDF', no_window=True)
     if filename:
-        print("Lese ein ...")
+        print("Lese {} ein ...".format(filename))
         Api.load_item_data()
         return purchase_invoice.PurchaseInvoice.create_and_read_pdf(filename,update_stock)    
     return False
@@ -231,6 +231,7 @@ def event_handler(event,window):
         filename = sg.popup_get_file('Kontoauszug als csv', no_window=True)
         if filename:
             print()
+            print("Lese {} ein ...".format(filename))
             b = bank.BankStatement.process_file(filename)
             comp = b.baccount.company.name
             if settings['-company-'] != comp:

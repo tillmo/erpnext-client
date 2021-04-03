@@ -1,4 +1,4 @@
-- process all kinds of purchase invoices, with user-supplied account, self-payment flag, no stock, only one item (try to parse amount), submit option
+- self-payment flag
 - automatic guessing of accounts
 - display balances: bank accounts (with last integration date)
   - initial bank account balance: just use a bank transaction
