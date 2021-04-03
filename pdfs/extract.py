@@ -15,25 +15,17 @@ def extract_amount(filename,rate):
     amount = max(numbers)
     for vat_rate in VAT_RATES:
         vat = round(amount / (1+vat_rate) * vat_rate,2)
-        #print(vat)
         if vat in numbers:
             return(vat,amount)
-    # mwst_lines = [l for l in contents.split("\n") if "mwst" in l.lower]
-    
-    # for line in f.readlines():
-    #     line = line.lower()
-    #     numbers = re.findall(r"([0-9]+,[0-9][0-9])",line)
-    #     numbers = list(map(lambda s: float(s.replace(",",".")),numbers))
-    #     if "mwst" in line:
-    #         print("m",end=" ")
-    #     if numbers:
-    #         print(numbers)
-    #     if "mwst" in line:
-    #         mwst_guess = min(numbers+[1000000]) 
-    # #print(numbers)
-    # #lines = f.readlines()
-    # #print(lines)
-    return (0,amount)
+    vat_lines = [l for l in contents.split("\n") if "mwst" in l.lower()]
+    for line in vat_lines:
+        v_numbers = extract_numbers(line)
+        for vat in v_numbers:
+            for vat_rate in VAT_RATES:
+                for amount in numbers:
+                    if vat == round(amount / (1+vat_rate) * vat_rate,2):
+                        return(vat,amount)
+    return (0,max(numbers))
 
 def check(filename):
     mwst = None
@@ -58,6 +50,6 @@ def check(filename):
 for i in [1,2,3,4,5,6,13,15,16]:
     check(str(i))
 
-#for i in [17,18,19]:
-#    check("test/"+str(i))
+for i in [17,18,19]:
+    check("test/"+str(i))
     
