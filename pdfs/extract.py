@@ -1,7 +1,39 @@
 import csv
+import re
 
+VAT_RATES = [0.07,0.16,0.19]
+
+def extract_numbers(s):
+    numbers = re.findall(r"([0-9]+,[0-9][0-9])",s)
+    return list(map(lambda s: float(s.replace(",",".")),numbers))
+    
 def extract_amount(filename,rate):
-    return (0,0)
+    f = open(filename,'r')
+    contents = f.read()
+    f.close()
+    numbers = extract_numbers(contents)
+    amount = max(numbers)
+    for vat_rate in VAT_RATES:
+        vat = round(amount / (1+vat_rate) * vat_rate,2)
+        #print(vat)
+        if vat in numbers:
+            return(vat,amount)
+    # mwst_lines = [l for l in contents.split("\n") if "mwst" in l.lower]
+    
+    # for line in f.readlines():
+    #     line = line.lower()
+    #     numbers = re.findall(r"([0-9]+,[0-9][0-9])",line)
+    #     numbers = list(map(lambda s: float(s.replace(",",".")),numbers))
+    #     if "mwst" in line:
+    #         print("m",end=" ")
+    #     if numbers:
+    #         print(numbers)
+    #     if "mwst" in line:
+    #         mwst_guess = min(numbers+[1000000]) 
+    # #print(numbers)
+    # #lines = f.readlines()
+    # #print(lines)
+    return (0,amount)
 
 def check(filename):
     mwst = None
@@ -26,6 +58,6 @@ def check(filename):
 for i in [1,2,3,4,5,6,13,15,16]:
     check(str(i))
 
-for i in [17,18,19]:
-    check("test/"+str(i))
+#for i in [17,18,19]:
+#    check("test/"+str(i))
     
