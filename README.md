@@ -4,7 +4,13 @@
 * download `install-ubuntu.sh` and run `sh install-ubuntu.sh`
 
 ## installation on Windows:
-* to be done
+* Install [Python](https://www.python.org/downloads/windows/)
+* Install the [Xpdf command line tools](https://www.xpdfreader.com/download.html) 
+* Install [Git](https://git-scm.com/download/win)
+* Open a [terminal](https://en.wikipedia.org/wiki/Windows_Terminal) or [console](https://en.wikipedia.org/wiki/Windows_Console), and in some folder of your choice, enter the following commands:
+  * git clone https://github.com/tillmo/erpnext-client.git
+  * cd erpnext-client
+You now can start the client with `python3 erpnext.py` (or, in Windows 10, with `erpnext`)
 
 ## features
 * GUI for ERPNext bank reconciliation and purchase invoice creation
