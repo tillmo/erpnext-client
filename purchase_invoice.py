@@ -333,6 +333,8 @@ class PurchaseInvoice(object):
                     [sg.OptionMenu(values=account_names, k='-OPTION MENU-')],
                     [sg.Checkbox('Schon selbst bezahlt',
                                  default=False, k='-paid-')],
+                    [sg.Text('Kommentar')],     
+                    [sg.Input()],
                     [sg.Button('Speichern')] ]
         window1 = sg.Window("Einkaufsrechnung", layout, finalize=True)
         window1.bring_to_front()
@@ -353,7 +355,9 @@ class PurchaseInvoice(object):
             if '-OPTION MENU-' in values:
                 account = values['-OPTION MENU-']
             if '-paid-' in values and values['-paid-']:
-                self.remarks = 'Schon selbst bezahlt'
+                self.paid_by_submitter = True
+            if len(values)>5 and values[5]:
+                self.remarks = values[5]
         else:
             return None
         self.e_items = [{'item_code' : settings.DEFAULT_ITEM_CODE,
@@ -386,6 +390,7 @@ class PurchaseInvoice(object):
             'bill_no': self.no,
             'posting_date' : self.date,
             'remarks' : self.remarks,
+            'paid_by_submitter' : self.paid_by_submitter,
             'set_posting_time': 1,
             'credit_to' : CREDIT_TO_ACCOUNT,
             'naming_series' : STANDARD_NAMING_SERIES_PINV,
@@ -440,6 +445,7 @@ class PurchaseInvoice(object):
         self.company_name = sg.UserSettings()['-company-']
         self.company = company.Company.get_company(self.company_name)
         self.remarks = None
+        self.paid_by_submitter = False
 
     @classmethod
     def create_and_read_pdf(cls,infile,update_stock):
