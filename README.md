@@ -10,6 +10,7 @@
 * Open a [terminal](https://en.wikipedia.org/wiki/Windows_Terminal) or [console](https://en.wikipedia.org/wiki/Windows_Console), and in some folder of your choice, enter the following commands:
   * git clone https://github.com/tillmo/erpnext-client.git
   * cd erpnext-client
+
 You now can start the client with `python3 erpnext.py` (or, in Windows 10, with `erpnext`)
 
 ## features
