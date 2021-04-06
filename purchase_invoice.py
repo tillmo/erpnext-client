@@ -307,15 +307,24 @@ class PurchaseInvoice(object):
         self.total = utils.read_float(total_line.split()[-2])
 
     def parse_generic(self,lines):
-        (amount,mwst) = extract_amount_and_vat(lines)
-        self.mwst = mwst
-        self.total = amount-self.mwst
-        self.shipping = 0.0
-        self.date = extract_date(lines)
-        self.no = extract_no(lines)
-        self.supplier = extract_supplier(lines)
-        if self.check_if_present():
-            return None
+        if lines:
+            (amount,mwst) = extract_amount_and_vat(lines)
+            self.mwst = mwst
+            self.total = amount-self.mwst
+            self.shipping = 0.0
+            self.date = extract_date(lines)
+            self.no = extract_no(lines)
+            self.supplier = extract_supplier(lines)
+            if self.check_if_present():
+                return None
+        else:
+            amount = ""
+            self.mwst = ""
+            self.total = ""
+            self.shipping = 0.0
+            self.date = ""
+            self.no = ""
+            self.supplier = ""
         accounts = self.company.leaf_accounts_for_credit
         account_names = [acc['name'] for acc in accounts]
         account = None
@@ -369,14 +378,15 @@ class PurchaseInvoice(object):
     
     def parse_invoice(self,infile,update_stock):
         lines = pdf_to_text(infile)
-        head = lines[0]
-        for supplier,info in PurchaseInvoice.suppliers.items():
-            if supplier in head:
-                if info['raw']:
-                    lines = pdf_to_text(infile,True)
-                info['parser'](self,lines)
-                self.supplier = supplier
-                return self
+        if lines:
+            head = lines[0]
+            for supplier,info in PurchaseInvoice.suppliers.items():
+                if supplier in head:
+                    if info['raw']:
+                        lines = pdf_to_text(infile,True)
+                    info['parser'](self,lines)
+                    self.supplier = supplier
+                    return self
         if update_stock:
             easygui.msgbox('Kann keine Artikel aus der Rechnung extrahieren.\nFür die Option "mit Lagerhaltung" ist dies jedoch notwendig')
             return None
