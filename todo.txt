@@ -1,4 +1,3 @@
-- process all kinds of purchase invoices, with user-supplied account, self-payment flag, no stock, only one item (try to parse amount), submit option
 - automatic guessing of accounts
 - process all kinds of purchase invoices, with user-supplied account, self-payment flag, no stock, only one item (try to parse amount)
 - display journal entries, payment entries, invoices -> submit or delete

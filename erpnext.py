@@ -3,7 +3,7 @@
 import purchase_invoice
 import bank
 import company
-from settings import STANDARD_PRICE_LIST, VALIDITY_DATE, COMPANY
+from settings import STANDARD_PRICE_LIST, VALIDITY_DATE
 from api_wrapper import gui_api_wrapper, api_wrapper_test
 from api import Api, LIMIT
 import menu
@@ -41,6 +41,8 @@ def arg_parser():
                         help='API key')
     parser.add_argument('--secret', dest='secret', type=str,
                         help='API secrect')
+    parser.add_argument('--company', dest='company', type=str,
+                        help='company to work with')
     parser.add_argument('--balkon', dest='update_stock', action='store_true',
                         help='für Balkonmodul-Materialien')
     parser.set_defaults(update_stock=False)
@@ -67,6 +69,8 @@ if __name__ == '__main__':
     # load sg settings (not that settings.py contains further settings)
     sg.user_settings_filename(filename='erpnext.json')
     settings = sg.UserSettings()
+    if args.company:
+        settings['-company-'] = args.company
     if args.server:
         settings['-server-'] = args.server
     if args.key:
@@ -141,6 +145,8 @@ if __name__ == '__main__':
         print(Api.items_by_code)
     # for experiments and debugging    
     elif args.p:
+        print(gui_api_wrapper(Api.api.get_list,'Supplier'))
+        exit(0)
         doc = gui_api_wrapper(Api.api.get_doc,'Journal Entry','ACC-JV-2021-00129')
         print(gui_api_wrapper(Api.api.submit,doc))
         exit(0)
