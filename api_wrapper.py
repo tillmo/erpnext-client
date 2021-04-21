@@ -60,9 +60,10 @@ def gui_api_wrapper(f,*args, **kwargs):
     if result['err_msg'] or result['exception']:
         title = "Fehler in Kommunikation mit dem ERPNext API\n"+\
                 "Bitte Admin folgenden Text an Admin mailen\n\n"
-        err = "{0}\n{1}\n{2}".format(result['err_msg'],
+        err = "{0}\n{1}\n{2}\n{2}".format("Aufruf: "+str(args)+str(kwargs),
+                                     result['err_msg'],
                                      result['stderr'],
                                      result['exception'])[-1500:]
-        easygui.msgbox(title+err)
+        print(title+err)
         return None
     return result['resource']
