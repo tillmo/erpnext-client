@@ -4,7 +4,6 @@
   - initial bank account balance: just use a bank transaction
 
 - display difference between bank account balance according to bank transfers and according to general legder
-- finance books
 - cost centers
 - partial use of bank transfer amounts
 - settings: always submit or not

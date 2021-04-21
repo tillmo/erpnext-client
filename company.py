@@ -11,6 +11,7 @@ class Invoice:
         self.name = doc['name']
         self.status = doc['status']
         self.amount = doc['grand_total']
+        self.default_finance_book = doc['default_finance_book']
         self.outstanding = doc['outstanding_amount']
         if self.is_sales:
             self.reference = doc['name']
