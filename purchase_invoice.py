@@ -328,22 +328,30 @@ class PurchaseInvoice(object):
         accounts = self.company.leaf_accounts_for_credit
         account_names = [acc['name'] for acc in accounts]
         account = None
-        layout = [  [sg.Text('Lieferant')],     
-                    [sg.Input(default_text = self.supplier)],
+        suppliers = gui_api_wrapper(Api.api.get_list,"Supplier")
+        supplier_names = [supp['name'] for supp in suppliers]+['neu']
+        def_supp = self.supplier if self.supplier in supplier_names else "neu"
+        def_new_supp = "" if self.supplier in supplier_names else self.supplier
+        layout = [  [sg.Text('Lieferant')],
+                    [sg.OptionMenu(values=supplier_names, k='-supplier-',
+                                   default_value = def_supp)],
+                    [sg.Text('ggf. neuer Lieferant')],
+                    [sg.Input(default_text = def_new_supp,
+                              k='-supplier-name-')],
                     [sg.Text('Rechnungsnr.')],     
-                    [sg.Input(default_text = self.no)],
+                    [sg.Input(default_text = self.no, k='-no-')],
                     [sg.Text('Datum')],     
-                    [sg.Input(default_text = self.date)],
+                    [sg.Input(default_text = self.date, k='-date-')],
                     [sg.Text('MWSt')],     
-                    [sg.Input(default_text = str(self.mwst))],
+                    [sg.Input(default_text = str(self.mwst), k='-vat-')],
                     [sg.Text('Brutto')],     
-                    [sg.Input(default_text = str(amount))],
+                    [sg.Input(default_text = str(amount), k='-gross-')],
                     [sg.Text('Buchungskonto')],
-                    [sg.OptionMenu(values=account_names, k='-OPTION MENU-')],
+                    [sg.OptionMenu(values=account_names, k='-account-')],
                     [sg.Checkbox('Schon selbst bezahlt',
                                  default=False, k='-paid-')],
                     [sg.Text('Kommentar')],     
-                    [sg.Input()],
+                    [sg.Input(k='-remarks-')],
                     [sg.Button('Speichern')] ]
         window1 = sg.Window("Einkaufsrechnung", layout, finalize=True)
         window1.bring_to_front()
@@ -351,22 +359,24 @@ class PurchaseInvoice(object):
         #print(event, values)             
         window1.close()
         if values:
-            if len(values)>0 and values[0]:
-                self.supplier = values[0]
-            if len(values)>1 and values[1]:
-                self.no = values[1]
-            if len(values)>2 and values[2]:
-                self.date = values[2]
-            if len(values)>3 and values[3]:
-                self.mwst = float(values[3])
-            if len(values)>4 and values[4]:
-                self.total = float(values[4])-self.mwst
-            if '-OPTION MENU-' in values:
-                account = values['-OPTION MENU-']
+            if '-supplier-' in values:
+                self.supplier = values['-supplier-']
+                if self.supplier == 'neu' and '-supplier-name-' in values:
+                    self.supplier = values['-supplier-name-']
+            if '-no-' in values:
+                self.no = values['-no-']
+            if '-date-' in values:
+                self.date = values['-date-']
+            if '-vat-' in values:
+                self.mwst = float(values['-vat-'])
+            if '-gross-' in values:
+                self.total = float(values['-gross-'])-self.mwst
+            if '-account-' in values:
+                account = values['-account-']
             if '-paid-' in values and values['-paid-']:
                 self.paid_by_submitter = True
-            if len(values)>5 and values[5]:
-                self.remarks = values[5]
+            if '-remarks-' in values:
+                self.remarks = values['-remarks-']
         else:
             return None
         self.e_items = [{'item_code' : settings.DEFAULT_ITEM_CODE,
