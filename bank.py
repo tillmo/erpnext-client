@@ -133,7 +133,43 @@ class BankTransaction:
             self.payment(inv)
         if cacc:
             self.journal_entry(cacc)
-            
+
+    @classmethod
+    def submit_entry(cls,doc_name,is_journal=True):
+        doctype = "Journal Entry" if is_journal else "Payment Entry"
+        doctype_name = "Buchungssatz" if is_journal else "Zahlung"
+        bts = gui_api_wrapper(Api.api.get_list,"Bank Transaction",filters=
+                              [["Bank Transaction Payments",
+                                "payment_entry","=",doc_name]])
+        for bt in bts:
+            bt_name = bt['name']
+            gui_api_wrapper(Api.submit_doc,"Bank Transaction",bt_name)
+            print("Banktransaktion {} gebucht".format(bt_name))
+        gui_api_wrapper(Api.submit_doc,doctype,doc_name)
+        print("{} {} gebucht".format(doctype_name,doc_name))
+
+    @classmethod
+    def delete_entry(cls,doc_name,is_journal=True):
+        doctype = "Journal Entry" if is_journal else "Payment Entry"
+        doctype_name = "Buchungssatz" if is_journal else "Zahlung"
+        bts = gui_api_wrapper(Api.api.get_list,"Bank Transaction",filters=
+                              [["Bank Transaction Payments",
+                                "payment_entry","=",doc_name]])
+        if bts:
+            bt = gui_api_wrapper(Api.api.get_doc,"Bank Transaction",
+                                 bts[0]['name'])
+            bt['payment_entries'] = list(filter(lambda pe: pe['payment_entry']!=doc_name,bt['payment_entries']))
+            bt['status'] = 'Pending'
+            gui_api_wrapper(Api.api.update,bt)
+            print("Banktransaktion {} angepasst".format(bt['name']))
+        else:
+            print("Keine Banktransaktion angepasst: "+\
+                  "{} {} nicht in Banktransaktionen gefunden".\
+                    format(doctype_name,doc_name))
+        gui_api_wrapper(Api.api.delete,doctype,doc_name)
+        print("{} {} gelöscht".format(doctype_name,doc_name))
+
+
 class BankStatementEntry:
     def __init__(self,bank_statement):
         self.bank_statement = bank_statement

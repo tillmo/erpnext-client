@@ -12,6 +12,7 @@ import csv
 import tkinter
 import os
 import tempfile
+import easygui
 
 TITLE = "ERPNext-Client für "
 
@@ -47,7 +48,7 @@ def show_data():
             else:    
                 print("Konto :",bacc.name)
         comp = company.Company.get_company(comp_name)
-        server_info = "weiter im ERPNext-Webclient unter {}".format(settings['-server-'])
+        server_info = "weiter unter Anzeigen oder im ERPNext-Webclient unter {}".format(settings['-server-'])
         if comp:
             num_bts = len(comp.open_bank_transactions())
             if num_bts:
@@ -112,6 +113,9 @@ def show_table(entries,keys,headings,title,enable_events=False,max_col_width=60)
     window1.close()
     return False
 
+def format_entry(doc,keys,headings):
+    return "\n".join([h+": "+to_str(doc[k]) for (k,h) in zip(keys,headings)])
+    
 # ------ Process menu choices ------ #
 def event_handler(event,window):
     settings = sg.UserSettings()
@@ -259,36 +263,82 @@ def event_handler(event,window):
                     bt['amount'] = bt['credit']
             title = "Banktransaktionen"
             ix = show_table(bts,keys,headings,title,enable_events=True,max_col_width=120)
-            if not ix:
+            if ix is False:
                 break
             comp.reconciliate(bts[ix])
+            show_company_data = True
     elif event == 'Buchungssätze':
         keys = ['posting_date','account','caccount','total_debit','user_remark']
         headings = ['Datum','Buchungskonto','Gegenkonto','Betrag','Bemerkung']
-        comp = company.Company.get_company(settings['-company-'])
-        jes = comp.open_journal_entries()
-        jes1 = []
-        for j in jes:
-            j1 = gui_api_wrapper(Api.api.get_doc,'Journal Entry',j['name'])
-            j1['account'] = j1['accounts'][0]['account']
-            j1['caccount'] = j1['accounts'][1]['account']
-            jes1.append(j1)
-        title = "Buchungssätze"
-        show_table(jes1,keys,headings,title)
+        while True:
+            comp = company.Company.get_company(settings['-company-'])
+            jes = comp.open_journal_entries()
+            jes1 = []
+            for j in jes:
+                j1 = gui_api_wrapper(Api.api.get_doc,'Journal Entry',j['name'])
+                j1['account'] = j1['accounts'][0]['account']
+                j1['caccount'] = j1['accounts'][1]['account']
+                jes1.append(j1)
+            title = "Buchungssätze"
+            ix = show_table(jes1,keys,headings,title,enable_events=True)
+            if ix is False:
+                break
+            je = jes[ix]
+            details = format_entry(jes1[ix],keys,headings)
+            choice = easygui.buttonbox("Buchungssatz {}\n{} ".\
+                                           format(je['name'],details),
+                                       "Buchungssatz",
+                                       ["Buchen","Löschen","Nichts tun"])
+            if choice == "Buchen":
+                bank.BankTransaction.submit_entry(je['name'])
+                show_company_data = True
+            elif choice == "Löschen":
+                bank.BankTransaction.delete_entry(je['name'])
+                show_company_data = True
     elif event == 'Zahlungen':
-        keys = ['posting_date','paid_amount','party','reference_no']
-        headings = ['Datum','Betrag','Gezahlt an','Referenz.']
-        comp = company.Company.get_company(settings['-company-'])
-        pes = comp.open_payment_entries()
-        title = "Zahlungen"
-        show_table(pes,keys,headings,title)
+        while True:
+            keys = ['posting_date','paid_amount','party','reference_no']
+            headings = ['Datum','Betrag','Gezahlt an','Referenz.']
+            comp = company.Company.get_company(settings['-company-'])
+            pes = comp.open_payment_entries()
+            title = "Zahlungen"
+            ix = show_table(pes,keys,headings,title,enable_events=True)
+            if ix is False:
+                break
+            pe = pes[ix]
+            details = format_entry(pe,keys,headings)
+            choice = easygui.buttonbox("Zahlung {}\n{} ".\
+                                           format(pe['name'],details),
+                                       "Zahlung",
+                                       ["Buchen","Löschen","Nichts tun"])
+            if choice == "Buchen":
+                bank.BankTransaction.submit_entry(pe['name'],is_journal=False)
+                show_company_data = True
+            elif choice == "Löschen":
+                bank.BankTransaction.delete_entry(pe['name'],is_journal=False)
+                show_company_data = True
     elif event == 'Einkaufsrechnungen':
-        keys = ['posting_date','grand_total','supplier','bill_no']
-        headings = ['Datum','Betrag','Lieferant','Rechungsnr.']
-        comp = company.Company.get_company(settings['-company-'])
-        invs = comp.open_purchase_invoices()
-        title = "Einkaufsrechnungen"
-        show_table(invs,keys,headings,title)
+        while True:
+            keys = ['posting_date','grand_total','supplier','bill_no']
+            headings = ['Datum','Betrag','Lieferant','Rechungsnr.']
+            comp = company.Company.get_company(settings['-company-'])
+            invs = comp.open_purchase_invoices()
+            title = "Einkaufsrechnungen"
+            ix = show_table(invs,keys,headings,title,enable_events=True)
+            if ix is False:
+                break
+            inv = invs[ix]
+            details = format_entry(inv,keys,headings)
+            choice = easygui.buttonbox("Einkaufsrechnung {}\n{} ".\
+                                           format(inv['name'],details),
+                                       "Einkaufsrechnung",
+                                       ["Buchen","Löschen","Nichts tun"])
+            if choice == "Buchen":
+                gui_api_wrapper(Api.submit_doc,"Purchase Invoice",inv['name'])
+                show_company_data = True
+            elif choice == "Löschen":
+                gui_api_wrapper(Api.api.delete,"Purchase Invoice",inv['name'])
+                show_company_data = True
     if show_company_data:
         print()
         show_data()

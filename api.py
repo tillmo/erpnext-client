@@ -47,3 +47,7 @@ class Api(object):
             for c, accs in itertools.groupby(accounts, key=lambda acc:acc["company"]):
                 Api.accounts_by_company[c] = list(accs)
 
+    @classmethod
+    def submit_doc(cls,doctype,docname):
+        doc = gui_api_wrapper(Api.api.get_doc,doctype,docname)
+        gui_api_wrapper(Api.api.submit,doc)
