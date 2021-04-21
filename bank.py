@@ -18,11 +18,17 @@ class BankAccount:
         self.iban = doc['iban']
         self.name = doc['name']
         self.e_account = doc['account']
+        self.get_balance()
+        self.statement_balance = None
         BankAccount.baccounts_by_iban[self.iban] = self
         BankAccount.baccounts_by_name[self.name] = self
         BankAccount.baccounts_by_company[self.company.name].append(self)
     def blz(self):
         return self.iban[4:12]
+    def get_balance(self):
+        bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
+                              filters={'bank_account':self.name})
+        self.balance = sum([bt['credit']-bt['debit'] for bt in bts])
     @classmethod
     def init_baccounts(cls):
         for bacc in gui_api_wrapper(Api.api.get_list,'Bank Account'):
@@ -312,4 +318,7 @@ class BankStatement:
         doc = b.baccount.doc
         doc['last_integration_date'] = datetime.today().strftime('%Y-%m-%d')
         b.baccount.doc = gui_api_wrapper(Api.api.update_with_doctype,doc,"Bank Account")
+        if b.ebal:
+            b.baccount.statement_balance = b.ebal
+        b.baccount.get_balance()
         return b
