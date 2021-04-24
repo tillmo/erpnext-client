@@ -38,7 +38,15 @@ def api_wrapper(f,*args, **kwargs):
             lines = match.group(0).split("\n")
             err_lines = [l for l in lines if "Error" in l]
             if not err_lines:
-                err_lines = lines[0:1]
+                err_line = None
+                for i in range(len(lines)-1):
+                    if "raise raise_exception(msg)" in lines[i]:
+                        err_line = lines[i+1]
+                        break
+                if err_line:
+                    err_lines = [err_line]
+                else:    
+                    err_lines = lines[0:10]+["[...]"]+lines[-15:-1]
             err_msg = "\n".join(err_lines)
         else:
             err_msg = html
@@ -58,12 +66,12 @@ import easygui
 def gui_api_wrapper(f,*args, **kwargs):
     result = api_wrapper(f,*args, **kwargs)
     if result['err_msg'] or result['exception']:
-        title = "Fehler in Kommunikation mit dem ERPNext API\n"+\
-                "Bitte Admin folgenden Text an Admin mailen\n\n"
+        title = "\nFehler in Kommunikation mit dem ERPNext API\n"+\
+                "Bitte Admin folgenden Text an Admin mailen\n"
         err = "{0}\n{1}\n{2}\n{2}".format("Aufruf: "+str(args)+str(kwargs),
                                      result['err_msg'],
                                      result['stderr'],
-                                     result['exception'])[-1500:]
+                                     result['exception'])
         print(title+err)
         return None
     return result['resource']

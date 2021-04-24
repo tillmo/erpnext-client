@@ -37,6 +37,21 @@ class Company:
         self.doc = doc
         self.name = doc['name']
         self.cost_center = doc['cost_center']
+        self.expense_account = doc['default_expense_account']
+        self.payable_account = doc['default_payable_account']
+        self.receivable_account = doc['default_receivable_account']
+        self.taxes = {}
+        self.default_vat = None
+        for t in gui_api_wrapper(Api.api.get_list,
+                                 'Purchase Taxes and Charges Template',
+                                 filters={'company':self.name}):
+            taxt = gui_api_wrapper(Api.api.get_doc,
+                                  'Purchase Taxes and Charges Template',
+                                  t['name'])
+            for tax in taxt['taxes']:
+                self.taxes[tax['rate']] = tax['account_head']
+                if not self.default_vat:
+                    self.default_vat = tax['rate']
         Api.load_account_data()
         self.accounts = Api.accounts_by_company[self.name]
         self.leaf_accounts = list(filter(lambda acc: acc['is_group']==0, self.accounts))
