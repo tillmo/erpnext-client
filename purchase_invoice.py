@@ -129,7 +129,7 @@ class SupplierItem(object):
             if easygui.ccbox(msg, title):
                 item_code = "new"+''.join(random.choices(\
                                 string.ascii_uppercase + string.digits, k=8))
-                company_name = self.purchase_invoce.company_name
+                company_name = self.purchase_invoice.company_name
                 e_item = {'doctype' : 'Item',
                           'item_code' : item_code,
                           'item_name' : self.description,
@@ -534,16 +534,17 @@ class PurchaseInvoice(object):
                 item.process_item(self.supplier,yesterd),
                 self.items))
             if None in self.e_items:
-                easygui.msgbox("Nicht alle Artikel wurden eingetragen.\n Deshalb kann keine Einkaufsrechnung in ERPNext erstellt werden.")
-            return None
+                print("Nicht alle Artikel wurden eingetragen.\n Deshalb kann keine Einkaufsrechnung in ERPNext erstellt werden.")
+                return None
             if not ask_if_to_continue(self.check_total(),"Fortsetzen?"):
                 return None
             if not ask_if_to_continue(self.check_duplicates()):
                 return None
+        print("Stelle ERPNext-Rechnung zusammen")
         self.create_e_invoice(update_stock)
         Api.create_supplier(self.supplier)
         #print(self.e_invoice)
-        print("Übertrage Rechnung")
+        print("Übertrage ERPNext-Rechnung")
         self.doc = gui_api_wrapper(Api.api.insert,self.e_invoice)
         #print(self.doc)
         if not self.doc:
