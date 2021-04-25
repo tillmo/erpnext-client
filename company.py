@@ -3,6 +3,7 @@ from api_wrapper import gui_api_wrapper
 import bank
 import settings
 import itertools
+import urllib
 
 class Invoice:
     def __init__(self,doc,is_sales):
@@ -47,11 +48,12 @@ class Company:
                                  filters={'company':self.name}):
             taxt = gui_api_wrapper(Api.api.get_doc,
                                   'Purchase Taxes and Charges Template',
-                                  t['name'])
-            for tax in taxt['taxes']:
-                self.taxes[tax['rate']] = tax['account_head']
-                if not self.default_vat:
-                    self.default_vat = tax['rate']
+                                   urllib.parse.quote(t['name']))
+            if taxt and 'taxes' in taxt:
+                for tax in taxt['taxes']:
+                    self.taxes[tax['rate']] = tax['account_head']
+                    if not self.default_vat:
+                        self.default_vat = tax['rate']
         Api.load_account_data()
         self.accounts = Api.accounts_by_company[self.name]
         self.leaf_accounts = list(filter(lambda acc: acc['is_group']==0, self.accounts))

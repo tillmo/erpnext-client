@@ -3,7 +3,16 @@
 # Debian and Ubuntu installer for erpnext client
 
 # .deb dependencies
-sudo apt install -y git poppler-utils python3-pip python3-tk
+sudo apt install -y git python3-pip python3-tk
+
+# install pdftotext (note that poppler-utils is super outdated)
+TMP=$(mktemp -d)
+pushd $TMP
+wget https://dl.xpdfreader.com/xpdf-tools-linux-4.03.tar.gz
+tar xzf *.gz
+sudo mv */bin64/pdftotext /usr/bin/
+popd
+rm -rf $TMP
 
 # get sources
 git clone https://github.com/tillmo/erpnext-client.git

@@ -16,6 +16,7 @@ from collections import defaultdict
 import random
 import string
 import csv
+from pprint import pprint
 
 # extract amounts of form xxx,xx from string
 def extract_amounts(s):
@@ -68,9 +69,12 @@ def extract_supplier(lines):
     return " ".join(lines[0].split())
 
 def pdf_to_text(file,raw=False):
-    cmd = ["pdftotext","-nopgbrk","-layout"]
+    cmd = ["pdftotext","-nopgbrk"]
     if raw:
         cmd.append("-raw")
+    else:    
+        cmd.append("-table")
+    cmd += ["-enc","UTF-8"]
     cmd += [file,"-"]
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     return [bline.decode('utf_8') for bline in p.stdout]
@@ -208,10 +212,10 @@ class PurchaseInvoice(object):
             item_str = item_lines[0]
             clutter = ['Einzelpreis','Krannich','IBAN','Rechnung','Übertrag']
             s_item = SupplierItem(self)
-            s_item.description = " ".join(item_lines[1][0:82].split())
             long_description_lines = \
                 [l for l in item_lines[1:] \
                    if utils.no_substr(clutter,l) and l.strip()]
+            s_item.description = " ".join(long_description_lines[0][0:82].split())
             s_item.long_description = ""
             for l in long_description_lines:
                 if "Zwischensumme" in l:
@@ -223,16 +227,17 @@ class PurchaseInvoice(object):
             if "Vorkasse" in s_item.description:
                 continue
             mypos = pos
-            s_item.item_code = item_str[9:20].split()[0]
-            q=re.search("([0-9]+) *([A-Za-z]+)",item_str[91:113])
+            #print(item_str)
+            s_item.item_code = item_str.split()[1]
+            q=re.search("([0-9]+) *([A-Za-z]+)",item_str[80:99])
             s_item.qty = int(q.group(1))
             s_item.qty_unit = q.group(2)
-            price = utils.read_float(item_str[123:138].split()[0])
+            price = utils.read_float(item_str[130:142].split()[0])
             try:
                 discount = utils.read_float(item_str[142:152].split()[0])
             except Exception:
                 discount = 0
-            s_item.amount = utils.read_float(item_str[165:].split()[0])
+            s_item.amount = utils.read_float(item_str[157:].split()[0])
             if s_item.qty_unit=="Rol":
                 try:
                     r1 = re.search('[0-9]+ *[mM]', s_item.description)
@@ -244,11 +249,16 @@ class PurchaseInvoice(object):
             s_item.rate = round(s_item.amount/s_item.qty,2)
             rounding_error += s_item.amount-s_item.rate*s_item.qty
             self.items.append(s_item)
-        self.shipping = PurchaseInvoice.get_amount_krannich\
-                            ([line for line in items[-2]\
-                    if 'Insurance' in line or 'Freight' in line\
-                                           or 'Neukundenrabatt' in line])
-        vat_line = [line for line in items[-2] if 'MwSt' in line][0]
+        vat_line = ""
+        for i in range(-1,-len(items),-1):
+            vat_lines = [line for line in items[i] if 'MwSt' in line]
+            if vat_lines:
+                vat_line = vat_lines[0]
+                self.shipping = PurchaseInvoice.get_amount_krannich\
+                    ([line for line in items[i]\
+                       if 'Insurance' in line or 'Freight' in line\
+                           or 'Neukundenrabatt' in line])
+                break
         self.totals[self.default_vat] = utils.read_float(vat_line[145:157])
         self.vat[self.default_vat] = PurchaseInvoice.get_amount_krannich([vat_line])
         self.shipping += rounding_error
@@ -584,7 +594,13 @@ class PurchaseInvoice(object):
         else:
             self.remarks = inv.remarks
         self.total += inv.total
-        
+
+    # for testing    
+    @classmethod
+    def parse_and_dump(cls,infile,update_stock):
+        inv = purchase_invoice.PurchaseInvoice(update_stock).parse_invoice(infile)
+        pprint(vars(inv))
+        pprint(list(map(lambda x: pprint(vars(x)),inv.items)))
 
     @classmethod
     def read_and_transfer(cls,infile,update_stock):
