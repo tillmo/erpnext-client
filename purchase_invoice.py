@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from settings import WAREHOUSE, STANDARD_PRICE_LIST, STANDARD_ITEM_GROUP, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, DELIVERY_COST_DESCRIPTION
+from settings import WAREHOUSE, STANDARD_PRICE_LIST, STANDARD_ITEM_GROUP, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, DELIVERY_COST_DESCRIPTION, NKK_ACCOUNTS
 
 import utils
 import PySimpleGUI as sg
@@ -330,7 +330,7 @@ class PurchaseInvoice(object):
         self.items = []
         self.shipping = 0.0
         self.compute_total()
-        self.assign_default_e_items(self.company.expense_account)
+        self.assign_default_e_items(NKK_ACCOUNTS)
 
     def parse_generic(self,lines):
         if lines:
@@ -409,7 +409,7 @@ class PurchaseInvoice(object):
         else:
             return None
         self.compute_total()
-        self.assign_default_e_items(account)
+        self.assign_default_e_items({self.default_vat:account})
         return self
     
     def parse_invoice(self,infile,update_stock):
@@ -434,11 +434,12 @@ class PurchaseInvoice(object):
     def compute_total(self):
         self.total = sum([t for v,t in self.totals.items()])
 
-    def assign_default_e_items(self,account):
-        self.e_items = [{'item_code' : settings.DEFAULT_ITEM_CODE,
-                 'qty' : 1,
-                 'rate' : self.total,
-                 'expense_account' : account}]
+    def assign_default_e_items(self,accounts):
+        self.e_items = \
+            [{'item_code' : settings.DEFAULT_ITEM_CODE,
+              'qty' : 1,
+              'rate' : self.totals[vat],
+              'expense_account' : accounts[vat]} for vat in self.vat_rates]
 
     def create_e_invoice(self,update_stock):
         taxes = []

@@ -10,3 +10,6 @@ DELIVERY_COST_ACCOUNT = '4998 - Vertriebskosten - SoMiKo'
 DELIVERY_COST_DESCRIPTION = 'Vertriebskosten'
 VALIDITY_DATE = '2020-10-01'
 
+NKK_ACCOUNTS = {19.0: '3401 - NKK 19% Vorsteuer - Laden',
+                7.0: '3301 - NKK 7% Vorsteuer - Laden'}
+
