@@ -332,6 +332,40 @@ class PurchaseInvoice(object):
         self.compute_total()
         self.assign_default_e_items(NKK_ACCOUNTS)
 
+    def parse_kornkraft(self,lines):
+        self.date = None
+        self.no = None
+        for vat in self.vat_rates:
+            self.vat[vat] = 0
+            self.totals[vat] = 0
+        vat_rate_strs = ["{:.2f}".format(r).replace(".",",") for r in self.vat_rates]
+        for i in range(len(lines)):
+            line = lines[i]
+            words = line.split()
+            if not self.date:
+                for i in range(len(words)):
+                    self.date = utils.convert_date4(words[i])
+                    if self.date:
+                        self.no = words[i-2]
+                        break
+            else:
+                vat = line.replace("*","").strip()
+                if vat in vat_rate_strs:
+                    vat = utils.read_float(vat)
+                    ls = "\n".join(lines[i:i+9]).replace("   ","\n\n\n\n\n\n\n\n").replace("  ","\n\n\n\n\n\n\n").replace("","\n").split("\n")
+                    #print(list(zip(ls,range(30))))
+                    if ls[17]:
+                        self.vat[vat] = utils.read_float(ls[17])
+                        self.totals[vat] = utils.read_float(ls[22]) - self.vat[vat]
+        #print(self.date,self.no,self.vat,self.totals)
+        for vat in self.vat_rates:
+            if (round(self.totals[vat]*vat/100.0+0.00001,2)-self.vat[vat]):
+                print(round(self.totals[vat]*vat/100.0+0.00001,2)-self.vat[vat])
+        self.items = []
+        self.shipping = 0.0
+        self.compute_total()
+        self.assign_default_e_items(NKK_ACCOUNTS)
+
     def parse_generic(self,lines):
         if lines:
             (amount,vat) = extract_amount_and_vat(lines,self.vat_rates)
@@ -416,6 +450,12 @@ class PurchaseInvoice(object):
         lines = pdf_to_text(infile)
         if lines:
             head = lines[0]
+            if not head[0:10].split():
+                for line in lines[0:10]:
+                    if len(line)>2 and ord(line[-2])==3:
+                        head = "Kornkraft Naturkost GmbH"
+                        break
+            print(head)        
             for supplier,info in PurchaseInvoice.suppliers.items():
                 if supplier in head:
                     if info['raw']:
@@ -425,6 +465,7 @@ class PurchaseInvoice(object):
                         self.supplier = info['supplier'] 
                     else:    
                         self.supplier = supplier
+                    self.multi = info['multi']    
                     return self
         if update_stock:
             easygui.msgbox('Kann keine Artikel aus der Rechnung extrahieren.\nFür die Option "mit Lagerhaltung" ist dies jedoch notwendig')
@@ -514,10 +555,40 @@ class PurchaseInvoice(object):
         self.paid_by_submitter = False
         self.vat = {}
         self.totals = {}
+        self.multi = False
+
+    def merge(self,inv):
+        if not inv:
+            return
+        if self.company_name != inv.company_name:
+            print("Kann nicht Rechnungen verschiedener Firmen verschmelzen: {} {}".format(self.company_name,inv.company_name))
+        if self.supplier != inv.supplier:
+            print("Kann nicht Rechnungen verschiedener Lieferanten verschmelzen: {} {}".format(self.supplier,inv.supplier))
+        for vat in self.vat_rates:
+            self.totals[vat] += inv.totals[vat]    
+            self.vat[vat] += inv.vat[vat]
+        self.total += inv.total
+        self.shipping += inv.shipping
+        self.remarks += inv.remarks
+        self.total += inv.total
+        
 
     @classmethod
     def create_and_read_pdf(cls,infile,update_stock):
-        inv = PurchaseInvoice().read_pdf(infile,update_stock)
+        one_more = True
+        inv = None
+        while one_more:
+            inv_new = PurchaseInvoice().read_pdf(infile,update_stock)
+            print(inv_new)
+            inv_new.merge(inv)
+            inv = inv_new
+            if inv.total<0:
+                one_more = True
+            else:
+                title = "Mit einer weiteren Rechnung verschmelzen?"
+                one_more = easygui.ccbox(title, title)
+            one_more = one_more and inv.multi    
+        inv = inv.send_to_erpnext()
         if not inv:
             print("Keine Einkaufsrechnung angelegt")
         return inv
@@ -541,6 +612,9 @@ class PurchaseInvoice(object):
                 return None
             if not ask_if_to_continue(self.check_duplicates()):
                 return None
+        return self    
+
+    def send_to_erpnext(self):        
         print("Stelle ERPNext-Rechnung zusammen")
         self.create_e_invoice(update_stock)
         Api.create_supplier(self.supplier)
@@ -564,11 +638,17 @@ class PurchaseInvoice(object):
             
 PurchaseInvoice.suppliers = \
     {'Krannich Solar GmbH & Co KG' :
-        {'parser' : PurchaseInvoice.parse_krannich, 'raw' :  False},
+        {'parser' : PurchaseInvoice.parse_krannich,
+         'raw' :  False, 'multi' : False},
      'pvXchange Trading GmbH' :
-        {'parser' : PurchaseInvoice.parse_pvxchange, 'raw' : True},
+        {'parser' : PurchaseInvoice.parse_pvxchange,
+         'raw' : True, 'multi' : False},
      'Rechnung' :
-        {'parser' : PurchaseInvoice.parse_nkk, 'raw' :  False,
-         'supplier' : 'Naturkost Kontor Bremen Gmbh'}}
-        
+        {'parser' : PurchaseInvoice.parse_nkk,
+         'raw' :  False, 'multi' : False,
+         'supplier' : 'Naturkost Kontor Bremen Gmbh'},
+     'Kornkraft Naturkost GmbH' :
+        {'parser' : PurchaseInvoice.parse_kornkraft,
+         'raw' : True, 'multi' : True}}
+
 
