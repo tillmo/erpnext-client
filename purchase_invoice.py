@@ -487,15 +487,17 @@ class PurchaseInvoice(object):
               'rate' : self.totals[vat],
               'expense_account' : accounts[vat]} for vat in self.vat_rates]
 
-    def create_e_invoice(self):
-        taxes = []
+    def create_taxes(self):
+        self.taxes = []
         for vat,account in self.company.taxes.items():
             if self.vat[vat]:
-                taxes.append({'add_deduct_tax': 'Add',
-                              'charge_type': 'Actual',
-                              'account_head': account,
-                              'description': VAT_DESCRIPTION,
-                              'tax_amount': self.vat[vat]})
+                self.taxes.append({'add_deduct_tax': 'Add',
+                                   'charge_type': 'Actual',
+                                   'account_head': account,
+                                   'description': VAT_DESCRIPTION,
+                                   'tax_amount': self.vat[vat]})
+
+    def create_e_invoice(self):
         self.e_invoice = {
             'doctype': 'Purchase Invoice',
             'company': self.company.name,
@@ -509,7 +511,7 @@ class PurchaseInvoice(object):
             'credit_to' : self.company.payable_account,
             'naming_series' : STANDARD_NAMING_SERIES_PINV,
             'buying_price_list': STANDARD_PRICE_LIST,
-            'taxes' : taxes,
+            'taxes' : self.taxes,
             'items' : self.e_items,
             'update_stock': 1 if self.update_stock else 0
         }
@@ -572,9 +574,8 @@ class PurchaseInvoice(object):
         if self.supplier != inv.supplier:
             print("Kann nicht Rechnungen verschiedener Lieferanten verschmelzen: {} {}".format(self.supplier,inv.supplier))
         self.no += " " + inv.no
-        for vat in self.vat_rates:
-            self.totals[vat] += inv.totals[vat]    
-            self.vat[vat] += inv.vat[vat]
+        self.taxes += inv.taxes
+        self.e_items += inv.e_items
         self.total += inv.total
         self.infiles += inv.infiles
         self.shipping += inv.shipping
@@ -590,6 +591,7 @@ class PurchaseInvoice(object):
         one_more = True
         inv = None
         while one_more:
+            one_more = False
             inv_new = PurchaseInvoice(update_stock).read_pdf(infile)
             if inv_new:
                 inv_new.merge(inv)
@@ -597,13 +599,13 @@ class PurchaseInvoice(object):
                 if inv.total<0:
                     one_more = True
                     easygui.msgbox('Negativer Gesamtbetrag. Eine weitere Rechnung muss eingelesen werden.')
-                else:
+                elif inv.multi:
                     title = "Mit einer weiteren Rechnung verschmelzen?"
-                    one_more = easygui.ccbox(title, title)
-                one_more = one_more and inv.multi
+                    one_more = easygui.buttonbox(title, title,["Ja","Nein"])=="Ja"
                 if one_more:
                     infile = sgqt.popup_get_file('Weitere Einkaufsrechnung als PDF', no_window=True)
-        inv = inv.send_to_erpnext()
+        if inv:
+            inv = inv.send_to_erpnext()
         if not inv:
             print("Keine Einkaufsrechnung angelegt")
         return inv
@@ -628,6 +630,7 @@ class PurchaseInvoice(object):
                 return None
             if not ask_if_to_continue(self.check_duplicates()):
                 return None
+        self.create_taxes()    
         return self    
 
     def send_to_erpnext(self):        
