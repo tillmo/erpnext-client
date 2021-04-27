@@ -1,9 +1,10 @@
 #!/usr/bin/python3
 
-from settings import WAREHOUSE, STANDARD_PRICE_LIST, STANDARD_ITEM_GROUP, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, DELIVERY_COST_DESCRIPTION, NKK_ACCOUNTS
+from settings import WAREHOUSE, STANDARD_PRICE_LIST, STANDARD_ITEM_GROUP, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, DELIVERY_COST_DESCRIPTION, NKK_ACCOUNTS, KORNKRAFT_ACCOUNTS
 
 import utils
 import PySimpleGUI as sg
+import PySimpleGUIQt as sgqt
 import easygui
 import subprocess
 import re
@@ -360,11 +361,15 @@ class PurchaseInvoice(object):
         #print(self.date,self.no,self.vat,self.totals)
         for vat in self.vat_rates:
             if (round(self.totals[vat]*vat/100.0+0.00001,2)-self.vat[vat]):
-                print(round(self.totals[vat]*vat/100.0+0.00001,2)-self.vat[vat])
+                print("Abweichung bei MWSt! ",
+                      vat,"% von",self.totals[vat]," = ",
+                      round(self.totals[vat]*vat/100.0+0.00001,2),
+                      ". MWSt auf der Rechnung: ",
+                      self.vat[vat])
         self.items = []
         self.shipping = 0.0
         self.compute_total()
-        self.assign_default_e_items(NKK_ACCOUNTS)
+        self.assign_default_e_items(KORNKRAFT_ACCOUNTS)
 
     def parse_generic(self,lines):
         if lines:
@@ -446,7 +451,7 @@ class PurchaseInvoice(object):
         self.assign_default_e_items({self.default_vat:account})
         return self
     
-    def parse_invoice(self,infile,update_stock):
+    def parse_invoice(self,infile):
         lines = pdf_to_text(infile)
         if lines:
             head = lines[0]
@@ -455,7 +460,7 @@ class PurchaseInvoice(object):
                     if len(line)>2 and ord(line[-2])==3:
                         head = "Kornkraft Naturkost GmbH"
                         break
-            print(head)        
+            #print(head)        
             for supplier,info in PurchaseInvoice.suppliers.items():
                 if supplier in head:
                     if info['raw']:
@@ -467,7 +472,7 @@ class PurchaseInvoice(object):
                         self.supplier = supplier
                     self.multi = info['multi']    
                     return self
-        if update_stock:
+        if self.update_stock:
             easygui.msgbox('Kann keine Artikel aus der Rechnung extrahieren.\nFür die Option "mit Lagerhaltung" ist dies jedoch notwendig')
             return None
         return self.parse_generic(lines)
@@ -482,7 +487,7 @@ class PurchaseInvoice(object):
               'rate' : self.totals[vat],
               'expense_account' : accounts[vat]} for vat in self.vat_rates]
 
-    def create_e_invoice(self,update_stock):
+    def create_e_invoice(self):
         taxes = []
         for vat,account in self.company.taxes.items():
             if self.vat[vat]:
@@ -506,7 +511,7 @@ class PurchaseInvoice(object):
             'buying_price_list': STANDARD_PRICE_LIST,
             'taxes' : taxes,
             'items' : self.e_items,
-            'update_stock': 1 if update_stock else 0
+            'update_stock': 1 if self.update_stock else 0
         }
         if self.shipping:
              self.e_invoice['taxes'].append(\
@@ -546,7 +551,8 @@ class PurchaseInvoice(object):
             return True
         return False
 
-    def __init__(self):
+    def __init__(self,update_stock=False):
+        self.update_stock = update_stock
         self.company_name = sg.UserSettings()['-company-']
         self.company = company.Company.get_company(self.company_name)
         self.default_vat = self.company.default_vat
@@ -556,6 +562,7 @@ class PurchaseInvoice(object):
         self.vat = {}
         self.totals = {}
         self.multi = False
+        self.infiles = []
 
     def merge(self,inv):
         if not inv:
@@ -564,42 +571,51 @@ class PurchaseInvoice(object):
             print("Kann nicht Rechnungen verschiedener Firmen verschmelzen: {} {}".format(self.company_name,inv.company_name))
         if self.supplier != inv.supplier:
             print("Kann nicht Rechnungen verschiedener Lieferanten verschmelzen: {} {}".format(self.supplier,inv.supplier))
+        self.no += " " + inv.no
         for vat in self.vat_rates:
             self.totals[vat] += inv.totals[vat]    
             self.vat[vat] += inv.vat[vat]
         self.total += inv.total
+        self.infiles += inv.infiles
         self.shipping += inv.shipping
-        self.remarks += inv.remarks
+        if self.remarks:
+            self.remarks += inv.remarks
+        else:
+            self.remarks = inv.remarks
         self.total += inv.total
         
 
     @classmethod
-    def create_and_read_pdf(cls,infile,update_stock):
+    def read_and_transfer(cls,infile,update_stock):
         one_more = True
         inv = None
         while one_more:
-            inv_new = PurchaseInvoice().read_pdf(infile,update_stock)
-            print(inv_new)
-            inv_new.merge(inv)
-            inv = inv_new
-            if inv.total<0:
-                one_more = True
-            else:
-                title = "Mit einer weiteren Rechnung verschmelzen?"
-                one_more = easygui.ccbox(title, title)
-            one_more = one_more and inv.multi    
+            inv_new = PurchaseInvoice(update_stock).read_pdf(infile)
+            if inv_new:
+                inv_new.merge(inv)
+                inv = inv_new
+                if inv.total<0:
+                    one_more = True
+                    easygui.msgbox('Negativer Gesamtbetrag. Eine weitere Rechnung muss eingelesen werden.')
+                else:
+                    title = "Mit einer weiteren Rechnung verschmelzen?"
+                    one_more = easygui.ccbox(title, title)
+                one_more = one_more and inv.multi
+                if one_more:
+                    infile = sgqt.popup_get_file('Weitere Einkaufsrechnung als PDF', no_window=True)
         inv = inv.send_to_erpnext()
         if not inv:
             print("Keine Einkaufsrechnung angelegt")
         return inv
 
-    def read_pdf(self,infile,update_stock):
-        if not self.parse_invoice(infile,update_stock):
+    def read_pdf(self,infile):
+        self.infiles = [infile]
+        if not self.parse_invoice(infile):
             return None
         print("Prüfe auf doppelte Rechung")
         if self.check_if_present():
             return None
-        if update_stock:
+        if self.update_stock:
             print("Hole Lagerdaten")
             yesterd = utils.yesterday(self.date)
             self.e_items = list(map(lambda item: \
@@ -616,7 +632,7 @@ class PurchaseInvoice(object):
 
     def send_to_erpnext(self):        
         print("Stelle ERPNext-Rechnung zusammen")
-        self.create_e_invoice(update_stock)
+        self.create_e_invoice()
         Api.create_supplier(self.supplier)
         #print(self.e_invoice)
         print("Übertrage ERPNext-Rechnung")
@@ -625,9 +641,12 @@ class PurchaseInvoice(object):
         if not self.doc:
             return None
         print("Übertrage PDF der Rechnung")
-        upload = gui_api_wrapper(Api.api.read_and_attach_file,
-                                 "Purchase Invoice",self.doc['name'],
-                                 infile,True)
+        upload = None
+        for infile in self.infiles:
+            upload = gui_api_wrapper(Api.api.read_and_attach_file,
+                                     "Purchase Invoice",self.doc['name'],
+                                     infile,True)
+        # currently, we can only link to the last PDF    
         self.doc['supplier_invoice'] = upload['file_url']
         self.doc = gui_api_wrapper(Api.api.update,self.doc)
         #doc = gui_api_wrapper(Api.api.get_doc,'Purchase Invoice',self.doc['name'])

@@ -35,7 +35,7 @@ def purchase_inv(update_stock):
     if filename:
         print("Lese {} ein ...".format(filename))
         Api.load_item_data()
-        return purchase_invoice.PurchaseInvoice.create_and_read_pdf(filename,update_stock)    
+        return purchase_invoice.PurchaseInvoice.read_and_transfer(filename,update_stock)    
     return False
 
 def show_data():

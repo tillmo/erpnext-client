@@ -12,4 +12,6 @@ VALIDITY_DATE = '2020-10-01'
 
 NKK_ACCOUNTS = {19.0: '3401 - NKK 19% Vorsteuer - Laden',
                 7.0: '3301 - NKK 7% Vorsteuer - Laden'}
+KORNKRAFT_ACCOUNTS = {19.0: '3402 - Kornkraft 19% Vorsteuer - Laden',
+                7.0: '3302 - Kornkraft 7% Vorsteuer - Laden'}
 

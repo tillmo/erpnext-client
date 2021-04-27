@@ -122,7 +122,7 @@ if __name__ == '__main__':
             easygui.msgbox(infile+" existiert nicht")
             exit(1)
         Api.load_item_data()
-        purchase_invoice.PurchaseInvoice.create_and_read_pdf(infile,update_stock)    
+        purchase_invoice.PurchaseInvoice.read_and_transfer(infile,update_stock)    
     elif args.k:
         if args.k=="-":
             infile = easygui.fileopenbox("Kontoauszugs-Datei auswählen")
