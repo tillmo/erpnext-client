@@ -4,7 +4,10 @@ from settings import WAREHOUSE, STANDARD_PRICE_LIST, STANDARD_ITEM_GROUP, STANDA
 
 import utils
 import PySimpleGUI as sg
-import PySimpleGUIQt as sgqt
+if utils.running_linux():
+    import PySimpleGUIQt as sgqt
+else:
+    sgqt = sg
 import easygui
 import subprocess
 import re
