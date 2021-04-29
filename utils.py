@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 from difflib import SequenceMatcher
 import csv
 import codecs
+import sys
 
 def similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
@@ -75,3 +76,6 @@ def showlist(l):
         if item:
             res += " / "+str(item)
     return res[3:]    
+
+def running_linux():
+    return sys.platform.startswith('linux')

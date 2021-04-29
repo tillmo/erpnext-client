@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
+import utils
 import PySimpleGUI as sg
-import PySimpleGUIQt as sgqt
+if utils.running_linux():
+    import PySimpleGUIQt as sgqt
+else:
+    sgqt = sg
 import company
 import bank
 import purchase_invoice
-import utils
 from api import Api
 from api_wrapper import gui_api_wrapper, api_wrapper_test, api_wrapper
 from version import VERSION 
