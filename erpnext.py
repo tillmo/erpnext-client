@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+JOURNAL_LIMIT = 100
+
 import purchase_invoice
 import bank
 import company
@@ -82,6 +84,7 @@ if __name__ == '__main__':
         menu.initial_loads()
         if not settings['-company-']:
             settings['-company-'] = company.Company.all()[0]
+        company.Company.current_load_data()    
     else:
         settings['-setup-'] = True
     # choose action according to command line arguments
@@ -145,6 +148,12 @@ if __name__ == '__main__':
         print(Api.items_by_code)
     # for experiments and debugging    
     elif args.p:
+        print(Api.api.get_list('Bank Transaction',filters = {'date': '2021-04-20', 'bank_account': 'S%C3%96%20Allgemeinbildung%20-%20Sparkasse%20Bremen', 'description': 'Spenden VA-Reihe Allgemeinbildung - Natur Mensch Technik e.V.', 'currency': 'EUR', 'status': ['!=', 'Cancelled']}))
+#        print(Api.api.get_list('Bank Transaction',filters = {'date': '2021-04-20', 'bank_account': 'S%C3%96%20Allgemeinbildung%20-%20Sparkasse%20Bremen', 'description': 'Spenden VA-Reihe Allgemeinbildung - Natur Mensch Technik e.V.', 'currency': 'EUR', 'debit': 0, 'credit': 330.0, 'status': ['!=', 'Cancelled']}))
+        exit(0)
+        jes = gui_api_wrapper(Api.api.get_list,'Journal Entry',filters={'company':'Bremer SolidarStrom'},limit_page_length=JOURNAL_LIMIT, order_by='posting_date DESC')
+        print([je['remark'] for je in jes])       
+        exit(0)
         print(gui_api_wrapper(Api.api.get_list,'Supplier'))
         exit(0)
         doc = gui_api_wrapper(Api.api.get_doc,'Journal Entry','ACC-JV-2021-00129')

@@ -1,12 +1,8 @@
 - automatic guessing of accounts
-- process all kinds of purchase invoices, with user-supplied account, self-payment flag, no stock, only one item (try to parse amount)
-- display journal entries, payment entries, invoices -> submit or delete
-
 - display difference between bank account balance according to bank transfers and according to general legder
 - cost centers
 - partial use of bank transfer amounts
 - settings: always submit or not
-- relax the filter wrt the date (which sometimes is adapted by the bank)
+- bank transaction duplicate recognition: relax the filter wrt the date (which sometimes is adapted by the bank)
 - merge settings
-- Ubuntu file selector
 - display funds

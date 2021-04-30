@@ -1,3 +1,6 @@
+JOURNAL_LIMIT = 100
+
+import PySimpleGUI as sg
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
 import bank
@@ -12,7 +15,6 @@ class Invoice:
         self.name = doc['name']
         self.status = doc['status']
         self.amount = doc['grand_total']
-        self.default_finance_book = doc['default_finance_book']
         self.outstanding = doc['outstanding_amount']
         if self.is_sales:
             self.reference = doc['name']
@@ -41,8 +43,12 @@ class Company:
         self.expense_account = doc['default_expense_account']
         self.payable_account = doc['default_payable_account']
         self.receivable_account = doc['default_receivable_account']
+        self.default_finance_book = doc['default_finance_book']
         self.taxes = {}
         self.default_vat = None
+        Company.companies_by_name[self.name] = self
+
+    def load_data(self):
         for t in gui_api_wrapper(Api.api.get_list,
                                  'Purchase Taxes and Charges Template',
                                  filters={'company':self.name}):
@@ -63,9 +69,26 @@ class Company:
                                           lambda acc: acc['root_type']):
             self.leaf_accounts_by_root_type[rt] = list(accs)
         self.doc = gui_api_wrapper(Api.api.get_doc,'Company',self.name)
-        Company.companies_by_name[self.name] = self
         self.leaf_accounts_for_debit = self.leaf_accounts_starting_with_root_type("Income")
         self.leaf_accounts_for_credit = self.leaf_accounts_starting_with_root_type("Expense")
+        jes = gui_api_wrapper(Api.api.get_list,
+            'Journal Entry',
+            filters={'company': self.name},
+            limit_page_length=JOURNAL_LIMIT,
+            order_by='posting_date DESC')
+        self.journal = [gui_api_wrapper(Api.api.get_doc,
+                                        'Journal Entry',
+                                        je['name']) for je in jes]
+        #print(self.name,len(self.journal))
+
+    @classmethod    
+    def current_load_data(cls):
+        settings = sg.UserSettings()
+        comp_name = settings['-company-']
+        if comp_name:
+            comp = Company.get_company(comp_name)
+            comp.load_data()
+        
     @classmethod    
     def init_companies(cls):
         for comp in gui_api_wrapper(Api.api.get_list,'Company'):

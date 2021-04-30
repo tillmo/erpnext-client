@@ -7,6 +7,7 @@ import company
 import easygui
 from numpy import sign
 from collections import defaultdict
+import urllib
 
 class BankAccount:
     baccounts_by_iban = {}
@@ -28,7 +29,7 @@ class BankAccount:
     def get_balance(self):
         bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
                               filters={'bank_account':self.name})
-        self.balance = sum([bt['credit']-bt['debit'] for bt in bts])
+        self.balance = sum([bt['deposit']-bt['withdrawal'] for bt in bts])
     @classmethod
     def init_baccounts(cls):
         for bacc in gui_api_wrapper(Api.api.get_list,'Bank Account'):
@@ -38,8 +39,8 @@ class BankTransaction:
     def __init__(self,doc):
         self.doc = doc
         self.date = doc['date']
-        self.debit = doc['debit']
-        self.credit = doc['credit']
+        self.debit = doc['withdrawal']
+        self.credit = doc['deposit']
         self.amount = -self.debit if self.debit else self.credit
         self.bank_account = doc['bank_account']
         self.baccount = BankAccount.baccounts_by_name[self.bank_account]
@@ -124,9 +125,20 @@ class BankTransaction:
         else:    
             accounts = self.company.leaf_accounts_for_credit
             invs = pinvs
+        account_names = list(map(lambda acc: acc['name'],accounts))
+        jaccs = [(je['accounts'][1]['account'],
+                 utils.similar(self.description,je['user_remark'])) \
+                   for je in self.company.journal if 'user_remark' in je]
+        jaccs.sort(key=lambda x: x[1],reverse=True)
+        jaccs = [j for (j,desc) in set(jaccs[0:15])]
+        for j in jaccs:
+            try:
+                account_names.remove(j)
+            except Exception:
+                pass
+        account_names = jaccs + account_names
         invs.sort(key=lambda inv: abs(inv.outstanding-abs(self.amount)))
         inv_texts = list(map(lambda inv: utils.showlist([inv.name,inv.party,inv.reference,inv.outstanding]),invs))
-        account_names = list(map(lambda acc: acc['name'],accounts))
         title = "Rechnung oder Buchungskonto wählen"
         msg = "Bankbuchung:\n"+self.show()+"\n\n"+title+"\n"
         choice = easygui.choicebox(msg, title, inv_texts+account_names)
@@ -195,8 +207,8 @@ class BankStatementEntry:
                  'bank_account' : self.bank_statement.baccount.name,
                  'description' : self.purpose+" "+self.partner,
                  'currency' : 'EUR',
-                 'debit' : -self.amount if self.amount < 0 else 0,
-                 'credit' : self.amount if self.amount > 0 else 0 }
+                 'withdrawal' : -self.amount if self.amount < 0 else 0,
+                 'deposit' : self.amount if self.amount > 0 else 0 }
         return entry
 
 class BankStatement:
@@ -310,6 +322,7 @@ class BankStatement:
             bt1 = bt.copy()
             del bt1['doctype']
             bt1['status'] = ['!=','Cancelled']
+            bt1['bank_account'] = urllib.parse.quote(bt1['bank_account'])
             #todo: relax the filter wrt the date (which sometimes is adapted by the bank)
             bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',filters=bt1)
             if not bts:

@@ -23,6 +23,7 @@ TITLE = "ERPNext-Client für "
 def initial_loads():
     company.Company.init_companies()
     bank.BankAccount.init_baccounts()
+    company.Company.current_load_data()
 
 def text_input(text,default_text =""):
     layout = [  [sg.Text(text)],     
@@ -135,6 +136,7 @@ def event_handler(event,window):
         return "exit"
     if event in company.Company.all():
         settings['-company-'] = event
+        company.Company.current_load_data()
         show_company_data = True
     #print(event, values)
     elif event == 'Über':
@@ -269,10 +271,7 @@ def event_handler(event,window):
         while True:
             bts = comp.open_bank_transactions()
             for bt in bts:
-                if bt['debit']:
-                    bt['amount'] = -bt['debit']
-                else:    
-                    bt['amount'] = bt['credit']
+                bt['amount'] = bt['deposit']-bt['withdrawal']
             title = "Banktransaktionen"
             ix = show_table(bts,keys,headings,title,enable_events=True,max_col_width=120)
             if ix is False:
