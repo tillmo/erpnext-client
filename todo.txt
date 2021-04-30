@@ -1,4 +1,3 @@
-- automatic guessing of accounts
 - display difference between bank account balance according to bank transfers and according to general legder
 - cost centers
 - partial use of bank transfer amounts
