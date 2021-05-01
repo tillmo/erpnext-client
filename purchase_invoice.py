@@ -426,7 +426,7 @@ class PurchaseInvoice(object):
                     [sg.Text('Brutto')],     
                     [sg.Input(default_text = str(amount), k='-gross-')],
                     [sg.Text('Buchungskonto')],
-                    [sg.OptionMenu(default_text = account['name'],
+                    [sg.OptionMenu(default_value = account,
                                    values=account_names, k='-account-')],
                     [sg.Checkbox('Schon selbst bezahlt',
                                  default=False, k='-paid-')],
@@ -469,11 +469,7 @@ class PurchaseInvoice(object):
         if lines:
             head = lines[0]
             if not head[0:10].split():
-                for line in lines[0:10]:
-                    if len(line)>2 and ord(line[-2])==3:
                         head = "Kornkraft Naturkost GmbH"
-                        break
-            #print(head)        
             for supplier,info in PurchaseInvoice.suppliers.items():
                 if supplier in head:
                     if info['raw']:
@@ -498,7 +494,7 @@ class PurchaseInvoice(object):
             [{'item_code' : settings.DEFAULT_ITEM_CODE,
               'qty' : 1,
               'rate' : self.totals[vat],
-              'expense_account' : accounts[vat]} for vat in self.vat_rates]
+              'expense_account' : accounts[vat]} for vat in self.vat_rates if vat in accounts]
 
     def create_taxes(self):
         self.taxes = []
@@ -570,12 +566,15 @@ class PurchaseInvoice(object):
         self.update_stock = update_stock
         self.company_name = sg.UserSettings()['-company-']
         self.company = company.Company.get_company(self.company_name)
-        self.default_vat = self.company.default_vat
-        self.vat_rates = list(self.company.taxes.keys())
         self.remarks = None
         self.paid_by_submitter = False
+        self.default_vat = self.company.default_vat
+        self.vat_rates = list(self.company.taxes.keys())
         self.vat = {}
         self.totals = {}
+        for vat in self.vat_rates:
+            self.vat[vat] = 0.0
+            self.totals[vat] = 0.0
         self.multi = False
         self.infiles = []
 
@@ -652,6 +651,38 @@ class PurchaseInvoice(object):
         self.create_taxes()    
         return self    
 
+    def summary(self):
+        if not self.e_invoice:
+            create_e_invoice()
+        fields = [('Rechnungsnr.','bill_no'),
+                  ('Unternehmen','company'),
+                  ('Lieferant','supplier'),
+                  ('Datum','posting_date'),
+                  ('Bemerkungen','remarks'),
+                  ('schon bezahlt','paid_by_submitter'),
+                  ('Gegenkonto','credit_to'),
+                  ('Lagerhaltung','update_stock')]
+        lines = ["{}: {}".format(d,self.e_invoice[f]) for (d,f) in fields]
+        lines.append('Artikel:')
+        total = 0.0
+        for item in self.e_invoice['items']:
+            amount = item['qty']*item['rate']
+            total += amount
+            lines.append("  {}x {} {} à {}€ = {}€ auf {}".format(item['qty'],
+                          item['item_code'],
+                          Api.items_by_code[item['item_code']]['item_name'],
+                          item['rate'],
+                          amount,
+                          item['expense_account']))
+        lines.append('Steuern und Kosten:')
+        for tax in self.e_invoice['taxes']:
+            total += tax['tax_amount']
+            lines.append("  {}€ auf {}".format(tax['tax_amount'],
+                                               tax['account_head']))
+        lines.append("Summe: {}€".format(total))
+        lines = [line[0:70] for line in lines]
+        return "\n".join(lines)
+
     def send_to_erpnext(self):        
         print("Stelle ERPNext-Rechnung zusammen")
         self.create_e_invoice()
@@ -672,7 +703,7 @@ class PurchaseInvoice(object):
         self.doc['supplier_invoice'] = upload['file_url']
         self.doc = gui_api_wrapper(Api.api.update,self.doc)
         #doc = gui_api_wrapper(Api.api.get_doc,'Purchase Invoice',self.doc['name'])
-        if easygui.buttonbox("Einkaufsrechnung {0} als Entwurf an ERPNext übertragen.\n\nSoll die Rechnung auch gleich gebucht werden oder nicht?".format(self.e_invoice['title']),"Sofort buchen?",["Sofort buchen","Später buchen"]) == "Sofort buchen":
+        if easygui.buttonbox("Einkaufsrechnung {0} wurde als Entwurf an ERPNext übertragen:\n{1}\n\nSoll die Rechnung auch gleich gebucht werden oder nicht?".format(self.e_invoice['title'],self.summary()),"Sofort buchen?",["Sofort buchen","Später buchen"]) == "Sofort buchen":
             self.doc = gui_api_wrapper(Api.api.submit,self.doc)
         return self    
 
