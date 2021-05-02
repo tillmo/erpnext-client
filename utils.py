@@ -3,6 +3,16 @@ from difflib import SequenceMatcher
 import csv
 import codecs
 import sys
+import time
+
+def running_linux():
+    return sys.platform.startswith('linux')
+
+if running_linux():
+    import PySimpleGUIQt as sgqt
+else:
+    sgqt = sg
+
 
 def similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
@@ -77,5 +87,8 @@ def showlist(l):
             res += " / "+str(item)
     return res[3:]    
 
-def running_linux():
-    return sys.platform.startswith('linux')
+def get_file(title):
+    fname = sgqt.popup_get_file(title, no_window=True)
+    if running_linux():
+        time.sleep(1)
+    return fname

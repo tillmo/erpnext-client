@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 import utils
 import PySimpleGUI as sg
-if utils.running_linux():
-    import PySimpleGUIQt as sgqt
-else:
-    sgqt = sg
 import company
 import bank
 import purchase_invoice
@@ -35,10 +31,11 @@ def text_input(text,default_text =""):
     return values[0]
 
 def purchase_inv(update_stock):
-    filename = sgqt.popup_get_file('Einkaufsrechnung als PDF', no_window=True)
+    filename = utils.get_file('Einkaufsrechnung als PDF')
     if filename:
         print("Lese {} ein ...".format(filename))
-        Api.load_item_data()
+        if update_stock:
+            Api.load_item_data()
         return purchase_invoice.PurchaseInvoice.read_and_transfer(filename,update_stock)    
     return False
 
@@ -241,7 +238,7 @@ def event_handler(event,window):
         print("Bitte erst ERPNext-Server einstellen (unter Einstellungen)")
         return "inner"
     if event == 'Kontoauszug':
-        filename = sgqt.popup_get_file('Kontoauszug als csv', no_window=True)
+        filename = utils.get_file('Kontoauszug als csv')
         if filename:
             print()
             print("Lese {} ein ...".format(filename))

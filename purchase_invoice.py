@@ -4,10 +4,6 @@ from settings import WAREHOUSE, STANDARD_PRICE_LIST, STANDARD_ITEM_GROUP, STANDA
 
 import utils
 import PySimpleGUI as sg
-if utils.running_linux():
-    import PySimpleGUIQt as sgqt
-else:
-    sgqt = sg
 import easygui
 import subprocess
 import re
@@ -475,7 +471,6 @@ class PurchaseInvoice(object):
                     if len(line)>2 and line[-2]=='£':
                         head = "Kornkraft Naturkost GmbH"
                         break
-            print(head)
             for supplier,info in PurchaseInvoice.suppliers.items():
                 if supplier in head:
                     if info['raw']:
@@ -627,7 +622,7 @@ class PurchaseInvoice(object):
                     title = "Mit einer weiteren Rechnung verschmelzen?"
                     one_more = easygui.buttonbox(title, title,["Ja","Nein"])=="Ja"
                 if one_more:
-                    infile = sgqt.popup_get_file('Weitere Einkaufsrechnung als PDF', no_window=True)
+                    infile = utils.get_file('Weitere Einkaufsrechnung als PDF')
         if inv:
             inv = inv.send_to_erpnext()
         if not inv:
@@ -674,18 +669,22 @@ class PurchaseInvoice(object):
         for item in self.e_invoice['items']:
             amount = item['qty']*item['rate']
             total += amount
-            lines.append("  {}x {} {} à {}€ = {}€ auf {}".format(item['qty'],
+            if Api.items_by_code:
+                item_name = Api.items_by_code[item['item_code']]['item_name']
+            else:
+                item_name = ""
+            lines.append("  {}x {} {} à {:.2f}€ = {:.2f}€ auf {}".format(item['qty'],
                           item['item_code'],
-                          Api.items_by_code[item['item_code']]['item_name'],
+                          item_name,
                           item['rate'],
                           amount,
                           item['expense_account']))
         lines.append('Steuern und Kosten:')
         for tax in self.e_invoice['taxes']:
             total += tax['tax_amount']
-            lines.append("  {}€ auf {}".format(tax['tax_amount'],
+            lines.append("  {:.2f}€ auf {}".format(tax['tax_amount'],
                                                tax['account_head']))
-        lines.append("Summe: {}€".format(total))
+        lines.append("Summe: {:.2f}€".format(total))
         lines = [line[0:70] for line in lines]
         return "\n".join(lines)
 
