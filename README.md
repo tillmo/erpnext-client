@@ -1,11 +1,11 @@
 # Client for ERPNext
 
-## easy installation on Debian / Ubuntu:
+## installation on Debian / Ubuntu:
 * download `install-ubuntu.sh` and run `sh install-ubuntu.sh`
 
 ## installation on Windows:
 * Install [Python](https://www.python.org/downloads/windows/)
-* Install the [Xpdf command line tools](https://www.xpdfreader.com/download.html) 
+* Install the [Xpdf command line tools](https://www.xpdfreader.com/download.html) by unpacking [this zip archive](https://dl.xpdfreader.com/xpdf-tools-win-4.03.zip) into some folder in the PATH, e.g. C:\Users\<your name>\AppData\Local\Microsoft\WindowsApps 
 * Install [Git](https://git-scm.com/download/win)
 * Open a [terminal](https://en.wikipedia.org/wiki/Windows_Terminal) or [console](https://en.wikipedia.org/wiki/Windows_Console), and in some folder of your choice, enter the following commands:
   * git clone https://github.com/tillmo/erpnext-client.git
