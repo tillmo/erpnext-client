@@ -9,9 +9,9 @@ def running_linux():
     return sys.platform.startswith('linux')
 
 if running_linux():
-    import PySimpleGUIQt as sgqt
+    import PySimpleGUIWx as sgwx
 else:
-    sgqt = sg
+    sgwx = sg
 
 
 def similar(a, b):
@@ -88,7 +88,7 @@ def showlist(l):
     return res[3:]    
 
 def get_file(title):
-    fname = sgqt.popup_get_file(title, no_window=True)
-    if running_linux():
-        time.sleep(1)
+    fname = sgwx.PopupGetFile(title, no_window=True)
+#    if running_linux():
+#        time.sleep(2)
     return fname

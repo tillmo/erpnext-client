@@ -26,7 +26,10 @@ class Api(object):
             Api.items_by_code = {}
             Api.item_code_translation = defaultdict(lambda: {})
             company_name = sg.UserSettings()['-company-']
-            for item in Api.api.get_list('Item',limit_page_length=LIMIT):
+            items = Api.api.get_list('Item',limit_page_length=LIMIT)
+            print("Lese alle {} ERPNext-Artikel ein".format(len(items)),end="")
+            for item in items:
+                print(".",end="")
                 item_code = item["item_code"]
                 doc = Api.api.get_doc('Item', item_code)
                 Api.items_by_code[item_code] = doc
@@ -40,6 +43,8 @@ class Api(object):
                         supplier_part_no = supplier_items['supplier_part_no']
                         Api.item_code_translation[supplier][supplier_part_no] =\
                                                   item_code
+            print()
+            
     @classmethod
     def load_account_data(cls):
         if not Api.accounts_by_company:
