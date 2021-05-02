@@ -401,9 +401,6 @@ class PurchaseInvoice(object):
             self.date = ""
             self.no = ""
             self.supplier = ""
-        accounts = self.company.leaf_accounts_for_credit
-        account_names = [acc['name'] for acc in accounts]
-        account = self.company.expense_account
         suppliers = gui_api_wrapper(Api.api.get_list,"Supplier")
         supplier_names = [supp['name'] for supp in suppliers]+['neu']
         def_supp = self.supplier if self.supplier in supplier_names else "neu"
@@ -454,6 +451,18 @@ class PurchaseInvoice(object):
         else:
             return None
         self.compute_total()
+        accounts = self.company.leaf_accounts_for_credit
+        account_names = [acc['name'] for acc in accounts]
+        pinvs = self.company.purchase_invoices[self.supplier]
+        paccs = [item['expense_account']
+                   for pi in pinvs for item in pi['items']]
+        paccs = list(set(paccs))
+        for acc in paccs:
+            try:
+                account_names.remove(j)
+            except Exception:
+                pass
+        account_names = paccs + account_names
         title = 'Buchungskonto wählen'
         msg = 'Bitte ein Buchungskonto wählen\n'
         account = easygui.choicebox(msg, title, account_names)
@@ -698,6 +707,7 @@ class PurchaseInvoice(object):
         #print(self.doc)
         if not self.doc:
             return None
+        self.company.purchase_invoices[self.doc['supplier']].append(self.doc)
         print("Übertrage PDF der Rechnung")
         upload = None
         for infile in self.infiles:

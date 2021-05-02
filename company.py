@@ -7,6 +7,7 @@ import bank
 import settings
 import itertools
 import urllib
+from collections import defaultdict
 
 class Invoice:
     def __init__(self,doc,is_sales):
@@ -90,6 +91,18 @@ class Company:
                                                 'Journal Entry',
                                                 je['name']))
         #print(self.name,len(self.journal))
+        pis = gui_api_wrapper(Api.api.get_list,
+            'Purchase Invoice',
+            filters={'company': self.name},
+            limit_page_length=JOURNAL_LIMIT,
+            order_by='posting_date DESC')
+        self.purchase_invoices = defaultdict(list)
+        for pi in pis:
+            print(".",end="")
+            self.purchase_invoices[pi['supplier']].append(\
+                    gui_api_wrapper(Api.api.get_doc,
+                                    'Purchase Invoice',
+                                    pi['name']))
         print(".")
         self.data_loaded = True
 
