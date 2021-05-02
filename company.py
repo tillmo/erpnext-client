@@ -83,9 +83,12 @@ class Company:
             filters={'company': self.name},
             limit_page_length=JOURNAL_LIMIT,
             order_by='posting_date DESC')
-        self.journal = [gui_api_wrapper(Api.api.get_doc,
-                                        'Journal Entry',
-                                        je['name']) for je in jes]
+        self.journal = []
+        for je in jes:
+            print(".",end="")
+            self.journal.append(gui_api_wrapper(Api.api.get_doc,
+                                                'Journal Entry',
+                                                je['name']))
         #print(self.name,len(self.journal))
         print(".")
         self.data_loaded = True

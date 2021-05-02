@@ -135,7 +135,8 @@ if __name__ == '__main__':
         #accounts = Api.accounts_by_company[b.account.company]
         #print(accounts)
         b = bank.BankStatement.process_file(infile)
-        b.baccount.company.reconciliate_all()
+        if b:
+            b.baccount.company.reconciliate_all()
     elif args.b:
         menu.initial_loads()
         comp = company.Company.get_company(settings['-company-'])

@@ -246,13 +246,16 @@ def event_handler(event,window):
             print()
             print("Lese {} ein ...".format(filename))
             b = bank.BankStatement.process_file(filename)
-            comp = b.baccount.company.name
-            if settings['-company-'] != comp:
-                print("Kontoauszug ist für "+comp)
-            settings['-company-'] = comp
-            show_company_data = True
-            print("{} Banktransaktionen eingelesen, davon {} neu".\
-                  format(len(b.entries),len(b.transactions))) 
+            if b:
+                comp = b.baccount.company.name
+                if settings['-company-'] != comp:
+                    print("Kontoauszug ist für "+comp)
+                settings['-company-'] = comp
+                show_company_data = True
+                print("{} Banktransaktionen eingelesen, davon {} neu".\
+                      format(len(b.entries),len(b.transactions)))
+            else:
+                print("Konnte keinen Kontoauszug einlesen")
     elif event == 'Einkaufsrechnung':
         if purchase_inv(False):
             show_company_data = True

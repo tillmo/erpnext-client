@@ -304,7 +304,7 @@ class BankStatement:
         (bacc,iban) = BankStatement.get_baccount(infile)
         if not bacc:
             easygui.msgbox("Konto unbekannt: IBAN {}".format(iban))
-            exit(1)            
+            return None
         b = BankStatement(bacc)
         if bacc.blz()=='83094495':
             b.read_sparda_ethik(infile,is_sparda=False)
@@ -314,12 +314,14 @@ class BankStatement:
             b.read_sparkasse(infile)
         else:
             easygui.msgbox("Keine Importmöglichkeit für BLZ {}".format(bacc.blz()))
-            exit(1)
+            return None
         return b
 
     @classmethod
     def process_file(cls,infile):
         b = BankStatement.read_statement(infile)
+        if not b:
+            return None
         b.transactions = []
         for be in b.entries:
             bt = be.bank_transation()
