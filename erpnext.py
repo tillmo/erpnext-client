@@ -76,10 +76,7 @@ if __name__ == '__main__':
         settings['-key-'] = args.key
     if args.secret:
         settings['-secret-'] = args.secret
-    if api_wrapper_test(Api.initialize):
-        settings['-setup-'] = False
-    else:
-        settings['-setup-'] = True
+    settings['-setup-'] = not api_wrapper_test(Api.initialize)
     # choose action according to command line arguments
     if args.all_sales:
         for item_price in gui_api_wrapper(Api.api.get_list,'Item Price',
