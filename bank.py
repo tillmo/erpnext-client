@@ -134,7 +134,7 @@ class BankTransaction:
                  utils.similar(self.description,je['user_remark'])) \
                    for je in self.company.journal if 'user_remark' in je]
         jaccs.sort(key=lambda x: x[1],reverse=True)
-        jaccs = [j for (j,desc) in set(jaccs[0:15])]
+        jaccs = [j for (j,desc) in set(jaccs[0:5])]
         for j in jaccs:
             try:
                 account_names.remove(j)
