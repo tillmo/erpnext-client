@@ -8,6 +8,7 @@ import time
 def running_linux():
     return sys.platform.startswith('linux')
 
+import PySimpleGUI as sg
 if running_linux():
     import PySimpleGUIWx as sgwx
 else:
