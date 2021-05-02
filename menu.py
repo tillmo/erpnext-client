@@ -390,9 +390,9 @@ def menus():
                        finalize=True)
 
     # ------ Loop & Process button menu choices ------ #
-    show_data()
     window.bring_to_front()
     initial_loads()
+    show_data()
     while True:
         event, values = window.read()
         try:
