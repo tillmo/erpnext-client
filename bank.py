@@ -83,6 +83,7 @@ class BankTransaction:
         #print(j)
         print("Buchungssatz {} erstellt".format(j['name']))
         if j:
+            self.company.journal.append(j)
             self.doc['status'] = 'Reconciled'
             self.doc['payment_entries'] = \
                  [{'payment_document': 'Journal Entry',
