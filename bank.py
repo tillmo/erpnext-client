@@ -28,7 +28,8 @@ class BankAccount:
         return self.iban[4:12]
     def get_balance(self):
         bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
-                              filters={'bank_account':self.name})
+                              filters={'bank_account':self.name},
+                              limit_page_length=LIMIT)
         self.balance = sum([bt['deposit']-bt['withdrawal'] for bt in bts])
     @classmethod
     def init_baccounts(cls):
@@ -329,7 +330,6 @@ class BankStatement:
             bt1 = bt.copy()
             del bt1['doctype']
             bt1['status'] = ['!=','Cancelled']
-            bt1['bank_account'] = urllib.parse.quote(bt1['bank_account'])
             #todo: relax the filter wrt the date (which sometimes is adapted by the bank)
             bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',filters=bt1)
             if not bts:
