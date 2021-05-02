@@ -235,7 +235,7 @@ class BankStatement:
                 continue
             be = BankStatementEntry(self)
             self.iban = row[0]
-            be.posting_date = utils.convert_date2(row[1])
+            be.posting_date = utils.convert_date2(row[2])
             be.purpose = row[4]
             be.partner = row[11]
             be.partner_iban = row[12]
@@ -256,7 +256,7 @@ class BankStatement:
             if row[0]=='Konto:':
                 baccount_no = int(row[1])
                 continue
-            date = utils.convert_date4(row[0])
+            date = utils.convert_date4(row[1])
             if not date:
                 continue
             if row[9+r]=='Anfangssaldo':
