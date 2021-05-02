@@ -3,7 +3,7 @@
 # Debian and Ubuntu installer for erpnext client
 
 # .deb dependencies
-sudo apt install -y git python3-pip python3-tk
+sudo apt install -y git python3-pip python3-tk libgtk-3-dev
 
 # install pdftotext (note that poppler-utils is super outdated)
 TMP=$(mktemp -d)
