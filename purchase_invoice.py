@@ -353,8 +353,7 @@ class PurchaseInvoice(object):
             self.vat[vat] = 0
             self.totals[vat] = 0
         vat_rate_strs = ["{:.2f}".format(r).replace(".",",") for r in self.vat_rates]
-        for i in range(len(lines)):
-            line = lines[i]
+        for line in lines:
             words = line.split()
             if not self.date:
                 for i in range(len(words)):
@@ -363,14 +362,17 @@ class PurchaseInvoice(object):
                         self.no = words[i-2]
                         break
             else:
-                vat = line.replace("*","").strip()
-                if vat in vat_rate_strs:
-                    vat = utils.read_float(vat)
-                    ls = "\n".join(lines[i:i+9]).replace("   ","\n\n\n\n\n\n\n\n").replace("  ","\n\n\n\n\n\n\n").replace("","\n").split("\n")
-                    #print(list(zip(ls,range(30))))
-                    if ls[17]:
-                        self.vat[vat] = utils.read_float(ls[17])
-                        self.totals[vat] = utils.read_float(ls[22]) - self.vat[vat]
+                l = len(words)
+                if l>14 and words[1] == 'Liefergewicht':
+                    words = words[2:]
+                    l = len(words)
+                if l>12:
+                    vat = words[2].replace("*","")
+                    if vat in vat_rate_strs:
+                        vat = utils.read_float(vat)
+                        words = [w.replace('¤','') for w in words]
+                        self.vat[vat] = utils.read_float(words[9]+words[10])
+                        self.totals[vat] = utils.read_float(words[11]+words[12]) - self.vat[vat]
         #print(self.date,self.no,self.vat,self.totals)
         for vat in self.vat_rates:
             if (round(self.totals[vat]*vat/100.0+0.00001,2)-self.vat[vat]):
@@ -469,7 +471,11 @@ class PurchaseInvoice(object):
         if lines:
             head = lines[0]
             if not head[0:10].split():
+                for line in lines[0:10]:
+                    if len(line)>2 and line[-2]=='£':
                         head = "Kornkraft Naturkost GmbH"
+                        break
+            print(head)
             for supplier,info in PurchaseInvoice.suppliers.items():
                 if supplier in head:
                     if info['raw']:
@@ -721,6 +727,6 @@ PurchaseInvoice.suppliers = \
          'supplier' : 'Naturkost Kontor Bremen Gmbh'},
      'Kornkraft Naturkost GmbH' :
         {'parser' : PurchaseInvoice.parse_kornkraft,
-         'raw' : True, 'multi' : True}}
+         'raw' : False, 'multi' : True}}
 
 
