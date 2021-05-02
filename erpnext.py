@@ -81,10 +81,6 @@ if __name__ == '__main__':
         settings['-secret-'] = args.secret
     if api_wrapper_test(Api.initialize):
         settings['-setup-'] = False
-        menu.initial_loads()
-        if not settings['-company-']:
-            settings['-company-'] = company.Company.all()[0]
-        company.Company.current_load_data()    
     else:
         settings['-setup-'] = True
     # choose action according to command line arguments
@@ -105,6 +101,7 @@ if __name__ == '__main__':
             doc['valid_from'] = VALIDITY_DATE
             gui_api_wrapper(Api.api.update,doc)
     elif args.e:
+        menu.initial_loads()
         if args.update_stock:
             update_stock = True
             if args.anlage:
@@ -127,6 +124,7 @@ if __name__ == '__main__':
         Api.load_item_data()
         purchase_invoice.PurchaseInvoice.read_and_transfer(infile,update_stock)    
     elif args.k:
+        menu.initial_loads()
         if args.k=="-":
             infile = easygui.fileopenbox("Kontoauszugs-Datei auswählen")
         else:
@@ -139,6 +137,7 @@ if __name__ == '__main__':
         b = bank.BankStatement.process_file(infile)
         b.baccount.company.reconciliate_all()
     elif args.b:
+        menu.initial_loads()
         comp = company.Company.get_company(settings['-company-'])
         if comp:
             comp.reconciliate_all()

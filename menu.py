@@ -19,6 +19,9 @@ TITLE = "ERPNext-Client für "
 def initial_loads():
     company.Company.init_companies()
     bank.BankAccount.init_baccounts()
+    settings = sg.UserSettings()
+    if not settings['-company-']:
+        settings['-company-'] = company.Company.all()[0]
     company.Company.current_load_data()
 
 def text_input(text,default_text =""):
@@ -386,6 +389,7 @@ def menus():
     # ------ Loop & Process button menu choices ------ #
     show_data()
     window.bring_to_front()
+    initial_loads()
     while True:
         event, values = window.read()
         try:
@@ -403,6 +407,7 @@ def menus():
 
 #  loop needed for re-display of window in case of changed server settings
 def main_loop():
+    company.Company.init_companies()
     while True:
         if menus():
             break

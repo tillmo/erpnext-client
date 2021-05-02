@@ -32,8 +32,12 @@ class BankAccount:
         self.balance = sum([bt['deposit']-bt['withdrawal'] for bt in bts])
     @classmethod
     def init_baccounts(cls):
-        for bacc in gui_api_wrapper(Api.api.get_list,'Bank Account'):
-            BankAccount(bacc)
+        if not BankAccount.baccounts_by_iban:
+            print("Lade Kontodaten",end="")
+            for bacc in gui_api_wrapper(Api.api.get_list,'Bank Account'):
+                print(".",end="")
+                BankAccount(bacc)
+            print()
 
 class BankTransaction:
     def __init__(self,doc):

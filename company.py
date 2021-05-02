@@ -47,11 +47,16 @@ class Company:
         self.taxes = {}
         self.default_vat = None
         Company.companies_by_name[self.name] = self
+        self.data_loaded = False
 
     def load_data(self):
+        if self.data_loaded:
+            return
+        print("Lade Daten für "+self.name,end="")
         for t in gui_api_wrapper(Api.api.get_list,
                                  'Purchase Taxes and Charges Template',
                                  filters={'company':self.name}):
+            print(".",end="")
             taxt = gui_api_wrapper(Api.api.get_doc,
                                   'Purchase Taxes and Charges Template',
                                    urllib.parse.quote(t['name']))
@@ -61,12 +66,14 @@ class Company:
                     if not self.default_vat:
                         self.default_vat = tax['rate']
         Api.load_account_data()
+        print(".",end="")
         self.accounts = Api.accounts_by_company[self.name]
         self.leaf_accounts = list(filter(lambda acc: acc['is_group']==0, self.accounts))
         self.leaf_accounts.sort(key=lambda acc: acc['root_type'])
         self.leaf_accounts_by_root_type = {}
         for rt, accs in itertools.groupby(self.leaf_accounts,
                                           lambda acc: acc['root_type']):
+            print(".",end="")
             self.leaf_accounts_by_root_type[rt] = list(accs)
         self.doc = gui_api_wrapper(Api.api.get_doc,'Company',self.name)
         self.leaf_accounts_for_debit = self.leaf_accounts_starting_with_root_type("Income")
@@ -80,6 +87,8 @@ class Company:
                                         'Journal Entry',
                                         je['name']) for je in jes]
         #print(self.name,len(self.journal))
+        print(".")
+        self.data_loaded = True
 
     @classmethod    
     def current_load_data(cls):
@@ -91,8 +100,12 @@ class Company:
         
     @classmethod    
     def init_companies(cls):
-        for comp in gui_api_wrapper(Api.api.get_list,'Company'):
-            Company(comp)
+        if not Company.companies_by_name:
+            print("Lade Firmendaten",end="")
+            for comp in gui_api_wrapper(Api.api.get_list,'Company'):
+                print(".",end="")
+                Company(comp)
+            print()
     @classmethod
     def all(cls):
         return list(Company.companies_by_name.keys())
