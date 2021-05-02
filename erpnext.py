@@ -45,12 +45,9 @@ def arg_parser():
                         help='API secrect')
     parser.add_argument('--company', dest='company', type=str,
                         help='company to work with')
-    parser.add_argument('--balkon', dest='update_stock', action='store_true',
-                        help='für Balkonmodul-Materialien')
+    parser.add_argument('--update-stock', dest='update_stock', action='store_true',
+                        help='Lager aktualisieren')
     parser.set_defaults(update_stock=False)
-    parser.add_argument('--anlage', dest='anlage', action='store_true',
-                        help='für Solaranlagen-Materialien')
-    parser.set_defaults(anlage=False)
     parser.add_argument('--all_sales', dest='all_sales', action='store_true',
                         help='Alle Artikelpreise auf Preisliste {0} setzen'.\
                                  format(purchase_invoice.STANDARD_PRICE_LIST))
@@ -102,18 +99,6 @@ if __name__ == '__main__':
             gui_api_wrapper(Api.api.update,doc)
     elif args.e:
         menu.initial_loads()
-        if args.update_stock:
-            update_stock = True
-            if args.anlage:
-                easygui.msgbox("Optionen --balkon und --anlage schließen sich aus.")
-                exit(1)                
-        if not args.update_stock:
-            if args.anlage:
-                update_stock = False
-            else:
-                title = "Verwendungszweck des Materials"
-                update_stock = easygui.boolbox("", title,
-                                         ["Balkonmodule", "Solaranlagen"])
         if args.e=="-":
             infile = easygui.fileopenbox("Rechnung auswählen")
         else:
@@ -121,8 +106,9 @@ if __name__ == '__main__':
         if not infile:
             easygui.msgbox(infile+" existiert nicht")
             exit(1)
-        Api.load_item_data()
-        purchase_invoice.PurchaseInvoice.read_and_transfer(infile,update_stock)    
+        if args.update_stock:
+            Api.load_item_data()
+        purchase_invoice.PurchaseInvoice.read_and_transfer(infile,args.update_stock)    
     elif args.k:
         menu.initial_loads()
         if args.k=="-":
