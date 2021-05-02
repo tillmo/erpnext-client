@@ -28,8 +28,6 @@ def arg_parser():
                         help='Kontoauszug einlesen')
     parser.add_argument('-i', dest='i', action='store_true',
                         help='Show all items')
-    parser.add_argument('-p', dest='p', action='store_true',
-                        help='Execute some stuff for testing')
     parser.add_argument('-b', dest='b', action='store_true',
                         help='Process bank transactions')
     parser.add_argument('-v', dest='v', action='store_true',
@@ -65,7 +63,7 @@ if __name__ == '__main__':
     if args.v:
         print(VERSION)
         exit(0)
-    # load sg settings (not that settings.py contains further settings)
+    # load sg settings (note that settings.py contains further settings)
     sg.user_settings_filename(filename='erpnext.json')
     settings = sg.UserSettings()
     if args.company:
@@ -115,8 +113,6 @@ if __name__ == '__main__':
         if not infile:
             easygui.msgbox("Keine Datei angegeben")
             exit(1)
-        #accounts = Api.accounts_by_company[b.account.company]
-        #print(accounts)
         b = bank.BankStatement.process_file(infile)
         if b:
             b.baccount.company.reconciliate_all()
@@ -129,41 +125,6 @@ if __name__ == '__main__':
         Api.load_item_data()
         print(Api.item_code_translation)
         print(Api.items_by_code)
-    # for experiments and debugging    
-    elif args.p:
-        print(Api.api.get_list('Bank Transaction',filters = {'date': '2021-04-20', 'bank_account': 'S%C3%96%20Allgemeinbildung%20-%20Sparkasse%20Bremen', 'description': 'Spenden VA-Reihe Allgemeinbildung - Natur Mensch Technik e.V.', 'currency': 'EUR', 'status': ['!=', 'Cancelled']}))
-#        print(Api.api.get_list('Bank Transaction',filters = {'date': '2021-04-20', 'bank_account': 'S%C3%96%20Allgemeinbildung%20-%20Sparkasse%20Bremen', 'description': 'Spenden VA-Reihe Allgemeinbildung - Natur Mensch Technik e.V.', 'currency': 'EUR', 'debit': 0, 'credit': 330.0, 'status': ['!=', 'Cancelled']}))
-        exit(0)
-        jes = gui_api_wrapper(Api.api.get_list,'Journal Entry',filters={'company':'Bremer SolidarStrom'},limit_page_length=JOURNAL_LIMIT, order_by='posting_date DESC')
-        print([je['remark'] for je in jes])       
-        exit(0)
-        print(gui_api_wrapper(Api.api.get_list,'Supplier'))
-        exit(0)
-        doc = gui_api_wrapper(Api.api.get_doc,'Journal Entry','ACC-JV-2021-00129')
-        print(gui_api_wrapper(Api.api.submit,doc))
-        exit(0)
-        print(gui_api_wrapper(Api.api.get_doc,'Payment Entry','ACC-PAY-2021-00017'))
-        exit(0)
-        print(gui_api_wrapper(Api.api.get_doc,'Purchase Invoice','ACC-PINV-2021-00104'))
-        exit(0)
-        print(gui_api_wrapper(Api.api.get_doc,'Journal Entry','ACC-JV-2021-00117'))
-        exit(0)
-        for i in range(114,128):
-            print("ACC-JV-2021-00"+str(i))
-            doc = gui_api_wrapper(Api.api.get_doc,'Journal Entry',"ACC-JV-2021-00"+str(i))
-            doc['cost_center'] = 'Haupt - Cafe'
-            print(gui_api_wrapper(Api.api.update,doc))
-        exit(0)
-        print(gui_api_wrapper(Api.api.get_doc,'Bank Transaction','ACC-BTN-2021-00001'))
-        exit(0)
-        print(gui_api_wrapper(Api.api.get_list,'Bank Account'))
-        exit(0)
-        c = company.Company.get_company("Bremer SolidarStrom")
-        invs = c.get_open_invoices()
-        print(list(map(lambda i:i.total,invs)))
-        exit(0)
-        entries = gui_api_wrapper(Api.api.get_list,'Payment Entry',limit_page_length=LIMIT)
-        print(gui_api_wrapper(Api.api.get_doc,'Payment Entry',entries[0]['name']))
     # no arguments given? Then call GUI    
     else:
         menu.main_loop()
