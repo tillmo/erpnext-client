@@ -423,9 +423,6 @@ class PurchaseInvoice(object):
                               k='-vat-')],
                     [sg.Text('Brutto')],     
                     [sg.Input(default_text = str(amount), k='-gross-')],
-                    [sg.Text('Buchungskonto')],
-                    [sg.OptionMenu(default_value = account,
-                                   values=account_names, k='-account-')],
                     [sg.Checkbox('Schon selbst bezahlt',
                                  default=False, k='-paid-')],
                     [sg.Text('Kommentar')],     
@@ -450,8 +447,6 @@ class PurchaseInvoice(object):
             if '-gross-' in values:
                 self.totals[self.default_vat] = \
                     float(values['-gross-'])-self.vat[self.default_vat]
-            if '-account-' in values:
-                account = values['-account-']
             if '-paid-' in values and values['-paid-']:
                 self.paid_by_submitter = True
             if '-remarks-' in values:
@@ -459,6 +454,11 @@ class PurchaseInvoice(object):
         else:
             return None
         self.compute_total()
+        title = 'Buchungskonto wählen'
+        msg = 'Bitte ein Buchungskonto wählen\n'
+        account = easygui.choicebox(msg, title, account_names)
+        if not account:
+            return None
         self.assign_default_e_items({self.default_vat:account})
         return self
     
