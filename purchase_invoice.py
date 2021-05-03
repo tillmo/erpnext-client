@@ -504,7 +504,9 @@ class PurchaseInvoice(object):
             [{'item_code' : settings.DEFAULT_ITEM_CODE,
               'qty' : 1,
               'rate' : self.totals[vat],
-              'expense_account' : accounts[vat]} for vat in self.vat_rates if vat in accounts]
+              'expense_account' : accounts[vat],
+              'cost_center' : self.company.cost_center} \
+                    for vat in self.vat_rates if vat in accounts]
 
     def create_taxes(self):
         self.taxes = []
@@ -513,6 +515,7 @@ class PurchaseInvoice(object):
                 self.taxes.append({'add_deduct_tax': 'Add',
                                    'charge_type': 'Actual',
                                    'account_head': account,
+                                   'cost_center' : self.company.cost_center,
                                    'description': VAT_DESCRIPTION,
                                    'tax_amount': self.vat[vat]})
 
@@ -720,6 +723,7 @@ class PurchaseInvoice(object):
         self.doc = gui_api_wrapper(Api.api.update,self.doc)
         #doc = gui_api_wrapper(Api.api.get_doc,'Purchase Invoice',self.doc['name'])
         if easygui.buttonbox("Einkaufsrechnung {0} wurde als Entwurf an ERPNext übertragen:\n{1}\n\nSoll die Rechnung auch gleich gebucht werden oder nicht?".format(self.e_invoice['title'],self.summary()),"Sofort buchen?",["Sofort buchen","Später buchen"]) == "Sofort buchen":
+            print("Buche der Rechnung")
             self.doc = gui_api_wrapper(Api.api.submit,self.doc)
         return self    
 
