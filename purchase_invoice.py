@@ -532,7 +532,8 @@ class PurchaseInvoice(object):
             'buying_price_list': STANDARD_PRICE_LIST,
             'taxes' : self.taxes,
             'items' : self.e_items,
-            'update_stock': 1 if self.update_stock else 0
+            'update_stock': 1 if self.update_stock else 0,
+            'cost_center' : self.company.cost_center
         }
         if self.shipping:
              self.e_invoice['taxes'].append(\
