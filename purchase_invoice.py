@@ -11,6 +11,7 @@ from api import Api, WAREHOUSE
 from api_wrapper import gui_api_wrapper
 import settings
 import company
+import bank
 from collections import defaultdict
 import random
 import string
@@ -498,6 +499,8 @@ class PurchaseInvoice(object):
 
     def compute_total(self):
         self.total = sum([t for v,t in self.totals.items()])
+        self.total_vat = sum([t for v,t in self.vat.items()])
+        self.gross_total = self.total + self.total_vat
 
     def assign_default_e_items(self,accounts):
         self.e_items = \
@@ -725,6 +728,31 @@ class PurchaseInvoice(object):
         if easygui.buttonbox("Einkaufsrechnung {0} wurde als Entwurf an ERPNext übertragen:\n{1}\n\nSoll die Rechnung auch gleich gebucht werden oder nicht?".format(self.e_invoice['title'],self.summary()),"Sofort buchen?",["Sofort buchen","Später buchen"]) == "Sofort buchen":
             print("Buche der Rechnung")
             self.doc = gui_api_wrapper(Api.api.submit,self.doc)
+            bts = gui_api_wrapper(Api.api.get_list,
+                                  'Bank Transaction',
+                                  filters={'company':self.company_name,
+                                           'withdrawal':self.gross_total})
+            if bts:
+                title = "Mit Bank-Transaktion verknüpfen?"
+                msg = "Bitte Bank-Transaktion auswählen oder abbrechen"
+                texts = [bt['description'] for bt in bts]
+                if texts:
+                    if len(texts)==1:
+                        msg += "\n\n"+texts[0]
+                        if easygui.ccbox(msg, title):
+                            choice = 0
+                        else:
+                            choice = -1
+                    else:
+                        c = easygui.choicebox(msg, title, texts)
+                        if c:
+                            choice = texts.index(c)
+                        else:
+                            choice = -1
+                    if choice >= 0:        
+                        bt = bank.BankTransaction(bts[choice])
+                        inv = company.Invoice(self.doc,False)
+                        bt.payment(inv)
         return self    
 
             
