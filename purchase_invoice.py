@@ -477,7 +477,7 @@ class PurchaseInvoice(object):
             head = lines[0]
             if not head[0:10].split():
                 for line in lines[0:10]:
-                    if len(line)>2 and line[-2]=='£':
+                    if len(line)>2 and (line[-2]=='£' or line[-3]=='£'):
                         head = "Kornkraft Naturkost GmbH"
                         break
             for supplier,info in PurchaseInvoice.suppliers.items():
