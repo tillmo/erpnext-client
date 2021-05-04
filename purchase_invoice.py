@@ -26,6 +26,8 @@ def extract_amounts(s):
 # try to extract gross amount and vat from an invoice
 def extract_amount_and_vat(lines,vat_rates):
     amounts = extract_amounts(" ".join(lines))
+    if not amounts:
+        return (None,None)
     amount = max(amounts)
     vat_factors = [vr / 100.0 for vr in vat_rates]
     for vat_factor in vat_factors:
@@ -377,6 +379,7 @@ class PurchaseInvoice(object):
     def parse_generic(self,lines):
         if lines:
             (amount,vat) = extract_amount_and_vat(lines,self.vat_rates)
+        if lines and amount:    
             self.vat[self.default_vat] = vat
             self.totals[self.default_vat] = amount-self.vat[self.default_vat]
             self.shipping = 0.0
