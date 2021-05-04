@@ -1,7 +1,6 @@
 - display difference between bank account balance according to bank transfers and according to general legder
 - cost centers
 - partial use of bank transfer amounts
-- settings: always submit or not
-- bank transaction duplicate recognition: relax the filter wrt the date (which sometimes is adapted by the bank)
 - merge settings
 - display funds
+- more flexible consolidated financial statement
