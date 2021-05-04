@@ -369,13 +369,6 @@ class PurchaseInvoice(object):
                             self.totals[vat] = utils.read_float(words[-2]) - self.vat[vat]
                             break
         #print(self.date,self.no,self.vat,self.totals)
-        for vat in self.vat_rates:
-            if (round(self.totals[vat]*vat/100.0+0.00001,2)-self.vat[vat]):
-                print("Abweichung bei MWSt! ",
-                      vat,"% von",self.totals[vat]," = ",
-                      round(self.totals[vat]*vat/100.0+0.00001,2),
-                      ". MWSt auf der Rechnung: ",
-                      self.vat[vat])
         self.items = []
         self.shipping = 0.0
         self.compute_total()
@@ -499,6 +492,13 @@ class PurchaseInvoice(object):
         self.total = sum([t for v,t in self.totals.items()])
         self.total_vat = sum([t for v,t in self.vat.items()])
         self.gross_total = self.total + self.total_vat
+        for vat in self.vat_rates:
+            if (round(self.totals[vat]*vat/100.0+0.00001,2)-self.vat[vat]):
+                print("Abweichung bei MWSt! ",
+                      vat,"% von",self.totals[vat]," = ",
+                      round(self.totals[vat]*vat/100.0+0.00001,2),
+                      ". MWSt auf der Rechnung: ",
+                      self.vat[vat])
 
     def assign_default_e_items(self,accounts):
         self.e_items = \
