@@ -28,7 +28,8 @@ class BankAccount:
         return self.iban[4:12]
     def get_balance(self):
         bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
-                              filters={'bank_account':self.name},
+                              filters={'bank_account':self.name,
+                                       'status': ['!=','Cancelled']},
                               limit_page_length=LIMIT)
         self.balance = sum([bt['deposit']-bt['withdrawal'] for bt in bts])
     @classmethod
@@ -117,12 +118,16 @@ class BankTransaction:
                  'references' : references}
         p = gui_api_wrapper(Api.api.insert,entry)
         if p:
+            self.doc['doctype'] = 'Bank Transaction'
             self.doc['status'] = 'Reconciled'
             self.doc['payment_entries'] = \
                  [{'payment_document': 'Payment Entry',
                    'payment_entry': p['name'],
                    'allocated_amount': abs(self.amount)}]
             gui_api_wrapper(Api.api.update,self.doc)
+            return p
+        else:
+            return None
                  
     def find_cacc(self,sinvs,pinvs):
         if self.credit:

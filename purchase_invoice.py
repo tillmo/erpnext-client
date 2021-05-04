@@ -723,34 +723,30 @@ class PurchaseInvoice(object):
         self.doc['supplier_invoice'] = upload['file_url']
         self.doc = gui_api_wrapper(Api.api.update,self.doc)
         #doc = gui_api_wrapper(Api.api.get_doc,'Purchase Invoice',self.doc['name'])
-        if easygui.buttonbox("Einkaufsrechnung {0} wurde als Entwurf an ERPNext übertragen:\n{1}\n\nSoll die Rechnung auch gleich gebucht werden oder nicht?".format(self.e_invoice['title'],self.summary()),"Sofort buchen?",["Sofort buchen","Später buchen"]) == "Sofort buchen":
-            print("Buche der Rechnung")
+        bts = gui_api_wrapper(Api.api.get_list,
+                              'Bank Transaction',
+                              filters={'company':self.company_name,
+                                       'withdrawal':self.gross_total,
+                                       'status': 'Pending'},
+                              limit_page_length=1)
+        choices = ["Sofort buchen","Später buchen"]
+        msg = "Einkaufsrechnung {0} wurde als Entwurf an ERPNext übertragen:\n{1}\n\n".format(self.e_invoice['title'],self.summary())
+        title = "Rechnung {}".format(self.no)
+        if bts:
+            bt = bts[0]
+            msg += "\n\nZugehörige Bank-Transaktion gefunden: {}\n".\
+                     format(bt['description'])
+            choices[0] = "Sofort buchen und zahlen"
+        if easygui.buttonbox(msg,title,choices) != "Später buchen":
+            print("Buche Rechnung")
             self.doc = gui_api_wrapper(Api.api.submit,self.doc)
-            bts = gui_api_wrapper(Api.api.get_list,
-                                  'Bank Transaction',
-                                  filters={'company':self.company_name,
-                                           'withdrawal':self.gross_total})
             if bts:
-                title = "Mit Bank-Transaktion verknüpfen?"
-                msg = "Bitte Bank-Transaktion auswählen oder abbrechen"
-                texts = [bt['description'] for bt in bts]
-                if texts:
-                    if len(texts)==1:
-                        msg += "\n\n"+texts[0]
-                        if easygui.ccbox(msg, title):
-                            choice = 0
-                        else:
-                            choice = -1
-                    else:
-                        c = easygui.choicebox(msg, title, texts)
-                        if c:
-                            choice = texts.index(c)
-                        else:
-                            choice = -1
-                    if choice >= 0:        
-                        bt = bank.BankTransaction(bts[choice])
-                        inv = company.Invoice(self.doc,False)
-                        bt.payment(inv)
+                print("Erstelle und buche Zahlung")
+                bt = bank.BankTransaction(bt)
+                inv = company.Invoice(self.doc,False)
+                p = bt.payment(inv)
+                if p:
+                    Api.submit_doc('Payment Entry',p['name'])
         return self    
 
             
