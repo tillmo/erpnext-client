@@ -409,7 +409,11 @@ class PurchaseInvoice(object):
                     [sg.Text('Rechnungsnr.')],     
                     [sg.Input(default_text = self.no, k='-no-')],
                     [sg.Text('Datum')],     
-                    [sg.Input(default_text = self.date, k='-date-')],
+                    [sg.Input(key='-date-',
+                              default_text = utils.show_date4(self.date)),
+                     sg.CalendarButton('Kalender', target='-date-',
+                                       format = '%d.%m.%Y',
+                                       begin_at_sunday_plus=1)],
                     [sg.Text('MWSt')],     
                     [sg.Input(default_text = str(self.vat[self.default_vat]),
                               k='-vat-')],
@@ -433,12 +437,16 @@ class PurchaseInvoice(object):
             if '-no-' in values:
                 self.no = values['-no-']
             if '-date-' in values:
-                self.date = values['-date-']
+                date = utils.convert_date4(values['-date-'])
+                if date:
+                    self.date = date
             if '-vat-' in values:
-                self.vat[self.default_vat] = float(values['-vat-'])
+                self.vat[self.default_vat] = \
+                    float(values['-vat-'].replace(",","."))
             if '-gross-' in values:
                 self.totals[self.default_vat] = \
-                    float(values['-gross-'])-self.vat[self.default_vat]
+                    float(values['-gross-'].replace(",","."))\
+                    -self.vat[self.default_vat]
             if '-paid-' in values and values['-paid-']:
                 self.paid_by_submitter = True
             if '-remarks-' in values:
