@@ -33,6 +33,15 @@ def text_input(text,default_text =""):
     window.close()
     return values[0]
 
+def checkbox_input(title,window_text,button_text,default=False):
+    layout = [  [sg.Text(window_text)],     
+                [sg.Checkbox(button_text,default=default)],
+                [sg.Button('Ok')] ]
+    window = sg.Window(title, layout)
+    event, values = window.read()
+    window.close()
+    return values[0]
+
 def purchase_inv(update_stock):
     filename = utils.get_file('Einkaufsrechnung als PDF')
     if filename:
@@ -236,11 +245,20 @@ def event_handler(event,window):
         print(f.read())
         f.close()
         print("Bitte Programm neu starten.")
+    elif event == 'Sofort buchen':
+        c = checkbox_input('Buchungseinstellungen',
+                           'Ein Dokument muss gebucht werden, um für die Abrechnung wirksam zu werden.\nEin einmal gebuchtes Dokument bleibt für immer im System. Es kann nicht mehr bearbeitet werden. Das ist gesetzlich so vorgeschrieben.\nBei einer Einkaufsrechnung wird in jedem Fall gefragt, ob diese gebucht werden soll.',
+                           'Alle Dokumente immer gleich einbuchen',
+                           default=settings['-buchen-'])
+        if c is not None:
+            settings['-buchen-'] = c            
     elif settings['-setup-']:
         print()
         print("Bitte erst ERPNext-Server einstellen (unter Einstellungen)")
         return "inner"
-    if event == 'Kontoauszug':
+    elif event == 'Daten neu laden':
+        skip
+    elif event == 'Kontoauszug':
         filename = utils.get_file('Kontoauszug als csv')
         if filename:
             print()
@@ -371,7 +389,7 @@ def menus():
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
                 ['&Anzeigen', ['Buchungssätze','Zahlungen','Einkaufsrechnungen','Banktransaktionen']],
                 ['Bereich', company.Company.all()], 
-                ['&Einstellungen', ['&ERPNext-Server', 'Update']], 
+                ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
 
 

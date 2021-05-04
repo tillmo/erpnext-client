@@ -3,6 +3,7 @@ from datetime import datetime
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
 import settings
+import PySimpleGUI as sg
 import company
 import easygui
 from numpy import sign
@@ -86,6 +87,9 @@ class BankTransaction:
         print("Buchungssatz {} erstellt".format(j['name']))
         if j:
             self.company.journal.append(j)
+            if sg.UserSettings()['-buchen-']:
+                gui_api_wrapper(Api.submit_doc,"Journal Entry",j['name'])
+                print("Buchungssatz {} gebucht".format(j['name']))
             self.doc['status'] = 'Reconciled'
             self.doc['payment_entries'] = \
                  [{'payment_document': 'Journal Entry',
@@ -118,6 +122,9 @@ class BankTransaction:
                  'references' : references}
         p = gui_api_wrapper(Api.api.insert,entry)
         if p:
+            if sg.UserSettings()['-buchen-']:
+                gui_api_wrapper(Api.submit_doc,"Payment Entry",p['name'])
+                print("Zahlung {} gebucht".format(p['name']))
             self.doc['doctype'] = 'Bank Transaction'
             self.doc['status'] = 'Reconciled'
             self.doc['payment_entries'] = \
