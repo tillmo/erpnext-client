@@ -353,26 +353,55 @@ def event_handler(event,window):
                 show_company_data = True
     elif event == 'Einkaufsrechnungen':
         while True:
-            keys = ['posting_date','grand_total','supplier','bill_no']
-            headings = ['Datum','Betrag','Lieferant','Rechungsnr.']
+            keys = ['posting_date','grand_total','bill_no','account','supplier']
+            headings = ['Datum','Betrag','Rechungsnr.','Buchungskonto','Lieferant']
             comp = company.Company.get_company(settings['-company-'])
             invs = comp.open_purchase_invoices()
+            invs_a = []
+            for inv in invs:
+                inv = gui_api_wrapper(Api.api.get_doc,
+                                      'Purchase Invoice',
+                                      inv['name'])
+                accounts = list(set(map(lambda i:i['expense_account'],
+                                    inv['items'])))
+                inv['account'] = accounts[0]
+                if len(accounts)>1:
+                    inv['account']+" + weitere"
+                invs_a.append(inv)
             title = "Einkaufsrechnungen"
-            ix = show_table(invs,keys,headings,title,enable_events=True)
+            ix = show_table(invs_a,keys,headings,title,enable_events=True)
             if ix is False:
                 break
-            inv = invs[ix]
+            inv = invs_a[ix]
             details = format_entry(inv,keys,headings)
             choice = easygui.buttonbox("Einkaufsrechnung {}\n{} ".\
                                            format(inv['name'],details),
                                        "Einkaufsrechnung",
-                                       ["Buchen","Löschen","Nichts tun"])
+                                       ["Buchen","Löschen",
+                                        "Buchungskonto bearbeiten",
+                                        "Nichts tun"])
             if choice == "Buchen":
                 gui_api_wrapper(Api.submit_doc,"Purchase Invoice",inv['name'])
                 show_company_data = True
             elif choice == "Löschen":
                 gui_api_wrapper(Api.api.delete,"Purchase Invoice",inv['name'])
                 show_company_data = True
+            elif choice == "Buchungskonto bearbeiten":
+                if inv['account'][-10:]!=' + weitere':
+                    title = "Buchungskonto ändern"
+                    msg = "Bitte ein Buchungskonto auswählen"
+                    accounts = comp.leaf_accounts_for_credit
+                    account_names = [acc['name'] for acc in accounts]
+                    account_names.remove(inv['account'])
+                    texts = [inv['account']]+account_names
+                    account = easygui.choicebox(msg, title, texts)
+                    del inv['account']
+                    nitems = []
+                    for item in inv['items']:
+                        item['expense_account'] = account
+                        nitems.append(item)
+                    inv['items'] = nitems
+                    gui_api_wrapper(Api.api.update,inv)
     if show_company_data:
         print()
         show_data()
