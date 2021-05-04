@@ -181,6 +181,7 @@ class SupplierItem(object):
             self.add_item_price(e_item,self.rate,self.qty_unit,date)
             return {'item_code' : e_item['item_code'],
                     'qty' : self.qty,
+                    'rate' : self.rate,
                     'desc' : self.description}
         else:
             return None
@@ -698,12 +699,16 @@ class PurchaseInvoice(object):
                 item_name = Api.items_by_code[item['item_code']]['item_name']
             else:
                 item_name = ""
+            if 'expense_account' in item:
+                expense_account = item['expense_account']
+            else:
+                expense_account = ""
             lines.append("  {}x {} {} à {:.2f}€ = {:.2f}€ auf {}".format(item['qty'],
                           item['item_code'],
                           item_name,
                           item['rate'],
                           amount,
-                          item['expense_account']))
+                          expense_account))
         lines.append('Steuern und Kosten:')
         for tax in self.e_invoice['taxes']:
             total += tax['tax_amount']
