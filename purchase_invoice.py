@@ -359,17 +359,15 @@ class PurchaseInvoice(object):
                         self.no = words[i-2]
                         break
             else:
-                l = len(words)
-                if l>14 and words[1] == 'Liefergewicht':
-                    words = words[2:]
-                    l = len(words)
-                if l>12:
-                    vat = words[2].replace("*","")
-                    if vat in vat_rate_strs:
-                        vat = utils.read_float(vat)
-                        words = [w.replace('¤','') for w in words]
-                        self.vat[vat] = utils.read_float(words[9]+words[10])
-                        self.totals[vat] = utils.read_float(words[11]+words[12]) - self.vat[vat]
+                if len(words)>12:
+                    words = [w.replace('*','') for w in words]
+                    for vat in vat_rate_strs:
+                        if vat in words[0:6]:
+                            #print(list(zip(words,range(len(words)))))
+                            vat = utils.read_float(vat)
+                            self.vat[vat] = utils.read_float(words[-4])
+                            self.totals[vat] = utils.read_float(words[-2]) - self.vat[vat]
+                            break
         #print(self.date,self.no,self.vat,self.totals)
         for vat in self.vat_rates:
             if (round(self.totals[vat]*vat/100.0+0.00001,2)-self.vat[vat]):
