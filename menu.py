@@ -257,7 +257,9 @@ def event_handler(event,window):
         print("Bitte erst ERPNext-Server einstellen (unter Einstellungen)")
         return "inner"
     elif event == 'Daten neu laden':
-        skip
+        company.Company.clear_companies()
+        bank.BankAccount.clear_baccounts()
+        initial_loads()
     elif event == 'Kontoauszug':
         filename = utils.get_file('Kontoauszug als csv')
         if filename:

@@ -41,7 +41,12 @@ class BankAccount:
                 print(".",end="")
                 BankAccount(bacc)
             print()
-
+    @classmethod
+    def clear_baccounts(cls):
+        BankAccount.baccounts_by_iban = {}
+        BankAccount.baccounts_by_name = {}
+        BankAccount.baccounts_by_company = defaultdict(list)
+        
 class BankTransaction:
     def __init__(self,doc):
         self.doc = doc

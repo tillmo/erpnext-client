@@ -122,6 +122,9 @@ class Company:
                 print(".",end="")
                 Company(comp)
             print()
+    @classmethod    
+    def clear_companies(cls):
+        Company.companies_by_name = {}
     @classmethod
     def all(cls):
         return list(Company.companies_by_name.keys())
