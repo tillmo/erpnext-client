@@ -753,7 +753,8 @@ class PurchaseInvoice(object):
             msg += "\n\nZugehörige Bank-Transaktion gefunden: {}\n".\
                      format(bt['description'])
             choices[0] = "Sofort buchen und zahlen"
-        if easygui.buttonbox(msg,title,choices) != "Später buchen":
+        if easygui.buttonbox(msg,title,choices) in \
+             ["Sofort buchen","Sofort buchen und zahlen"]:
             print("Buche Rechnung")
             self.doc = gui_api_wrapper(Api.api.submit,self.doc)
             if bts:
