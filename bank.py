@@ -212,6 +212,25 @@ class BankTransaction:
         gui_api_wrapper(Api.api.delete,doctype,doc_name)
         print("{} {} gelöscht".format(doctype_name,doc_name))
 
+    @classmethod
+    def find_bank_transaction(cls,comp_name,total,text=""):
+        bts = gui_api_wrapper(Api.api.get_list,
+                          'Bank Transaction',
+                          filters={'company':comp_name,
+                                   'withdrawal':total,
+                                   'status': 'Pending'})
+        bts = [BankTransaction(bt) for bt in bts]
+        l = len(bts)
+        if l==0:
+            return None
+        if l>1 and text:
+            bts1 = [(bt,utils.similar(bt.description,text)) \
+                    for bt in bts]
+            bts1.sort(key=lambda x: x[1],reverse=True)
+            bt = bts1[0][1]
+        else:
+            bt = bts[0]
+        return bt    
 
 class BankStatementEntry:
     def __init__(self,bank_statement):

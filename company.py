@@ -26,6 +26,11 @@ class Invoice:
             self.amount = -self.amount
             self.party = doc['supplier']
             self.party_type = 'Supplier'
+    def payment(self,bt):
+        print("Erstelle und buche Zahlung")
+        p = bt.payment(self)
+        if p:
+            Api.submit_doc('Payment Entry',p['name'])
 
 class Company:
     companies_by_name = {}
@@ -142,7 +147,8 @@ class Company:
         return list(map(lambda inv: Invoice(inv,is_sales),invs))
     def get_open_invoices_of_type(self,inv_type):
         return self.get_invoices_of_type_and_status(inv_type,'Unpaid') + \
-               self.get_invoices_of_type_and_status(inv_type,'Overdue') 
+               self.get_invoices_of_type_and_status(inv_type,'Overdue') + \
+               self.get_invoices_of_type_and_status(inv_type,'Draft') 
     def get_open_sales_invoices(self):
         return self.get_open_invoices_of_type('Sales Invoice')
     def get_open_purchase_invoices(self):
@@ -189,5 +195,5 @@ class Company:
     def open_purchase_invoices(self):
         return gui_api_wrapper(Api.api.get_list,'Purchase Invoice',
                                                 filters={'company':self.name,
-                                                         'docstatus':0},
+                                                         'status':['in',['Draft','Unpaid','Overdue']]},
                                                 limit_page_length=LIMIT)

@@ -739,31 +739,21 @@ class PurchaseInvoice(object):
         self.doc['supplier_invoice'] = upload['file_url']
         self.doc = gui_api_wrapper(Api.api.update,self.doc)
         #doc = gui_api_wrapper(Api.api.get_doc,'Purchase Invoice',self.doc['name'])
-        bts = gui_api_wrapper(Api.api.get_list,
-                              'Bank Transaction',
-                              filters={'company':self.company_name,
-                                       'withdrawal':self.gross_total,
-                                       'status': 'Pending'},
-                              limit_page_length=1)
         choices = ["Sofort buchen","Später buchen"]
         msg = "Einkaufsrechnung {0} wurde als Entwurf an ERPNext übertragen:\n{1}\n\n".format(self.e_invoice['title'],self.summary())
         title = "Rechnung {}".format(self.no)
-        if bts:
-            bt = bts[0]
+        bt = bank.BankTransaction.find_bank_transaction(self.company_name,
+                                                        self.gross_total)
+        if bt:
             msg += "\n\nZugehörige Bank-Transaktion gefunden: {}\n".\
-                     format(bt['description'])
+                     format(bt.description)
             choices[0] = "Sofort buchen und zahlen"
         if easygui.buttonbox(msg,title,choices) in \
              ["Sofort buchen","Sofort buchen und zahlen"]:
             print("Buche Rechnung")
             self.doc = gui_api_wrapper(Api.api.submit,self.doc)
-            if bts:
-                print("Erstelle und buche Zahlung")
-                bt = bank.BankTransaction(bt)
-                inv = company.Invoice(self.doc,False)
-                p = bt.payment(inv)
-                if p:
-                    Api.submit_doc('Payment Entry',p['name'])
+            if bt:
+                company.Invoice(inv,False).payment(bt)
         return self    
 
             

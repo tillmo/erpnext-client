@@ -102,10 +102,16 @@ def csv_export(filename,data,headings):
         writer.writerow(headings)
         writer.writerows(data)
     print(filename," exportiert")    
+
+def get(e,k):
+    if k in e:
+        return e[k]
+    else:
+        return ""
     
 def show_table(entries,keys,headings,title,enable_events=False,max_col_width=60):
     settings = sg.UserSettings()
-    data = [[to_str(e[k]) for k in keys] for e in entries]
+    data = [[to_str(get(e,k)) for k in keys] for e in entries]
     layout = [[sg.SaveAs(button_text = 'CSV-Export',
                          default_extension = 'csv',enable_events=True)],
               [sg.Table(values=data, headings=headings, max_col_width=max_col_width,
@@ -135,7 +141,7 @@ def show_table(entries,keys,headings,title,enable_events=False,max_col_width=60)
     return False
 
 def format_entry(doc,keys,headings):
-    return "\n".join([h+": "+to_str(doc[k]) for (k,h) in zip(keys,headings)])
+    return "\n".join([h+": "+to_str(get(doc,k)) for (k,h) in zip(keys,headings)])
     
 # ------ Process menu choices ------ #
 def event_handler(event,window):
@@ -353,8 +359,8 @@ def event_handler(event,window):
                 show_company_data = True
     elif event == 'Einkaufsrechnungen':
         while True:
-            keys = ['posting_date','grand_total','bill_no','account','supplier']
-            headings = ['Datum','Betrag','Rechungsnr.','Buchungskonto','Lieferant']
+            keys = ['posting_date','grand_total','bill_no','status','account','supplier']
+            headings = ['Datum','Betrag','Rechungsnr.','Status','Buchungskonto','Lieferant']
             comp = company.Company.get_company(settings['-company-'])
             invs = comp.open_purchase_invoices()
             invs_a = []
@@ -374,15 +380,25 @@ def event_handler(event,window):
                 break
             inv = invs_a[ix]
             details = format_entry(inv,keys,headings)
-            choice = easygui.buttonbox("Einkaufsrechnung {}\n{} ".\
-                                           format(inv['name'],details),
+            bt = bank.BankTransaction.find_bank_transaction(\
+                   comp.name,inv['grand_total'],
+                   inv['bill_no'] if 'bill_no' in inv else "")
+            msg = "Einkaufsrechnung {}\n{} ".\
+                      format(inv['name'],details)
+            choices = ["Buchen","Löschen","Buchungskonto bearbeiten",
+                       "Nichts tun"]
+            if bt:
+                msg += "\n\nZugehörige Bank-Transaktion gefunden: {}\n".\
+                         format(bt.description)
+                choices[0] = "Sofort buchen und zahlen"
+            choice = easygui.buttonbox(msg,
                                        "Einkaufsrechnung",
-                                       ["Buchen","Löschen",
-                                        "Buchungskonto bearbeiten",
-                                        "Nichts tun"])
-            if choice == "Buchen":
+                                       choices)
+            if choice == "Buchen" or "Sofort buchen und zahlen":
                 gui_api_wrapper(Api.submit_doc,"Purchase Invoice",inv['name'])
                 show_company_data = True
+                if choice == "Sofort buchen und zahlen":
+                    company.Invoice(inv,False).payment(bt)
             elif choice == "Löschen":
                 gui_api_wrapper(Api.api.delete,"Purchase Invoice",inv['name'])
                 show_company_data = True
