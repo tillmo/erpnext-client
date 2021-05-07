@@ -373,20 +373,24 @@ def event_handler(event,window):
                 inv['account'] = accounts[0]
                 if len(accounts)>1:
                     inv['account']+" + weitere"
+                bt = bank.BankTransaction.find_bank_transaction(\
+                       comp.name,inv['grand_total'],
+                       inv['bill_no'] if 'bill_no' in inv else "")
+                if bt:
+                    inv['bt'] = bt
+                    inv['btname'] = bt.name
                 invs_a.append(inv)
             title = "Einkaufsrechnungen"
-            ix = show_table(invs_a,keys,headings,title,enable_events=True)
+            ix = show_table(invs_a,keys+['btname'],headings+['Bank'],title,enable_events=True)
             if ix is False:
                 break
             inv = invs_a[ix]
             details = format_entry(inv,keys,headings)
-            bt = bank.BankTransaction.find_bank_transaction(\
-                   comp.name,inv['grand_total'],
-                   inv['bill_no'] if 'bill_no' in inv else "")
             msg = "Einkaufsrechnung {}\n{} ".\
                       format(inv['name'],details)
             choices = ["Buchen","Löschen","Buchungskonto bearbeiten",
                        "Nichts tun"]
+            bt = inv['bt']
             if bt:
                 msg += "\n\nZugehörige Bank-Transaktion gefunden: {}\n".\
                          format(bt.description)

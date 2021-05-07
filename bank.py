@@ -50,6 +50,7 @@ class BankAccount:
 class BankTransaction:
     def __init__(self,doc):
         self.doc = doc
+        self.name = doc['name']
         self.date = doc['date']
         self.debit = doc['withdrawal']
         self.credit = doc['deposit']
