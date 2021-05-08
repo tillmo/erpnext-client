@@ -108,8 +108,9 @@ class BankTransaction:
             [{'reference_doctype' : 'Sales Invoice' if inv.is_sales else 'Purchase Invoice',
               'reference_name' : inv.name,
               'allocated_amount' : abs(self.amount)}]
+        ref = inv.reference if inv.reference else ""
         entry = {'doctype' : 'Payment Entry',
-                 'title' : inv.party+" "+inv.reference,
+                 'title' : inv.party+" "+ref,
                  'payment_type': 'Receive' if inv.is_sales else 'Pay',
                  'posting_date': self.date,
                  'reference_no': inv.reference,
