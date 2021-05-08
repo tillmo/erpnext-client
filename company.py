@@ -142,16 +142,14 @@ class Company:
             return Company.companies_by_name[name]
         except Exception:
             return None
-    def get_invoices_of_type_and_status(self,inv_type,status):
-        is_sales = (inv_type=='Sales Invoice')
-        invs = gui_api_wrapper(Api.api.get_list,inv_type,
-                               filters={'status':status,'company':self.name},
-                               limit_page_length=LIMIT)
-        return list(map(lambda inv: Invoice(inv,is_sales),invs))
     def get_open_invoices_of_type(self,inv_type):
-        return self.get_invoices_of_type_and_status(inv_type,'Unpaid') + \
-               self.get_invoices_of_type_and_status(inv_type,'Overdue') + \
-               self.get_invoices_of_type_and_status(inv_type,'Draft') 
+        is_sales = (inv_type=='Sales Invoice')
+        invs = gui_api_wrapper(\
+                Api.api.get_list,inv_type,
+                filters={'status':['in',['Draft','Unpaid','Overdue']],
+                         'company':self.name},
+                limit_page_length=LIMIT)
+        return list(map(lambda inv: Invoice(inv,is_sales),invs))
     def get_open_sales_invoices(self):
         return self.get_open_invoices_of_type('Sales Invoice')
     def get_open_purchase_invoices(self):
@@ -194,9 +192,4 @@ class Company:
         return gui_api_wrapper(Api.api.get_list,'Payment Entry',
                                                 filters={'company':self.name,
                                                          'docstatus':0},
-                                                limit_page_length=LIMIT)
-    def open_purchase_invoices(self):
-        return gui_api_wrapper(Api.api.get_list,'Purchase Invoice',
-                                                filters={'company':self.name,
-                                                         'status':['in',['Draft','Unpaid','Overdue']]},
                                                 limit_page_length=LIMIT)

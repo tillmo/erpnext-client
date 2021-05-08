@@ -83,10 +83,14 @@ def show_data():
             if num_pes:
                 print("{} offene Zahlungen; {}/desk#List/Payment Entry/List?company={}".\
                       format(num_pes,server_info,comp_name))
-            num_pis = len(comp.open_purchase_invoices())
+            num_pis = len(comp.get_open_purchase_invoices())
             if num_pis:
                 print("{} offene Einkaufsrechnungen; {}/desk#List/Purchase Invoice/List?company={}".\
                       format(num_pis,server_info,comp_name))
+            num_sis = len(comp.get_open_sales_invoices())
+            if num_sis:
+                print("{} offene Verkaufsrechnungen; {}/desk#List/Sales Invoice/List?company={}".\
+                      format(num_sis,server_info,comp_name))
 def to_str(x):
     if type(x)==type(0.1):
         return "{: >9.2f}".format(x).replace(".",",")
@@ -360,73 +364,80 @@ def event_handler(event,window):
             elif choice == "Löschen":
                 bank.BankTransaction.delete_entry(pe['name'],is_journal=False)
                 show_company_data = True
-    elif event == 'Einkaufsrechnungen':
+    elif event in ['Einkaufsrechnungen','Verkaufsrechnungen']:
         while True:
             keys = ['posting_date','grand_total','bill_no','status','account','supplier']
             headings = ['Datum','Betrag','Rechungsnr.','Status','Buchungskonto','Lieferant']
             comp = company.Company.get_company(settings['-company-'])
-            invs = comp.open_purchase_invoices()
-            invs_a = []
+            if event == 'Einkaufsrechnungen':
+                inv_type = 'Purchase Invoice'
+            else:
+                inv_type = 'Sales Invoice'
+            invs = comp.get_open_invoices_of_type(inv_type)
+            inv_docs = []
             for inv in invs:
-                inv = gui_api_wrapper(Api.api.get_doc,
-                                      'Purchase Invoice',
-                                      inv['name'])
+                inv_doc = gui_api_wrapper(Api.api.get_doc,
+                                      inv_type,
+                                      inv.name)
+                if not 'bill_no' in inv_doc:
+                    inv_doc['bill_no'] = inv.name
                 accounts = list(set(map(lambda i:i['expense_account'],
-                                    inv['items'])))
-                inv['account'] = accounts[0]
+                                    inv_doc['items'])))
+                inv_doc['account'] = accounts[0]
                 if len(accounts)>1:
-                    inv['account']+" + weitere"
+                    inv_doc['account']+" + weitere"
                 bt = bank.BankTransaction.find_bank_transaction(\
-                       comp.name,inv['grand_total'],
-                       inv['bill_no'] if 'bill_no' in inv else "")
+                       comp.name,inv_doc['grand_total'],
+                       inv_doc['bill_no'] if 'bill_no' in inv_doc else "")
                 if bt:
-                    inv['bt'] = bt
-                    inv['btname'] = bt.name
-                inv['disabled'] = not (bt or inv['status'] == 'Draft')    
-                invs_a.append(inv)
-            title = "Einkaufsrechnungen"
-            ix = show_table(invs_a,keys+['btname'],headings+['Bank'],title,enable_events=True)
+                    inv_doc['bt'] = bt
+                    inv_doc['btname'] = bt.name
+                inv_doc['disabled'] = not (bt or inv_doc['status'] == 'Draft')
+                inv_docs.append(inv_doc)
+            ix = show_table(inv_docs,keys+['btname'],headings+['Bank'],event,
+                            enable_events=True)
             if ix is False:
                 break
-            inv = invs_a[ix]
-            details = format_entry(inv,keys,headings)
-            msg = "Einkaufsrechnung {}\n{} ".\
-                      format(inv['name'],details)
+            inv_doc = inv_docs[ix]
+            details = format_entry(inv_doc,keys,headings)
+            msg = "{} {}\n{} ".\
+                      format(event[:-2],inv_doc['name'],details)
             choices = ["Buchen","Löschen","Buchungskonto bearbeiten",
                        "Nichts tun"]
             if bt:
-                bt = inv['bt']
+                bt = inv_doc['bt']
                 msg += "\n\nZugehörige Bank-Transaktion gefunden: {}\n".\
                          format(bt.description)
                 choices[0] = "Sofort buchen und zahlen"
-            if bt or inv['status'] == 'Draft':    
+            if bt or inv_doc['status'] == 'Draft':    
                 choice = easygui.buttonbox(msg,
-                                           "Einkaufsrechnung",
+                                           event[:-2],
                                            choices)
-                if choice == "Buchen" or "Sofort buchen und zahlen":
-                    gui_api_wrapper(Api.submit_doc,"Purchase Invoice",inv['name'])
+                print(choice)
+                if choice == "Buchen" or choice == "Sofort buchen und zahlen":
+                    gui_api_wrapper(Api.submit_doc,inv_type,inv_doc['name'])
                     show_company_data = True
                     if choice == "Sofort buchen und zahlen":
-                        company.Invoice(inv,False).payment(bt)
+                        company.Invoice(inv_doc,False).payment(bt)
                 elif choice == "Löschen":
-                    gui_api_wrapper(Api.api.delete,"Purchase Invoice",inv['name'])
+                    gui_api_wrapper(Api.api.delete,inv_type,inv_doc['name'])
                     show_company_data = True
                 elif choice == "Buchungskonto bearbeiten":
-                    if inv['account'][-10:]!=' + weitere':
+                    if inv_doc['account'][-10:]!=' + weitere':
                         title = "Buchungskonto ändern"
                         msg = "Bitte ein Buchungskonto auswählen"
                         accounts = comp.leaf_accounts_for_credit
                         account_names = [acc['name'] for acc in accounts]
-                        account_names.remove(inv['account'])
-                        texts = [inv['account']]+account_names
+                        account_names.remove(inv_doc['account'])
+                        texts = [inv_doc['account']]+account_names
                         account = easygui.choicebox(msg, title, texts)
-                        del inv['account']
+                        del inv_doc['account']
                         nitems = []
-                        for item in inv['items']:
+                        for item in inv_doc['items']:
                             item['expense_account'] = account
                             nitems.append(item)
-                        inv['items'] = nitems
-                        gui_api_wrapper(Api.api.update,inv)
+                        inv_doc['items'] = nitems
+                        gui_api_wrapper(Api.api.update,inv_doc)
     if show_company_data:
         print()
         show_data()
@@ -443,7 +454,7 @@ def menus():
     # ------ Menu Definition ------ #
     menu_def = [['&Einlesen', ['&Kontoauszug', '&Einkaufsrechnung', '&Einkaufsrechnung Balkonmodule']],
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
-                ['&Anzeigen', ['Buchungssätze','Zahlungen','Einkaufsrechnungen','Banktransaktionen']],
+                ['&Anzeigen', ['Buchungssätze','Zahlungen','Einkaufsrechnungen','Verkaufsrechnungen','Banktransaktionen']],
                 ['Bereich', company.Company.all()], 
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
