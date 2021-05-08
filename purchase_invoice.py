@@ -753,7 +753,7 @@ class PurchaseInvoice(object):
             print("Buche Rechnung")
             self.doc = gui_api_wrapper(Api.api.submit,self.doc)
             if bt:
-                company.Invoice(inv,False).payment(bt)
+                company.Invoice(self.doc,False).payment(bt)
         return self    
 
             
