@@ -215,10 +215,14 @@ class BankTransaction:
 
     @classmethod
     def find_bank_transaction(cls,comp_name,total,text=""):
+        key = 'deposit'
+        if total<0:
+            key = 'withdrawal'
+            total = -total
         bts = gui_api_wrapper(Api.api.get_list,
                           'Bank Transaction',
                           filters={'company':comp_name,
-                                   'withdrawal':total,
+                                   key:total,
                                    'status': 'Pending'})
         bts = [BankTransaction(bt) for bt in bts]
         l = len(bts)

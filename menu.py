@@ -386,8 +386,11 @@ def event_handler(event,window):
                 inv_doc['account'] = accounts[0]
                 if len(accounts)>1:
                     inv_doc['account']+" + weitere"
+                total = inv_doc['grand_total']
+                if inv_type=='Purchase Invoice':
+                    total = -total
                 bt = bank.BankTransaction.find_bank_transaction(\
-                       comp.name,inv_doc['grand_total'],
+                       comp.name,total,
                        inv_doc['bill_no'] if 'bill_no' in inv_doc else "")
                 if bt:
                     inv_doc['bt'] = bt
@@ -404,7 +407,7 @@ def event_handler(event,window):
                       format(event[:-2],inv_doc['name'],details)
             choices = ["Buchen","Löschen","Buchungskonto bearbeiten",
                        "Nichts tun"]
-            if bt:
+            if 'bt' in inv_doc:
                 bt = inv_doc['bt']
                 msg += "\n\nZugehörige Bank-Transaktion gefunden: {}\n".\
                          format(bt.description)
