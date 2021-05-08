@@ -233,7 +233,7 @@ class BankTransaction:
             bts1 = [(bt,utils.similar(bt.description,text)) \
                     for bt in bts]
             bts1.sort(key=lambda x: x[1],reverse=True)
-            bt = bts1[0][1]
+            bt = bts1[0][0]
         else:
             bt = bts[0]
         return bt    
