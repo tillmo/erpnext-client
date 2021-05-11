@@ -272,6 +272,14 @@ class FrappeClient(object):
             filedata = open(filename,"rb").read()
             return self.attach_file(doctype,docname,basename,filedata,is_private)
 
+	def query_report(self,report_name="",company="",filters=None):
+		params = {}
+		if filters:
+			params["filters"] = json.dumps(filters)
+		params['report_name'] = report_name
+		params['company'] = company
+		return self.get_api('frappe.desk.query_report.run',params)
+
 	def get_api(self, method, params={}):
 		res = self.session.get(self.url + '/api/method/' + method + '/', params=params)
 		return self.post_process(res)
@@ -304,6 +312,8 @@ class FrappeClient(object):
 		except ValueError:
 			print(response.text)
 			raise
+		print(response.json())
+		print(response.text)
 
 		if rjson and ('exc' in rjson) and rjson['exc']:
 			raise FrappeException(rjson['exc'])
