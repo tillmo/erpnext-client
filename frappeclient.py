@@ -272,12 +272,11 @@ class FrappeClient(object):
             filedata = open(filename,"rb").read()
             return self.attach_file(doctype,docname,basename,filedata,is_private)
 
-	def query_report(self,report_name="",company="",filters=None):
+	def query_report(self,report_name="",filters=None):
 		params = {}
 		if filters:
 			params["filters"] = json.dumps(filters)
 		params['report_name'] = report_name
-		params['company'] = company
 		return self.get_api('frappe.desk.query_report.run',params)
 
 	def get_api(self, method, params={}):
