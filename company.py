@@ -87,17 +87,20 @@ class Company:
         self.doc = gui_api_wrapper(Api.api.get_doc,'Company',self.name)
         self.leaf_accounts_for_debit = self.leaf_accounts_starting_with_root_type("Income")
         self.leaf_accounts_for_credit = self.leaf_accounts_starting_with_root_type("Expense")
-        jes = gui_api_wrapper(Api.api.get_list,
+        self.journal = gui_api_wrapper(Api.api.get_list,
             'Journal Entry',
+            fields=['name','title','company','posting_date','user_remark',
+                'total_debit','total_credit','remark','is_opening',
+                "`tabJournal Entry Account`.account as account",
+                "`tabJournal Entry Account`.idx as idx",
+                "`tabJournal Entry Account`.cost_center as cost_center",
+                "`tabJournal Entry Account`.debit_in_account_currency as debit_in_account_currency",
+                "`tabJournal Entry Account`.credit_in_account_currency as credit_in_account_currency"
+                 ],
             filters={'company': self.name},
             limit_page_length=JOURNAL_LIMIT,
             order_by='posting_date DESC')
-        self.journal = []
-        for je in jes:
-            print(".",end="")
-            self.journal.append(gui_api_wrapper(Api.api.get_doc,
-                                                'Journal Entry',
-                                                je['name']))
+        self.journal = [je for je in self.journal if je['idx']==2]
         #print(self.name,len(self.journal))
         pis = gui_api_wrapper(Api.api.get_list,
             'Purchase Invoice',

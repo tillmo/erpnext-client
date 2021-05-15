@@ -151,9 +151,9 @@ class BankTransaction:
             accounts = self.company.leaf_accounts_for_credit
             invs = pinvs
         account_names = list(map(lambda acc: acc['name'],accounts))
-        jaccs = [(je['accounts'][1]['account'],
+        jaccs = [(je['account'],
                  utils.similar(self.description,je['user_remark'])) \
-                   for je in self.company.journal if 'user_remark' in je]
+                   for je in self.company.journal if 'user_remark' in je and je['user_remark']]
         jaccs.sort(key=lambda x: x[1],reverse=True)
         jaccs = list(set([j for (j,desc) in jaccs[0:5]]))
         for j in jaccs:
