@@ -13,6 +13,7 @@ import tkinter
 import os
 import tempfile
 import easygui
+import numpy as np
 
 TITLE = "ERPNext-Client für "
 
@@ -307,7 +308,7 @@ def event_handler(event,window):
         while True:
             bts = comp.open_bank_transactions()
             for bt in bts:
-                bt['amount'] = bt['deposit']-bt['withdrawal']
+                bt['amount'] = bt['unallocated_amount']*np.sign(bt['deposit']-bt['withdrawal'])
             title = "Banktransaktionen"
             ix = show_table(bts,keys,headings,title,enable_events=True,max_col_width=120)
             if ix is False:

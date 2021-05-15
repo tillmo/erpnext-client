@@ -67,18 +67,21 @@ class BankTransaction:
     def show(self):
         return(self.doc['name']+" {}\n{}\n{:.2f}€".format(utils.show_date4(self.date),self.description,self.amount))
     def journal_entry(self,cacc_name):
+        amount = self.doc['unallocated_amount']
+        debit = min([amount,self.debit])
+        credit = min([amount,self.credit])
         accounts = [{'account': self.baccount.e_account,
                      'cost_center': self.company.cost_center,
-                     'debit': self.credit,
-                     'debit_in_account_currency': self.credit,
-                     'credit': self.debit,
-                     'credit_in_account_currency': self.debit },
+                     'debit': credit,
+                     'debit_in_account_currency': credit,
+                     'credit': debit,
+                     'credit_in_account_currency': debit },
                     {'account': cacc_name,
                      'cost_center': self.company.cost_center,
-                     'debit': self.debit,
-                     'debit_in_account_currency': self.debit,
-                     'credit': self.credit,
-                     'credit_in_account_currency': self.credit}]
+                     'debit': debit,
+                     'debit_in_account_currency': debit,
+                     'credit': credit,
+                     'credit_in_account_currency': credit}]
         entry = {'doctype' : 'Journal Entry',
                  'title': self.description[0:140],
                  'voucher_type': 'Journal Entry',
@@ -92,22 +95,26 @@ class BankTransaction:
         #print(j)
         print("Buchungssatz {} erstellt".format(j['name']))
         if j:
+            j['account'] = cacc_name
             self.company.journal.append(j)
             if sg.UserSettings()['-buchen-']:
                 gui_api_wrapper(Api.submit_doc,"Journal Entry",j['name'])
                 print("Buchungssatz {} gebucht".format(j['name']))
             self.doc['status'] = 'Reconciled'
-            self.doc['payment_entries'] = \
-                 [{'payment_document': 'Journal Entry',
+            self.doc['payment_entries'].append( \
+                  {'payment_document': 'Journal Entry',
                    'payment_entry': j['name'],
-                   'allocated_amount': abs(self.amount)}]
+                   'allocated_amount': amount})
+            self.doc['unallocated_amount'] -= amount 
+            self.doc['allocated_amount'] += amount 
             gui_api_wrapper(Api.api.update,self.doc)
 
     def payment(self,inv):
+        allocated = min([abs(self.doc['unallocated_amount']),inv.outstanding])
         references =  \
             [{'reference_doctype' : 'Sales Invoice' if inv.is_sales else 'Purchase Invoice',
               'reference_name' : inv.name,
-              'allocated_amount' : abs(self.amount)}]
+              'allocated_amount' : allocated}]
         ref = inv.reference if inv.reference else ""
         entry = {'doctype' : 'Payment Entry',
                  'title' : inv.party+" "+ref,
@@ -121,8 +128,8 @@ class BankTransaction:
                  'finance_book' : self.company.default_finance_book,
                  'paid_from' : self.company.receivable_account if inv.is_sales else self.baccount.e_account,
                  'paid_to': self.baccount.e_account if inv.is_sales else self.company.payable_account,
-                 'paid_amount' : abs(self.amount),
-                 'received_amount' : abs(self.amount),
+                 'paid_amount' : allocated,
+                 'received_amount' : allocated,
                  'source_exchange_rate': 1.0,
                  'target_exchange_rate': 1.0,
                  'exchange_rate': 1.0,
@@ -133,11 +140,14 @@ class BankTransaction:
                 gui_api_wrapper(Api.submit_doc,"Payment Entry",p['name'])
                 print("Zahlung {} gebucht".format(p['name']))
             self.doc['doctype'] = 'Bank Transaction'
-            self.doc['status'] = 'Reconciled'
-            self.doc['payment_entries'] = \
-                 [{'payment_document': 'Payment Entry',
+            self.doc['payment_entries'].append( \
+                  {'payment_document': 'Payment Entry',
                    'payment_entry': p['name'],
-                   'allocated_amount': abs(self.amount)}]
+                   'allocated_amount': allocated})
+            self.doc['unallocated_amount'] -= allocated 
+            self.doc['allocated_amount'] += allocated 
+            if not self.doc['unallocated_amount']:
+                self.doc['status'] = 'Reconciled'
             gui_api_wrapper(Api.api.update,self.doc)
             return p
         else:
@@ -188,7 +198,8 @@ class BankTransaction:
                                 "payment_entry","=",doc_name]])
         for bt in bts:
             bt_name = bt['name']
-            gui_api_wrapper(Api.submit_doc,"Bank Transaction",bt_name)
+            if not bt['unallocated_amount']:
+                gui_api_wrapper(Api.submit_doc,"Bank Transaction",bt_name)
             print("Banktransaktion {} gebucht".format(bt_name))
         gui_api_wrapper(Api.submit_doc,doctype,doc_name)
         print("{} {} gebucht".format(doctype_name,doc_name))
@@ -255,6 +266,7 @@ class BankStatementEntry:
                  'bank_account' : self.bank_statement.baccount.name,
                  'description' : self.purpose+" "+self.partner,
                  'currency' : 'EUR',
+                 'unallocated_amount' : abs(self.amount),
                  'withdrawal' : -self.amount if self.amount < 0 else 0,
                  'deposit' : self.amount if self.amount > 0 else 0 }
         return entry

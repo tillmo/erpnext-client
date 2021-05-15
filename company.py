@@ -185,11 +185,11 @@ class Company:
                 bank.BankTransaction(bt).transfer(sinvs,pinvs)
     def open_bank_transactions(self):
         bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
-                                                filters={'company':self.name,
-                                                         'status':'Pending'},
-                                                limit_page_length=LIMIT)
-        return list(filter(lambda bt: \
-                        (not 'payment_entries' in bt) or (not bt['payment_entries']),bts))
+                              filters={'company':self.name,
+                                       'docstatus': 0,
+                                       'unallocated_amount':['>',0]},
+                                       limit_page_length=LIMIT)
+        return bts
     def open_journal_entries(self):
         return gui_api_wrapper(Api.api.get_list,'Journal Entry',
                                                 filters={'company':self.name,
