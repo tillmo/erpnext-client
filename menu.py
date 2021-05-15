@@ -421,7 +421,8 @@ def event_handler(event,window):
                     gui_api_wrapper(Api.submit_doc,inv_type,inv_doc['name'])
                     show_company_data = True
                     if choice == "Sofort buchen und zahlen":
-                        company.Invoice(inv_doc,False).payment(bt)
+                        inv = company.Invoice(inv_doc,inv_type=='Sales Invoice')
+                        inv.payment(bt)
                 elif choice == "Löschen":
                     gui_api_wrapper(Api.api.delete,inv_type,inv_doc['name'])
                     show_company_data = True
