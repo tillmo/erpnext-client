@@ -366,8 +366,8 @@ def event_handler(event,window):
                 show_company_data = True
     elif event in ['Einkaufsrechnungen','Verkaufsrechnungen']:
         while True:
-            keys = ['posting_date','grand_total','bill_no','status','account','supplier','title']
-            headings = ['Datum','Betrag','Rechungsnr.','Status','Buchungskonto','Lieferant','Titel']
+            keys = ['posting_date','outstanding_amount','bill_no','status','account','supplier','title']
+            headings = ['Datum','Ausstehend','Rechungsnr.','Status','Buchungskonto','Lieferant','Titel']
             comp = company.Company.get_company(settings['-company-'])
             if event == 'Einkaufsrechnungen':
                 inv_type = 'Purchase Invoice'
