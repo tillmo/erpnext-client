@@ -105,15 +105,19 @@ class Company:
         pis = gui_api_wrapper(Api.api.get_list,
             'Purchase Invoice',
             filters={'company': self.name},
+            fields=['name','title','supplier','supplier_name','company',
+                'posting_date','is_paid','cost_center','bill_no',
+                'update_stock','total_qty','total','net_total',
+                'total_taxes_and_charges','grand_total','credit_to',
+                'is_opening','against_expense_account',
+                "`tabPurchase Invoice Item`.expense_account as expense_account"
+                ],
             limit_page_length=JOURNAL_LIMIT,
             order_by='posting_date DESC')
         self.purchase_invoices = defaultdict(list)
         for pi in pis:
             print(".",end="")
-            self.purchase_invoices[pi['supplier']].append(\
-                    gui_api_wrapper(Api.api.get_doc,
-                                    'Purchase Invoice',
-                                    pi['name']))
+            self.purchase_invoices[pi['supplier']].append(pi)
         print(".")
         self.data_loaded = True
 

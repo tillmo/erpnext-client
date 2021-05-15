@@ -458,8 +458,7 @@ class PurchaseInvoice(object):
         accounts = self.company.leaf_accounts_for_credit
         account_names = [acc['name'] for acc in accounts]
         pinvs = self.company.purchase_invoices[self.supplier]
-        paccs = [item['expense_account']
-                   for pi in pinvs for item in pi['items']]
+        paccs = [pi['expense_account'] for pi in pinvs]
         paccs = list(set(paccs))
         for acc in paccs:
             try:
