@@ -52,9 +52,9 @@ class BankTransaction:
         self.doc = doc
         self.name = doc['name']
         self.date = doc['date']
-        self.debit = doc['withdrawal']
-        self.credit = doc['deposit']
-        self.amount = -self.debit if self.debit else self.credit
+        self.withdrawal = doc['withdrawal']
+        self.deposit = doc['deposit']
+        self.amount = -self.withdrawal if self.withdrawal else self.deposit
         self.bank_account = doc['bank_account']
         self.baccount = BankAccount.baccounts_by_name[self.bank_account]
         self.company_name = doc['company']
@@ -68,20 +68,20 @@ class BankTransaction:
         return(self.doc['name']+" {}\n{}\n{:.2f}€".format(utils.show_date4(self.date),self.description,self.amount))
     def journal_entry(self,cacc_name):
         amount = self.doc['unallocated_amount']
-        debit = min([amount,self.debit])
-        credit = min([amount,self.credit])
+        withdrawal = min([amount,self.withdrawal])
+        deposit = min([amount,self.deposit])
         accounts = [{'account': self.baccount.e_account,
                      'cost_center': self.company.cost_center,
-                     'debit': credit,
-                     'debit_in_account_currency': credit,
-                     'credit': debit,
-                     'credit_in_account_currency': debit },
+                     'debit': deposit,
+                     'debit_in_account_currency': deposit,
+                     'credit': withdrawal,
+                     'credit_in_account_currency': withdrawal },
                     {'account': cacc_name,
                      'cost_center': self.company.cost_center,
-                     'debit': debit,
-                     'debit_in_account_currency': debit,
-                     'credit': credit,
-                     'credit_in_account_currency': credit}]
+                     'debit': withdrawal,
+                     'debit_in_account_currency': withdrawal,
+                     'credit': deposit,
+                     'credit_in_account_currency': deposit}]
         entry = {'doctype' : 'Journal Entry',
                  'title': self.description[0:140],
                  'voucher_type': 'Journal Entry',
@@ -154,7 +154,7 @@ class BankTransaction:
             return None
                  
     def find_cacc(self,sinvs,pinvs):
-        if self.credit:
+        if self.deposit:
             accounts = self.company.leaf_accounts_for_debit
             invs = sinvs
         else:    
