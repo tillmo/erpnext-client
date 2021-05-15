@@ -1,9 +1,12 @@
-- also display unpaid invoices?
 - why is bank transaction not found for purchase invoice?
+- sort accounts before displaying?
 - avoid showing duplicate accounts for bank transactions
 - after reloading, display data
 - when processing bank transactions, distingiush "cancel" and "exit window"
 - ods for food coop
+- short overview of stock
+- calculate selling VAT from purchase VAT
+- XML for VAT declaration
 - display difference between bank account balance according to bank transfers and according to general legder
 - cost centers
 - partial use of bank transfer amounts
