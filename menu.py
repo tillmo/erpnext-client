@@ -416,7 +416,7 @@ def event_handler(event,window):
                 choice = easygui.buttonbox(msg,
                                            event[:-2],
                                            choices)
-                print(choice)
+                #print(choice)
                 if choice == "Buchen" or choice == "Sofort buchen und zahlen":
                     gui_api_wrapper(Api.submit_doc,inv_type,inv_doc['name'])
                     show_company_data = True

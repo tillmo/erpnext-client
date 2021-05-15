@@ -22,7 +22,7 @@ class Invoice:
             self.party = doc['customer']
             self.party_type = 'Customer'
         else:    
-            if 'bill_no' in doc:
+            if 'bill_no' in doc and doc['bill_no']:
                 self.reference = doc['bill_no']
             else:
                 self.reference = doc['name']
