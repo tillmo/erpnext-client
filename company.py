@@ -153,7 +153,7 @@ class Company:
         is_sales = (inv_type=='Sales Invoice')
         invs = gui_api_wrapper(\
                 Api.api.get_list,inv_type,
-                filters={'status':['in',['Draft','Unpaid','Overdue']],
+                filters={'status':['in',['Unpaid','Overdue']],
                          'company':self.name},
                 limit_page_length=LIMIT)
         return list(map(lambda inv: Invoice(inv,is_sales),invs))
