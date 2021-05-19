@@ -274,6 +274,7 @@ def event_handler(event,window):
         company.Company.clear_companies()
         bank.BankAccount.clear_baccounts()
         initial_loads()
+        show_company_data = True
     elif event == 'Kontoauszug':
         filename = utils.get_file('Kontoauszug als csv')
         if filename:
