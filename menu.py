@@ -501,7 +501,7 @@ def menus():
 
 #  loop needed for re-display of window in case of changed server settings
 def main_loop():
-    if settings['-setup-']: 
+    if sg.UserSettings()['-setup-']: 
         company.Company.init_companies()
     while True:
         if menus():
