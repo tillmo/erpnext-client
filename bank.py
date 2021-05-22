@@ -46,6 +46,12 @@ class BankAccount:
         BankAccount.baccounts_by_iban = {}
         BankAccount.baccounts_by_name = {}
         BankAccount.baccounts_by_company = defaultdict(list)
+    @classmethod
+    def get_baccount_names(cls):
+        comp_name = sg.UserSettings()['-company-']
+        BankAccount.init_baccounts()
+        bank_accounts = BankAccount.baccounts_by_company[comp_name]
+        return [ba.name for ba in bank_accounts]
         
 class BankTransaction:
     def __init__(self,doc):

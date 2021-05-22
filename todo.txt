@@ -7,7 +7,6 @@
 - XML for VAT declaration
 - display difference between bank account balance according to bank transfers and according to general legder
 - cost centers
-- partial use of bank transfer amounts
 - merge settings
 - display funds
 - more flexible consolidated financial statement

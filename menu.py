@@ -4,7 +4,7 @@ import PySimpleGUI as sg
 import company
 import bank
 import purchase_invoice
-from api import Api
+from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper, api_wrapper_test, api_wrapper
 from version import VERSION 
 import traceback
@@ -302,20 +302,6 @@ def event_handler(event,window):
         if comp:
             comp.reconciliate_all()
             show_company_data = True
-    elif event == 'Banktransaktionen':
-        keys = ['date','amount','description']
-        headings = ['Datum','Betrag','Bemerkung']
-        comp = company.Company.get_company(settings['-company-'])
-        while True:
-            bts = comp.open_bank_transactions()
-            for bt in bts:
-                bt['amount'] = bt['unallocated_amount']*np.sign(bt['deposit']-bt['withdrawal'])
-            title = "Banktransaktionen"
-            ix = show_table(bts,keys,headings,title,enable_events=True,max_col_width=120)
-            if ix is False:
-                break
-            comp.reconciliate(bts[ix])
-            show_company_data = True
     elif event == 'Buchungssätze':
         keys = ['posting_date','account','caccount','total_debit','user_remark']
         headings = ['Datum','Buchungskonto','Gegenkonto','Betrag','Bemerkung']
@@ -444,6 +430,47 @@ def event_handler(event,window):
                             nitems.append(item)
                         inv_doc['items'] = nitems
                         gui_api_wrapper(Api.api.update,inv_doc)
+    elif event == 'Banktransaktionen':
+        keys = ['date','amount','description']
+        headings = ['Datum','Betrag','Bemerkung']
+        comp = company.Company.get_company(settings['-company-'])
+        while True:
+            bts = comp.open_bank_transactions()
+            for bt in bts:
+                bt['amount'] = bt['unallocated_amount']*np.sign(bt['deposit']-bt['withdrawal'])
+            title = "Banktransaktionen"
+            ix = show_table(bts,keys,headings,title,enable_events=True,max_col_width=120)
+            if ix is False:
+                break
+            comp.reconciliate(bts[ix])
+            show_company_data = True
+    elif event in bank.BankAccount.get_baccount_names():
+        keys = ['date','open','amount','balance','description']
+        headings = ['Datum','Offen','Betrag','Stand','Bemerkung']
+        while True:
+            bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
+                              filters={'bank_account':event,
+                                       'status': ['!=', 'Cancelled']},
+                                       order_by='date asc',
+                                       limit_page_length=LIMIT)
+            balance = 0.0
+            for bt in bts:
+                bt['amount'] = bt['deposit']-bt['withdrawal']
+                balance += bt['amount']
+                bt['balance'] = balance
+                bt['disabled'] = (bt['status'] == 'Reconciled')
+                if bt['disabled']:
+                    bt['open'] = ''
+                else:    
+                    bt['open'] = '*'
+            bts.reverse()    
+            title = "Banktransaktionen für "+event
+            ix = show_table(bts,keys,headings,title,enable_events=True,max_col_width=120)
+            if ix is False:
+                break
+            comp = company.Company.get_company(settings['-company-'])
+            comp.reconciliate(bts[ix])
+            show_company_data = True
     if show_company_data:
         print()
         show_data()
@@ -461,6 +488,7 @@ def menus():
     menu_def = [['&Einlesen', ['&Kontoauszug', '&Einkaufsrechnung', '&Einkaufsrechnung Balkonmodule']],
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
                 ['&Anzeigen', ['Buchungssätze','Zahlungen','Einkaufsrechnungen','Verkaufsrechnungen','Banktransaktionen']],
+                ['Bankkonten', bank.BankAccount.get_baccount_names()], 
                 ['Bereich', company.Company.all()], 
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
