@@ -1,3 +1,6 @@
+TITLE = "ERPNext-Client für "
+
+
 from datetime import datetime, timedelta
 from difflib import SequenceMatcher
 import csv
@@ -93,3 +96,7 @@ def get_file(title):
 #    if running_linux():
 #        time.sleep(2)
     return fname
+
+def title():
+    settings = sg.UserSettings()
+    return TITLE+settings['-company-']+'@'+settings['-server-']
