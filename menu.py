@@ -17,6 +17,10 @@ import numpy as np
 
 TITLE = "ERPNext-Client für "
 
+def title():
+    settings = sg.UserSettings()
+    return TITLE+settings['-company-']+'@'+settings['-server-']
+
 def initial_loads():
     if sg.UserSettings()['-setup-']:
         return
@@ -449,7 +453,7 @@ def event_handler(event,window):
     if show_company_data:
         print()
         show_data()
-        window.set_title(TITLE+ settings['-company-'])
+        window.set_title(title())
         show_company_data = False
     return "inner"    
 
@@ -476,7 +480,7 @@ def menus():
     company_name = settings['-company-']
     if not company_name:
         company_name = "... <Bitte erst Server-Einstellungen setzen>"
-    window = sg.Window(TITLE+company_name,
+    window = sg.Window(title(),
                        layout,
                        default_element_size=(12, 1),
                        default_button_element_size=(12, 1),
