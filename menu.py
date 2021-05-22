@@ -18,6 +18,8 @@ import numpy as np
 TITLE = "ERPNext-Client für "
 
 def initial_loads():
+    if sg.UserSettings()['-setup-']:
+        return
     company.Company.init_companies()
     bank.BankAccount.init_baccounts()
     settings = sg.UserSettings()
