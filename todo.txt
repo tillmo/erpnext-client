@@ -1,6 +1,5 @@
 - why is bank transaction not found for purchase invoice?
 - sort accounts before displaying?
-- avoid showing duplicate accounts for bank transactions
 - when processing bank transactions, distingiush "cancel" and "exit window"
 - ods for food coop
 - short overview of stock
@@ -12,3 +11,4 @@
 - merge settings
 - display funds
 - more flexible consolidated financial statement
+- better object orientiation: class Doc, PurchaseInvoice as sublcass of Invoice
