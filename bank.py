@@ -1,5 +1,6 @@
 import utils
 from datetime import datetime
+from doc import Doc
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
 import settings
@@ -10,15 +11,15 @@ from numpy import sign
 from collections import defaultdict
 import urllib
 
-class BankAccount:
+class BankAccount(Doc):
     baccounts_by_iban = {}
     baccounts_by_name = {}
     baccounts_by_company = defaultdict(list)
     def __init__(self,doc):
-        self.doc = doc
+        self.doctype = "Bank Account"
+        super().__init__(doc=doc)
         self.company = company.Company.get_company(doc['company'])
         self.iban = doc['iban']
-        self.name = doc['name']
         self.e_account = doc['account']
         self.get_balance()
         self.statement_balance = None
@@ -53,9 +54,10 @@ class BankAccount:
         bank_accounts = BankAccount.baccounts_by_company[comp_name]
         return [ba.name for ba in bank_accounts]
         
-class BankTransaction:
+class BankTransaction(Doc):
     def __init__(self,doc):
-        self.doc = doc
+        self.doctype = "Bank Transaction"
+        super().__init__(doc=doc)
         self.name = doc['name']
         self.date = doc['date']
         self.withdrawal = doc['withdrawal']
@@ -115,7 +117,7 @@ class BankTransaction:
                    'allocated_amount': amount})
             self.doc['unallocated_amount'] -= amount 
             self.doc['allocated_amount'] += amount 
-            gui_api_wrapper(Api.api.update,self.doc)
+            self.update()
 
     def payment(self,inv):
         allocated = min([abs(self.doc['unallocated_amount']),inv.outstanding])
@@ -158,7 +160,7 @@ class BankTransaction:
             self.doc['allocated_amount'] += allocated 
             if not self.doc['unallocated_amount']:
                 self.doc['status'] = 'Reconciled'
-            gui_api_wrapper(Api.api.update,self.doc)
+            self.update()
             return p
         else:
             return None
@@ -270,7 +272,7 @@ class BankStatementEntry:
         self.purpose = utils.remove_space(self.purpose)
         self.partner = utils.remove_space(self.partner)
 
-    def bank_transation(self):
+    def bank_transaction(self):
         entry = {'doctype' : 'Bank Transaction',
                  'date' : self.posting_date,
                  'bank_account' : self.bank_statement.baccount.name,
@@ -390,7 +392,7 @@ class BankStatement:
             return None
         b.transactions = []
         for be in b.entries:
-            bt = be.bank_transation()
+            bt = be.bank_transaction()
             bt1 = bt.copy()
             del bt1['doctype']
             bt1['status'] = ['!=','Cancelled']

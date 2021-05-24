@@ -12,6 +12,7 @@ from api_wrapper import gui_api_wrapper
 import settings
 import company
 import bank
+from invoice import Invoice
 from collections import defaultdict
 import random
 import string
@@ -87,7 +88,7 @@ def ask_if_to_continue(err,msg=""):
         return easygui.ccbox(err+msg, title) # show a Continue/Cancel dialog
     return True    
 
-class SupplierItem(object):
+class SupplierItem:
     def __init__(self,inv):
         self.purchase_invoice = inv
 
@@ -186,7 +187,7 @@ class SupplierItem(object):
         else:
             return None
         
-class PurchaseInvoice(object):
+class PurchaseInvoice(Invoice):
     suppliers = {}
     @classmethod
     def get_amount_krannich(cls,lines):
@@ -531,8 +532,8 @@ class PurchaseInvoice(object):
                                    'description': VAT_DESCRIPTION,
                                    'tax_amount': self.vat[vat]})
 
-    def create_e_invoice(self):
-        self.e_invoice = {
+    def create_doc(self):
+        self.doc = {
             'doctype': 'Purchase Invoice',
             'company': self.company.name,
             'supplier': self.supplier,
@@ -551,7 +552,7 @@ class PurchaseInvoice(object):
             'cost_center' : self.company.cost_center
         }
         if self.shipping:
-             self.e_invoice['taxes'].append(\
+             self.doc['taxes'].append(\
                                       {'add_deduct_tax': 'Add',
                                        'charge_type': 'Actual',
                                        'account_head': DELIVERY_COST_ACCOUNT,
@@ -589,6 +590,8 @@ class PurchaseInvoice(object):
         return False
 
     def __init__(self,update_stock=False):
+        # do not call super().__init__ here,
+        # because there is no doc in ERPNext yet
         self.update_stock = update_stock
         self.company_name = sg.UserSettings()['-company-']
         self.company = company.Company.get_company(self.company_name)
@@ -678,8 +681,8 @@ class PurchaseInvoice(object):
         return self    
 
     def summary(self):
-        if not self.e_invoice:
-            create_e_invoice()
+        if not self.doc:
+            create_doc()
         fields = [('Rechnungsnr.','bill_no'),
                   ('Unternehmen','company'),
                   ('Lieferant','supplier'),
@@ -688,10 +691,10 @@ class PurchaseInvoice(object):
                   ('schon bezahlt','paid_by_submitter'),
                   ('Gegenkonto','credit_to'),
                   ('Lagerhaltung','update_stock')]
-        lines = ["{}: {}".format(d,self.e_invoice[f]) for (d,f) in fields]
+        lines = ["{}: {}".format(d,self.doc[f]) for (d,f) in fields]
         lines.append('Artikel:')
         total = 0.0
-        for item in self.e_invoice['items']:
+        for item in self.doc['items']:
             amount = item['qty']*item['rate']
             total += amount
             if Api.items_by_code:
@@ -709,7 +712,7 @@ class PurchaseInvoice(object):
                           amount,
                           expense_account))
         lines.append('Steuern und Kosten:')
-        for tax in self.e_invoice['taxes']:
+        for tax in self.doc['taxes']:
             total += tax['tax_amount']
             lines.append("  {:.2f}€ auf {}".format(tax['tax_amount'],
                                                tax['account_head']))
@@ -719,14 +722,15 @@ class PurchaseInvoice(object):
 
     def send_to_erpnext(self):        
         print("Stelle ERPNext-Rechnung zusammen")
-        self.create_e_invoice()
+        self.create_doc()
         Api.create_supplier(self.supplier)
-        #print(self.e_invoice)
-        print("Übertrage ERPNext-Rechnung")
-        self.doc = gui_api_wrapper(Api.api.insert,self.e_invoice)
         #print(self.doc)
-        if not self.doc:
+        print("Übertrage ERPNext-Rechnung")
+        if not self.insert():
             return None
+        # now we have a doc and can init class Invoice
+        super().__init__(doc,False)
+        #print(self.doc)
         self.company.purchase_invoices[self.doc['supplier']].append(self.doc)
         print("Übertrage PDF der Rechnung")
         upload = None
@@ -736,10 +740,10 @@ class PurchaseInvoice(object):
                                      infile,True)
         # currently, we can only link to the last PDF    
         self.doc['supplier_invoice'] = upload['file_url']
-        self.doc = gui_api_wrapper(Api.api.update,self.doc)
+        self.update()
         #doc = gui_api_wrapper(Api.api.get_doc,'Purchase Invoice',self.doc['name'])
         choices = ["Sofort buchen","Später buchen"]
-        msg = "Einkaufsrechnung {0} wurde als Entwurf an ERPNext übertragen:\n{1}\n\n".format(self.e_invoice['title'],self.summary())
+        msg = "Einkaufsrechnung {0} wurde als Entwurf an ERPNext übertragen:\n{1}\n\n".format(self.doc['title'],self.summary())
         title = "Rechnung {}".format(self.no)
         bt = bank.BankTransaction.find_bank_transaction(self.company_name,
                                                         self.gross_total)
@@ -750,9 +754,9 @@ class PurchaseInvoice(object):
         if easygui.buttonbox(msg,title,choices) in \
              ["Sofort buchen","Sofort buchen und zahlen"]:
             print("Buche Rechnung")
-            self.doc = gui_api_wrapper(Api.api.submit,self.doc)
+            self.submit()
             if bt:
-                company.Invoice(self.doc,False).payment(bt)
+                self.payment(bt)
         return self    
 
             

@@ -3,6 +3,7 @@ import utils
 import PySimpleGUI as sg
 import company
 import bank
+from invoice import Invoice
 import purchase_invoice
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper, api_wrapper_test, api_wrapper
@@ -409,7 +410,7 @@ def event_handler(event,window):
                     gui_api_wrapper(Api.submit_doc,inv_type,inv_doc['name'])
                     show_company_data = True
                     if choice == "Sofort buchen und zahlen":
-                        inv = company.Invoice(inv_doc,inv_type=='Sales Invoice')
+                        inv = Invoice(inv_doc,inv_type=='Sales Invoice')
                         inv.payment(bt)
                 elif choice == "Löschen":
                     gui_api_wrapper(Api.api.delete,inv_type,inv_doc['name'])
@@ -532,6 +533,11 @@ def main_loop():
     if not sg.UserSettings()['-setup-']: 
         company.Company.init_companies()
     while True:
-        if menus():
-            break
+        try:
+            if menus():
+                break
+        except Exception as e:
+            print(str(e)+"\n"+traceback.format_exc())
+            while True:
+                pass
         

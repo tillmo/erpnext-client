@@ -1,41 +1,17 @@
 JOURNAL_LIMIT = 100
 
+from doc import Doc
 import PySimpleGUI as sg
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
+from invoice import Invoice
 import bank
 import settings
 import itertools
 import urllib
 from collections import defaultdict
 
-class Invoice:
-    def __init__(self,doc,is_sales):
-        self.doc = doc
-        self.is_sales = is_sales
-        self.name = doc['name']
-        self.status = doc['status']
-        self.amount = doc['grand_total']
-        self.outstanding = doc['outstanding_amount']
-        if self.is_sales:
-            self.reference = doc['name']
-            self.party = doc['customer']
-            self.party_type = 'Customer'
-        else:    
-            if 'bill_no' in doc and doc['bill_no']:
-                self.reference = doc['bill_no']
-            else:
-                self.reference = doc['name']
-            self.amount = -self.amount
-            self.party = doc['supplier']
-            self.party_type = 'Supplier'
-    def payment(self,bt):
-        print("Erstelle und buche Zahlung")
-        p = bt.payment(self)
-        if p:
-            Api.submit_doc('Payment Entry',p['name'])
-
-class Company:
+class Company(Doc):
     companies_by_name = {}
     def leaf_accounts_starting_with_root_type(self,root_type):
         root_types = list(self.leaf_accounts_by_root_type.keys())
@@ -46,8 +22,8 @@ class Company:
         return accounts
     
     def __init__(self,doc):
-        self.doc = doc
-        self.name = doc['name']
+        self.doctype = "Company"
+        super().__init__(doc=doc)
         self.cost_center = doc['cost_center']
         self.expense_account = doc['default_expense_account']
         self.payable_account = doc['default_payable_account']
