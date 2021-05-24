@@ -746,7 +746,7 @@ class PurchaseInvoice(Invoice):
         msg = "Einkaufsrechnung {0} wurde als Entwurf an ERPNext übertragen:\n{1}\n\n".format(self.doc['title'],self.summary())
         title = "Rechnung {}".format(self.no)
         bt = bank.BankTransaction.find_bank_transaction(self.company_name,
-                                                        self.gross_total)
+                                                        -self.gross_total)
         if bt:
             msg += "\n\nZugehörige Bank-Transaktion gefunden: {}\n".\
                      format(bt.description)
