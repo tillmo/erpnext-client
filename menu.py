@@ -93,7 +93,7 @@ def show_data():
                 print("{} offene Verkaufsrechnungen; {}/desk#List/Sales Invoice/List?company={}".\
                       format(num_sis,server_info,comp_name))
 def to_str(x):
-    if type(x)==type(0.1):
+    if type(x) in [float,np.float32,np.float64]:
         return "{: >9.2f}".format(x).replace(".",",")
     d = utils.show_date4(x)
     if d:
