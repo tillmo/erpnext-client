@@ -729,7 +729,7 @@ class PurchaseInvoice(Invoice):
         if not self.insert():
             return None
         # now we have a doc and can init class Invoice
-        super().__init__(doc,False)
+        super().__init__(self.doc,False)
         #print(self.doc)
         self.company.purchase_invoices[self.doc['supplier']].append(self.doc)
         print("Übertrage PDF der Rechnung")

@@ -1,4 +1,5 @@
 from api import Api
+from api_wrapper import gui_api_wrapper
 
 class Doc:
     # beware: do not call __init__ until there is a doc in ERPNext
@@ -17,7 +18,7 @@ class Doc:
         doc = gui_api_wrapper(Api.api.insert,self.doc)
         if not doc:
             return None
-        self.__init__(doc=doc)
+        Doc.__init__(self,doc=doc)
         return self.doc
     def load(self):
         self.doc = gui_api_wrapper(Api.api.get_doc,self.doctype,self.name)
