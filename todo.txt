@@ -10,4 +10,4 @@
 - merge settings
 - display funds
 - more flexible consolidated financial statement
-- better object orientiation: class Doc, PurchaseInvoice as sublcass of Invoice
+
