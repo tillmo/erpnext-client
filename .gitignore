@@ -8,6 +8,8 @@ samples/
 test*.py
 test2.py
 test_api.py
+test-*
+win
 tt*
 err*
 *#
@@ -15,4 +17,5 @@ tmp
 erpnext-*
 erpnext.png
 Rechnungen*
+samples
 
