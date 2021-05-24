@@ -107,6 +107,8 @@ class BankTransaction:
                 gui_api_wrapper(Api.submit_doc,"Journal Entry",j['name'])
                 print("Buchungssatz {} gebucht".format(j['name']))
             self.doc['status'] = 'Reconciled'
+            if not 'payment_entries' in self.doc:
+                self.doc['payment_entries'] = []
             self.doc['payment_entries'].append( \
                   {'payment_document': 'Journal Entry',
                    'payment_entry': j['name'],
@@ -146,6 +148,8 @@ class BankTransaction:
                 gui_api_wrapper(Api.submit_doc,"Payment Entry",p['name'])
                 print("Zahlung {} gebucht".format(p['name']))
             self.doc['doctype'] = 'Bank Transaction'
+            if not 'payment_entries' in self.doc:
+                self.doc['payment_entries'] = []
             self.doc['payment_entries'].append( \
                   {'payment_document': 'Payment Entry',
                    'payment_entry': p['name'],
