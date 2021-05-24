@@ -160,7 +160,7 @@ def event_handler(event,window):
     if event in company.Company.all():
         settings['-company-'] = event
         company.Company.current_load_data()
-        show_company_data = True
+        return "outer"
     #print(event, values)
     elif event == 'Über':
         print()
@@ -523,7 +523,7 @@ def menus():
             return True
         elif res=="outer":
             window.close()
-            return True
+            return False
         elif res!="inner":
             print(res)
 

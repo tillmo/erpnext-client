@@ -186,7 +186,7 @@ class Company:
     def open_bank_transactions(self):
         bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
                               filters={'company':self.name,
-                                       'docstatus': 0,
+                                       'status':'Pending',
                                        'unallocated_amount':['>',0]},
                                        limit_page_length=LIMIT)
         return bts
