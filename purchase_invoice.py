@@ -277,6 +277,8 @@ class PurchaseInvoice(Invoice):
         for line in lines:
             if "Bremen, den" in line:
                 self.date = utils.convert_date4(line.split()[2])
+            elif "Bremen," in line:
+                self.date = utils.convert_date4(line.split()[1])
             if line[0:8] == "Rechnung":
                 if len(line.split())>1:
                     self.no = line.split()[2]
