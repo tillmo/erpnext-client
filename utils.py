@@ -57,7 +57,7 @@ def no_substr(l1,l2):
 def read_float(s,sign="H"):
     s1 = s.replace(".","").replace(",",".")
     if s1[-1]=='-':
-        s1 = '-'+s1[:-2]
+        s1 = '-'+s1[:-1]
     res = float(s1)
     if sign=="S":
         res = -res
