@@ -521,7 +521,7 @@ class PurchaseInvoice(Invoice):
               'rate' : self.totals[vat],
               'expense_account' : accounts[vat],
               'cost_center' : self.company.cost_center} \
-                    for vat in self.vat_rates if vat in accounts]
+                    for vat in self.vat_rates if vat in accounts and self.totals[vat]]
 
     def create_taxes(self):
         self.taxes = []
@@ -619,7 +619,6 @@ class PurchaseInvoice(Invoice):
         self.no += " " + inv.no
         self.taxes += inv.taxes
         self.e_items += inv.e_items
-        self.total += inv.total
         self.infiles += inv.infiles
         self.shipping += inv.shipping
         if self.remarks:
@@ -627,6 +626,11 @@ class PurchaseInvoice(Invoice):
         else:
             self.remarks = inv.remarks
         self.total += inv.total
+        self.gross_total += inv.gross_total
+        self.total_vat += inv.total_vat
+        # note that self.compute_total() would give a wrong result here,
+        # because self.totals and self.vat are not merged
+
 
     # for testing    
     @classmethod
