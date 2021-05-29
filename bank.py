@@ -74,17 +74,36 @@ class BankTransaction(Doc):
 
     def show(self):
         return(self.doc['name']+" {}\n{}\n{:.2f}€".format(utils.show_date4(self.date),self.description,self.amount))
-    def journal_entry(self,cacc_name):
+
+    def link_to(self,doctype,docname,amount):
+        entry = {'payment_document': doctype,
+                 'payment_entry': docname,
+                 'allocated_amount': amount}
+        if not 'payment_entries' in self.doc:
+            self.doc['payment_entries'] = []
+        self.doc['payment_entries'].append(entry)
+        self.doc['unallocated_amount'] -= amount 
+        self.doc['allocated_amount'] += amount 
+        if not self.doc['unallocated_amount']:
+            self.doc['status'] = 'Reconciled'
+
+    def journal_entry(self,cacc_or_bt,is_bt):
         amount = self.doc['unallocated_amount']
         withdrawal = min([amount,self.withdrawal])
         deposit = min([amount,self.deposit])
+        if is_bt:
+            bt = BankTransaction(cacc_or_bt)
+            bt.load()
+            against_account = bt.baccount.e_account
+        else:    
+            against_account = cacc_or_bt
         accounts = [{'account': self.baccount.e_account,
                      'cost_center': self.company.cost_center,
                      'debit': deposit,
                      'debit_in_account_currency': deposit,
                      'credit': withdrawal,
                      'credit_in_account_currency': withdrawal },
-                    {'account': cacc_name,
+                    {'account': against_account,
                      'cost_center': self.company.cost_center,
                      'debit': withdrawal,
                      'debit_in_account_currency': withdrawal,
@@ -103,21 +122,16 @@ class BankTransaction(Doc):
         #print(j)
         print("Buchungssatz {} erstellt".format(j['name']))
         if j:
-            j['account'] = cacc_name
+            j['account'] = against_account
             self.company.journal.append(j)
             if sg.UserSettings()['-buchen-']:
                 gui_api_wrapper(Api.submit_doc,"Journal Entry",j['name'])
                 print("Buchungssatz {} gebucht".format(j['name']))
-            self.doc['status'] = 'Reconciled'
-            if not 'payment_entries' in self.doc:
-                self.doc['payment_entries'] = []
-            self.doc['payment_entries'].append( \
-                  {'payment_document': 'Journal Entry',
-                   'payment_entry': j['name'],
-                   'allocated_amount': amount})
-            self.doc['unallocated_amount'] -= amount 
-            self.doc['allocated_amount'] += amount 
+            self.link_to('Journal Entry',j['name'],amount)
             self.update()
+            if is_bt:
+                bt.link_to('Journal Entry',j['name'],amount)
+                bt.update()
 
     def payment(self,inv):
         allocated = min([abs(self.doc['unallocated_amount']),inv.outstanding])
@@ -150,28 +164,24 @@ class BankTransaction(Doc):
                 gui_api_wrapper(Api.submit_doc,"Payment Entry",p['name'])
                 print("Zahlung {} gebucht".format(p['name']))
             self.doc['doctype'] = 'Bank Transaction'
-            if not 'payment_entries' in self.doc:
-                self.doc['payment_entries'] = []
-            self.doc['payment_entries'].append( \
-                  {'payment_document': 'Payment Entry',
-                   'payment_entry': p['name'],
-                   'allocated_amount': allocated})
-            self.doc['unallocated_amount'] -= allocated 
-            self.doc['allocated_amount'] += allocated 
-            if not self.doc['unallocated_amount']:
-                self.doc['status'] = 'Reconciled'
+            self.link_to('Payment Entry',p['name'],allocated)
             self.update()
             return p
         else:
             return None
-                 
-    def find_cacc(self,sinvs,pinvs):
+
+    # find an account, bank transaction of invoice that matches
+    # the current bank transaction and link it
+    def transfer(self,sinvs,pinvs):
         if self.deposit:
             accounts = self.company.leaf_accounts_for_debit
             invs = sinvs
+            side = "withdrawal" 
         else:    
             accounts = self.company.leaf_accounts_for_credit
             invs = pinvs
+            side = "deposit"
+        # find accounts that could match, using previous journal entries    
         account_names = list(map(lambda acc: acc['name'],accounts))
         jaccs = [(je['account'],
                  utils.similar(self.description,je['user_remark'])) \
@@ -184,22 +194,31 @@ class BankTransaction(Doc):
             except Exception:
                 pass
         account_names = jaccs + account_names
+        # find invoices that could match
         invs.sort(key=lambda inv: abs(inv.outstanding-abs(self.amount)))
         inv_texts = list(map(lambda inv: utils.showlist([inv.name,inv.party,inv.reference,inv.outstanding]),invs))
-        title = "Rechnung oder Buchungskonto wählen"
+        # find bank transactions in other bank accounts that could match
+        filters = {'company':self.company.name,
+                   'status':'Pending',
+                   'bank_account':['!=',self.bank_account],
+                   side:['>',0],
+                   'unallocated_amount':abs(self.amount)}
+        bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
+                              filters=filters,limit_page_length=LIMIT)
+        bt_texts = list(map(lambda bt: utils.showlist([bt['name'],bt['deposit'] if bt['deposit'] else -bt['withdrawal'],bt['description'],bt['unallocated_amount']]),bts))
+        # let the user choose between all these
+        title = "Rechnung, Banktransaktion oder Buchungskonto wählen"
         msg = "Bankbuchung:\n"+self.show()+"\n\n"+title+"\n"
-        choice = easygui.choicebox(msg, title, inv_texts+account_names)
+        choice = easygui.choicebox(msg, title, bt_texts+inv_texts+account_names)
+        # and process the choice
         if choice in inv_texts:
             inv = invs[inv_texts.index(choice)]
-            return (inv,None)
-        return (None,choice)
-    
-    def transfer(self,sinvs,pinvs):
-        (inv,cacc) = self.find_cacc(sinvs,pinvs)
-        if inv:
             self.payment(inv)
-        if cacc:
-            self.journal_entry(cacc)
+        elif choice:
+            is_bt = choice in bt_texts
+            if is_bt:
+                choice = bts[bt_texts.index(choice)]
+            self.journal_entry(choice,is_bt)
 
     @classmethod
     def submit_entry(cls,doc_name,is_journal=True):
