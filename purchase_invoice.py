@@ -10,6 +10,7 @@ import re
 from api import Api, WAREHOUSE
 from api_wrapper import gui_api_wrapper
 import settings
+import doc
 import company
 import bank
 from invoice import Invoice
@@ -747,12 +748,27 @@ class PurchaseInvoice(Invoice):
         # currently, we can only link to the last PDF    
         self.doc['supplier_invoice'] = upload['file_url']
         self.update()
-        #doc = gui_api_wrapper(Api.api.get_doc,'Purchase Invoice',self.doc['name'])
         choices = ["Sofort buchen","Später buchen"]
         msg = "Einkaufsrechnung {0} wurde als Entwurf an ERPNext übertragen:\n{1}\n\n".format(self.doc['title'],self.summary())
         title = "Rechnung {}".format(self.no)
-        bt = bank.BankTransaction.find_bank_transaction(self.company_name,
-                                                        -self.gross_total)
+        filters={'company':self.company_name,
+                 'party':self.supplier,
+                 'docstatus':1,
+                 'paid_amount':self.gross_total}
+        py = gui_api_wrapper(Api.api.get_list,
+                             "Payment Entry",
+                             filters=filters,
+                             limit_page_length=1)
+        if py:
+            py = doc.Doc(name=py[0]['name'],doctype='Payment Entry')
+            bt = None
+        else:
+            bt = bank.BankTransaction.find_bank_transaction(self.company_name,
+                                                            -self.gross_total)
+        if py:
+            msg += "\n\nZugehörige Anzahlung gefunden: {}\n".\
+                     format(py.name)
+            choices[0] = "Sofort buchen und zahlen"
         if bt:
             msg += "\n\nZugehörige Bank-Transaktion gefunden: {}\n".\
                      format(bt.description)
@@ -760,6 +776,8 @@ class PurchaseInvoice(Invoice):
         if easygui.buttonbox(msg,title,choices) in \
              ["Sofort buchen","Sofort buchen und zahlen"]:
             print("Buche Rechnung")
+            if py:
+                self.use_advance_payment(py)
             self.submit()
             if bt:
                 self.payment(bt)

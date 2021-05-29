@@ -108,7 +108,8 @@ def title():
 def find_ref(line):
     for w in line.split():
         if "TAN" in w:
-            return
+            return "unbekannt"
         if len(w)>4:
             if sum(c.isdigit() for c in w)>3:
                 return w
+    return "unbekannt"

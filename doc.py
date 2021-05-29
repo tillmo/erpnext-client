@@ -3,8 +3,10 @@ from api_wrapper import gui_api_wrapper
 
 class Doc:
     # beware: do not call __init__ until there is a doc in ERPNext
-    def __init__(self,name=None,doc=None):
+    def __init__(self,name=None,doc=None,doctype=None):
         self.erpnext = False
+        if doctype:
+            self.doctype = doctype
         if name:
             self.name = name
             if self.load():

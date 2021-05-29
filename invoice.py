@@ -26,4 +26,15 @@ class Invoice(Doc):
         p = bt.payment(self)
         if p:
             Api.submit_doc('Payment Entry',p['name'])
+    def use_advance_payment(self,py):
+        print("Verwende Anzahlung")
+        advance =\
+            {'reference_type': 'Payment Entry',
+             'reference_name': py.name,
+             'remarks': py.doc['remarks'],
+             'advance_amount': py.doc['paid_amount'],
+             'allocated_amount': py.doc['paid_amount']}
+        self.doc['advances'] = [advance]
+        self.update()
+
 
