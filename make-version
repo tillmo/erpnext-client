@@ -1,0 +1,8 @@
+#!/bin/bash
+echo -n "VERSION='" > version.py
+echo -n $(git describe --tags --long --always --match 'v[0-9]\.[0-9]') >> version.py
+echo "'" >> version.py
+cat version.py 
+git add version.py
+git commit -m "version"
+git push
