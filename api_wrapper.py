@@ -1,3 +1,4 @@
+from version import VERSION 
 import sys, tempfile, os
 import re
 import traceback
@@ -67,7 +68,8 @@ def gui_api_wrapper(f,*args, **kwargs):
     result = api_wrapper(f,*args, **kwargs)
     if result['err_msg'] or result['exception']:
         title = "\nFehler in Kommunikation mit dem ERPNext API\n"+\
-                "Bitte Admin folgenden Text an Admin mailen\n"
+                "Bitte Admin folgenden Text an Admin mailen\n"+\
+                "Client version "+VERSION+"\n"
         err = "{0}\n{1}\n{2}\n{3}".format("Aufruf: "+str(args)+str(kwargs),
                                      result['err_msg'],
                                      result['stderr'],
