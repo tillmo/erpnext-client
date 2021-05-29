@@ -513,7 +513,6 @@ def menus():
     window.bring_to_front()
     initial_loads()
     show_data()
-    xx()
     while True:
         event, values = window.read()
         try:
