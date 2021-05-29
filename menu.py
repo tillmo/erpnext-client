@@ -513,12 +513,13 @@ def menus():
     window.bring_to_front()
     initial_loads()
     show_data()
+    xx()
     while True:
         event, values = window.read()
         try:
             res = event_handler(event,window)
         except Exception as e:
-            res = str(e)+"\n"+traceback.format_exc()
+            res = utils.title()+"\n"+str(e)+"\n"+traceback.format_exc()
         if res=="exit":
             window.close()
             return True
@@ -537,7 +538,8 @@ def main_loop():
             if menus():
                 break
         except Exception as e:
-            print(str(e)+"\n"+traceback.format_exc())
+            print(utils.title()+"\n"+str(e)+"\n"+traceback.format_exc())
+            print("Fataler Fehler - angehalten.")
             while True:
                 pass
         
