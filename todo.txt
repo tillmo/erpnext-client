@@ -1,3 +1,5 @@
+- version numbers
+- if for a purchase invoice with negative total, the second invoice already exists, another invoice must be read in
 - why is bank transaction not found for purchase invoice?
 - sort accounts before displaying?
 - when processing bank transactions, distingiush "cancel" and "exit window"
