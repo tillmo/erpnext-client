@@ -395,6 +395,7 @@ class BankStatement:
             bt = be.bank_transaction()
             bt1 = bt.copy()
             del bt1['doctype']
+            del bt1['unallocated_amount']
             bt1['status'] = ['!=','Cancelled']
             #todo: relax the filter wrt the date (which sometimes is adapted by the bank)
             bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',filters=bt1)
