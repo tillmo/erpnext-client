@@ -1,1 +1,1 @@
-VERSION='v1.0-4-gdbc932a'
+VERSION='v1.0-6-g64b5e30'
