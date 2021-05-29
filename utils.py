@@ -1,6 +1,6 @@
 TITLE = "ERPNext-Client für "
 
-
+from version import VERSION 
 from datetime import datetime, timedelta
 from difflib import SequenceMatcher
 import csv
@@ -99,4 +99,8 @@ def get_file(title):
 
 def title():
     settings = sg.UserSettings()
-    return TITLE+settings['-company-']+'@'+settings['-server-']
+    title = TITLE+settings['-company-']
+    title += '@'+settings['-server-']
+    title += " "+VERSION
+    return title
+
