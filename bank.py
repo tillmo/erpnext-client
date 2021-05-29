@@ -133,25 +133,45 @@ class BankTransaction(Doc):
                 bt.link_to('Journal Entry',j['name'],amount)
                 bt.update()
 
-    def payment(self,inv):
-        allocated = min([abs(self.doc['unallocated_amount']),inv.outstanding])
-        references =  \
-            [{'reference_doctype' : 'Sales Invoice' if inv.is_sales else 'Purchase Invoice',
-              'reference_name' : inv.name,
-              'allocated_amount' : allocated}]
-        ref = inv.reference if inv.reference else ""
+    def payment(self,inv,is_adv=False):
+        if is_adv:
+            party = inv['party']
+            party_type = inv['party_type']
+            is_recv = inv['is_recv']
+            allocated = abs(self.doc['unallocated_amount'])
+            references = []
+            ref = utils.find_ref(self.description)
+        else:
+            is_recv = inv.is_sales
+            party = inv.party
+            party_type = inv.party_type
+            allocated = min([abs(self.doc['unallocated_amount']),
+                             inv.outstanding])
+            references =  \
+                [{'reference_doctype' : 'Sales Invoice' if inv.is_sales else 'Purchase Invoice',
+                  'reference_name' : inv.name,
+                  'allocated_amount' : allocated}]
+            ref = inv.reference if inv.reference else ""
+        if is_recv:
+            paid_from = self.company.receivable_account
+            paid_to = self.baccount.e_account
+            payment_type = 'Receive'
+        else:
+            paid_from = self.baccount.e_account
+            paid_to = self.company.payable_account
+            payment_type = 'Pay'
         entry = {'doctype' : 'Payment Entry',
-                 'title' : inv.party+" "+ref,
-                 'payment_type': 'Receive' if inv.is_sales else 'Pay',
+                 'title' : party+" "+ref,
+                 'payment_type': payment_type,
                  'posting_date': self.date,
-                 'reference_no': inv.reference,
+                 'reference_no': ref,
                  'reference_date': self.date,
-                 'party' : inv.party,
-                 'party_type' : inv.party_type,
+                 'party' : party,
+                 'party_type' : party_type,
                  'company': self.company_name,
                  'finance_book' : self.company.default_finance_book,
-                 'paid_from' : self.company.receivable_account if inv.is_sales else self.baccount.e_account,
-                 'paid_to': self.baccount.e_account if inv.is_sales else self.company.payable_account,
+                 'paid_from' : paid_from,
+                 'paid_to': paid_to,
                  'paid_amount' : allocated,
                  'received_amount' : allocated,
                  'source_exchange_rate': 1.0,
@@ -160,6 +180,7 @@ class BankTransaction(Doc):
                  'references' : references}
         p = gui_api_wrapper(Api.api.insert,entry)
         if p:
+            print("Zahlung {} erstelltt".format(p['name']))
             if sg.UserSettings()['-buchen-']:
                 gui_api_wrapper(Api.submit_doc,"Payment Entry",p['name'])
                 print("Zahlung {} gebucht".format(p['name']))
@@ -209,9 +230,30 @@ class BankTransaction(Doc):
         # let the user choose between all these
         title = "Rechnung, Banktransaktion oder Buchungskonto wählen"
         msg = "Bankbuchung:\n"+self.show()+"\n\n"+title+"\n"
-        choice = easygui.choicebox(msg, title, bt_texts+inv_texts+account_names)
+        options = ["Anzahlung"]+bt_texts+inv_texts+account_names
+        choice = easygui.choicebox(msg, title, options)
         # and process the choice
-        if choice in inv_texts:
+        if choice=="Anzahlung":
+            if self.deposit:
+                party_type = 'Customer'
+                party_descr = 'Kunden'
+                is_recv = True
+            else:
+                party_type = 'Supplier'
+                party_descr = 'Lieferanten'
+                is_recv = False
+            parties = gui_api_wrapper(Api.api.get_list,party_type)
+            party_names = list(map(lambda p: p['name'],parties))
+            party_names.sort(key=str.casefold)
+            title = party_descr+" wählen"
+            msg = title
+            choice = easygui.choicebox(msg, title, party_names)
+            if choice:
+                self.payment({'party_type':party_type,
+                              'party':choice,
+                              'is_recv':is_recv},
+                             True)
+        elif choice in inv_texts:
             inv = invs[inv_texts.index(choice)]
             self.payment(inv)
         elif choice:

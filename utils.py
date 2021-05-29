@@ -104,3 +104,11 @@ def title():
     title += " "+VERSION
     return title
 
+
+def find_ref(line):
+    for w in line.split():
+        if "TAN" in w:
+            return
+        if len(w)>4:
+            if sum(c.isdigit() for c in w)>3:
+                return w
