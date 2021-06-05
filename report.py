@@ -1,4 +1,7 @@
 from api import Api
+import utils
+from datetime import datetime
+from datetime import date
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, PageBreak, Preformatted, Spacer, Paragraph
@@ -37,11 +40,11 @@ def remove_dup(columns,report):
                 return columns[j]
     return None
 
-def format_report(company,report_type):
+def format_report(company,report_type,start_date,end_date):
     report = Api.api.query_report(report_name="Consolidated Financial Statement",
                                   filters={'company' : company,
-                                           'period_start_date' : '2021-01-01',
-                                           'period_end_date' : '2021-06-05',
+                                           'period_start_date' : start_date,
+                                           'period_end_date' : end_date,
                                            'accumulated_in_group_company' : True,
                                            'report' : report_type})
     if report_type == 'Profit and Loss Statement':
@@ -98,12 +101,18 @@ def myLaterPages(canvas, doc):
 def build_pdf(company,filename):
     title = "Abrechnung "+company
     doc = SimpleDocTemplate(filename)
+    ## dates
+    start_date = date(datetime.today().year, 1, 1)
+    end_date = datetime.today()
+    start_date_str = start_date.strftime('%Y-%m-%d')
+    end_date_str = end_date.strftime('%Y-%m-%d')
+    title += "  "+start_date.strftime('%d.%m.%Y')+" - "+end_date.strftime('%d.%m.%Y')
     ## container for the 'Flowable' objects
     elements = []
     elements.append(Spacer(1,0.8*inch))
-    elements.append(format_report(company,'Profit and Loss Statement'))
+    elements.append(format_report(company,'Profit and Loss Statement',start_date_str,end_date_str))
     elements.append(PageBreak())
-    elements.append(format_report(company,'Balance Sheet'))
+    elements.append(format_report(company,'Balance Sheet',start_date_str,end_date_str))
     ## write the document to disk
     doc.build(elements,onFirstPage=myFirstPage(title), onLaterPages=myLaterPages)
 
