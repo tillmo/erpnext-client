@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import utils
 import PySimpleGUI as sg
+import report
 import company
 import bank
 from invoice import Invoice
@@ -472,6 +473,11 @@ def event_handler(event,window):
             comp = company.Company.get_company(settings['-company-'])
             comp.reconciliate(bts[ix])
             show_company_data = True
+    elif event == "Abrechnung":
+        comp = settings['-company-']
+        pdf = comp+".pdf"
+        report.build_pdf(comp,pdf)
+        print("Abrechnug unter {} gespeichert".format(pdf)) 
     if show_company_data:
         print()
         show_data()
@@ -490,6 +496,7 @@ def menus():
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
                 ['&Anzeigen', ['Buchungssätze','Zahlungen','Einkaufsrechnungen','Verkaufsrechnungen','Banktransaktionen']],
                 ['Bankkonten', bank.BankAccount.get_baccount_names()], 
+                ['Berichte', ['Abrechnung', 'Quartalsabrechnung']], 
                 ['Bereich', company.Company.all()], 
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
