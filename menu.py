@@ -16,6 +16,7 @@ import os
 import tempfile
 import easygui
 import numpy as np
+from collections import defaultdict
 
 def initial_loads():
     if sg.UserSettings()['-setup-']:
@@ -365,12 +366,14 @@ def event_handler(event,window):
                 inv_type = 'Sales Invoice'
             invs = comp.get_open_invoices_of_type(inv_type)
             inv_docs = []
-            for inv in invs:
+            bt_dict = defaultdict(list)
+            for i in range(len(invs)):
+                name = invs[i].name
                 inv_doc = gui_api_wrapper(Api.api.get_doc,
                                       inv_type,
-                                      inv.name)
+                                      name)
                 if not 'bill_no' in inv_doc:
-                    inv_doc['bill_no'] = inv.name
+                    inv_doc['bill_no'] = name
                 accounts = list(set(map(lambda i:i['expense_account'],
                                     inv_doc['items'])))
                 inv_doc['account'] = accounts[0]
@@ -383,10 +386,20 @@ def event_handler(event,window):
                        comp.name,total,
                        inv_doc['bill_no'] if 'bill_no' in inv_doc else "")
                 if bt:
+                    inv_doc['similarity'] = \
+                        utils.similar(bt.description.lower(),
+                                      inv_doc['customer'].lower())
+                    bt_dict[bt.name].append((i,inv_doc['similarity']))
                     inv_doc['bt'] = bt
                     inv_doc['btname'] = bt.name
                 inv_doc['disabled'] = not (bt or inv_doc['status'] == 'Draft')
                 inv_docs.append(inv_doc)
+            # handle duplicate bank transactions, use best matching invoice
+            for bt,entries in bt_dict.items():
+                entries.sort(key=lambda e:e[1],reverse=True)
+                for (i,s) in entries[1:]:
+                    del inv_docs[i]['bt']
+                    del inv_docs[i]['btname']
             ix = show_table(inv_docs,keys+['btname'],headings+['Bank'],event,
                             enable_events=True)
             if ix is False:
