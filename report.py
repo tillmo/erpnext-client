@@ -78,12 +78,33 @@ def format_report(company,report_type,start_date,end_date):
             ('BOX', (0,0), (-1,-1), 0.25, colors.black),
             ('ALIGN',(1,0),(-1,-1),'RIGHT'),
             ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold')]
+    leaves = []
+    tentative_leaves = []
+    old_indent = 0
     for i in range(len(report_data)):
         r = report_data[i]
         if not 'indent' in r:
-            grid.append(('FONTNAME', (0,i+1), (-1,i+1), 'Helvetica-Bold'))
+            cur_indent = 0
+        else:
+            cur_indent = round(r['indent'])
+        if cur_indent > old_indent:
+            tentative_leaves = [i]
+        elif cur_indent == old_indent:    
+            tentative_leaves.append(i)
+        else:    
+            leaves += tentative_leaves.copy()
+            tentative_leaves = []
+        old_indent = cur_indent    
+    for i in range(len(report_data)):
+        if i in leaves:
+            continue
+        r = report_data[i]
+        if not 'indent' in r:
+            grid.append(('FONTNAME',(0,i+1),(-1,i+1),'Helvetica-Bold'))
         elif r['indent'] == 1:
-            grid.append(('FONTNAME', (0,i+1), (-1,i+1), 'Helvetica-Oblique'))
+            grid.append(('FONTNAME',(0,i+1),(-1,i+1),'Helvetica-BoldOblique'))
+        elif r['indent'] >= 2:
+            grid.append(('FONTNAME',(0,i+1),(-1,i+1),'Helvetica-Oblique'))
     t=Table([header]+data)
     t.setStyle(TableStyle(grid))
     return t
@@ -117,7 +138,6 @@ def build_pdf(company,filename=""):
     if not filename:
         filename = "Abrechnung_"+company.replace(" ","_")+\
                    "_"+start_date_str+".pdf"
-    print(filename)    
     doc = SimpleDocTemplate(filename)
     ## container for the 'Flowable' objects
     elements = []
