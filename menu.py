@@ -475,8 +475,7 @@ def event_handler(event,window):
             show_company_data = True
     elif event == "Abrechnung":
         comp = settings['-company-']
-        pdf = comp+".pdf"
-        report.build_pdf(comp,pdf)
+        pdf = report.build_pdf(comp)
         print("Abrechnug unter {} gespeichert".format(pdf)) 
     if show_company_data:
         print()

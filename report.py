@@ -105,9 +105,8 @@ def myLaterPages(canvas, doc):
     canvas.drawString(PAGE_WIDTH/2.0, 0.75 * inch, " %d " % doc.page)
     canvas.restoreState()
 
-def build_pdf(company,filename):
+def build_pdf(company,filename=""):
     title = "Abrechnung "+company
-    doc = SimpleDocTemplate(filename)
     ## dates
     start_date = date(datetime.today().year, 1, 1)
     end_date = datetime.today()
@@ -115,6 +114,11 @@ def build_pdf(company,filename):
     end_date_str = end_date.strftime('%Y-%m-%d')
     title += "  "+start_date.strftime('%d.%m.%Y')+\
              " - "+end_date.strftime('%d.%m.%Y')
+    if not filename:
+        filename = "Abrechnung_"+company.replace(" ","_")+\
+                   "_"+start_date_str+".pdf"
+    print(filename)    
+    doc = SimpleDocTemplate(filename)
     ## container for the 'Flowable' objects
     elements = []
     elements.append(Spacer(1,0.8*inch))
@@ -127,5 +131,5 @@ def build_pdf(company,filename):
     doc.build(elements,
               onFirstPage=myFirstPage(title),
               onLaterPages=myLaterPages)
-
+    return filename
 
