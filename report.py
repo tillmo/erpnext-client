@@ -19,7 +19,8 @@ def format_row(r,col_fields):
         account = "Summe Vermögenswerte (Aktiva)"
     elif account == "'Total Liability (Credit)'":
         account = "Teilsumme Vermögensquellen (Passiva)"
-    elif account in ["'Provisional Profit / Loss (Credit)'","'Profit for the year'"]:
+    elif account in ["'Provisional Profit / Loss (Credit)'",
+                     "'Profit for the year'"]:
         account = "Überschuss/Defizit"
     elif account == "'Total (Credit)'":
         account = "Summe Vermögensquellen (Passiva)"
@@ -36,25 +37,29 @@ def remove_dup(columns,report):
         for j in range(i+1,len(columns)):
             coli = columns[i]['fieldname'] 
             colj = columns[j]['fieldname'] 
-            if all([r[coli]==r[colj] for r in report['result'] if ('account_name' in r)]):
+            if all([r[coli]==r[colj] for r in report['result']\
+                    if ('account_name' in r)]):
                 return columns[j]
     return None
 
 def format_report(company,report_type,start_date,end_date):
-    report = Api.api.query_report(report_name="Consolidated Financial Statement",
-                                  filters={'company' : company,
-                                           'period_start_date' : start_date,
-                                           'period_end_date' : end_date,
-                                           'accumulated_in_group_company' : True,
-                                           'report' : report_type})
+    report = Api.api.query_report(\
+                report_name="Consolidated Financial Statement",
+                filters={'company' : company,
+                         'period_start_date' : start_date,
+                         'period_end_date' : end_date,
+                         'accumulated_in_group_company' : True,
+                         'report' : report_type})
     if report_type == 'Profit and Loss Statement':
         report_msg = 'Einnahmen/Ausgaben'
     else:
         report_msg = 'Bilanz'
-    columns = [col for col in report['columns'] if not col['fieldname'] in ['account','currency']]
+    columns = [col for col in report['columns']\
+               if not col['fieldname'] in ['account','currency']]
     # remove all zero columns
     for col in columns:
-        if not any([r[col['fieldname']] for r in report['result'] if col['fieldname'] in r]):
+        if not any([r[col['fieldname']] for r in report['result']\
+                    if col['fieldname'] in r]):
             columns.remove(col)
     # remove all duplicate columns
     col = remove_dup(columns,report)
@@ -65,7 +70,9 @@ def format_report(company,report_type,start_date,end_date):
     col_fields = [col['fieldname'] for col in columns]
     col_labels = [col['label'][0:10] for col in columns]
     header = [report_msg] + col_labels
-    report_data = [r for r in report['result'] if ('account_name' in r) and sum(round(r[c]) for c in col_fields)]
+    report_data = [r for r in report['result']\
+                   if ('account_name' in r) and\
+                      sum(round(r[c]) for c in col_fields)]
     data = [format_row(r,col_fields) for r in report_data]            
     grid = [('INNERGRID', (0,0), (-1,-1), 0.25, colors.black),
             ('BOX', (0,0), (-1,-1), 0.25, colors.black),
@@ -106,14 +113,19 @@ def build_pdf(company,filename):
     end_date = datetime.today()
     start_date_str = start_date.strftime('%Y-%m-%d')
     end_date_str = end_date.strftime('%Y-%m-%d')
-    title += "  "+start_date.strftime('%d.%m.%Y')+" - "+end_date.strftime('%d.%m.%Y')
+    title += "  "+start_date.strftime('%d.%m.%Y')+\
+             " - "+end_date.strftime('%d.%m.%Y')
     ## container for the 'Flowable' objects
     elements = []
     elements.append(Spacer(1,0.8*inch))
-    elements.append(format_report(company,'Profit and Loss Statement',start_date_str,end_date_str))
+    elements.append(format_report(company,'Profit and Loss Statement',
+                                  start_date_str,end_date_str))
     elements.append(PageBreak())
-    elements.append(format_report(company,'Balance Sheet',start_date_str,end_date_str))
+    elements.append(format_report(company,'Balance Sheet',
+                                  start_date_str,end_date_str))
     ## write the document to disk
-    doc.build(elements,onFirstPage=myFirstPage(title), onLaterPages=myLaterPages)
+    doc.build(elements,
+              onFirstPage=myFirstPage(title),
+              onLaterPages=myLaterPages)
 
 
