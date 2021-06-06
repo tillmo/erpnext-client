@@ -386,12 +386,18 @@ def event_handler(event,window):
                        comp.name,total,
                        inv_doc['bill_no'] if 'bill_no' in inv_doc else "")
                 if bt:
-                    inv_doc['similarity'] = \
-                        utils.similar(bt.description.lower(),
-                                      inv_doc['customer'].lower())
-                    bt_dict[bt.name].append((i,inv_doc['similarity']))
-                    inv_doc['bt'] = bt
-                    inv_doc['btname'] = bt.name
+                    ref = None
+                    if 'customer' in inv_doc:
+                        ref = inv_doc['customer']
+                    if 'supplier' in inv_doc:
+                        ref = inv_doc['supplier']
+                    if ref:
+                        inv_doc['similarity'] = \
+                            utils.similar(bt.description.lower(),
+                                          ref.lower())
+                        bt_dict[bt.name].append((i,inv_doc['similarity']))
+                        inv_doc['bt'] = bt
+                        inv_doc['btname'] = bt.name
                 inv_doc['disabled'] = not (bt or inv_doc['status'] == 'Draft')
                 inv_docs.append(inv_doc)
             # handle duplicate bank transactions, use best matching invoice
