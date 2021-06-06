@@ -1,1 +1,1 @@
-VERSION='v1.0-23-g979115a'
+VERSION='v1.0-25-gefb5026'
