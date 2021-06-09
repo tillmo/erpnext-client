@@ -375,7 +375,7 @@ class BankStatement:
         baccount_no = None
         r = 0 if is_sparda else 1
         for row in utils.get_csv('iso-8859-4',infile,replacenl=is_sparda):
-            if not row:
+            if not row or len(row)<=1:
                 continue
             if row[0]=='BLZ:':
                 blz = int(row[1])
@@ -384,7 +384,7 @@ class BankStatement:
                 baccount_no = int(row[1])
                 continue
             date = utils.convert_date4(row[1])
-            if not date:
+            if not date or len(row)<=12+r:
                 continue
             if row[9+r]=='Anfangssaldo':
                 self.sbal = utils.read_float(row[11+r],row[12+r])
