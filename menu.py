@@ -492,9 +492,16 @@ def event_handler(event,window):
             comp = company.Company.get_company(settings['-company-'])
             comp.reconciliate(bts[ix])
             show_company_data = True
-    elif event == "Abrechnung":
+    elif event in ['Abrechnung', 'Quartalsabrechnung']:
         comp = settings['-company-']
-        pdf = report.build_pdf(comp)
+        if event=='Abrechnung':
+            consolidated = True
+            periodicity='Yearly'
+        else:    
+            consolidated = False
+            periodicity='Quarterly'
+        pdf = report.build_pdf(comp,consolidated=consolidated,
+                               periodicity=periodicity)
         print("Abrechnug unter {} gespeichert".format(pdf)) 
     if show_company_data:
         print()
