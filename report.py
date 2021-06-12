@@ -1,3 +1,4 @@
+import company
 from api import Api
 import utils
 from datetime import datetime
@@ -42,12 +43,15 @@ def remove_dup(columns,report):
                 return columns[j]
     return None
 
-def format_report(company,report_type,start_date,end_date):
+def format_report(company_name,report_type,start_date,end_date):
+    comp = company.Company.get_company(company_name)
     report = Api.api.query_report(\
                 report_name="Consolidated Financial Statement",
-                filters={'company' : company,
+                filters={'company' : company_name,
                          'period_start_date' : start_date,
                          'period_end_date' : end_date,
+                         #'include_default_book_entries' : True,
+                         'finance_book' : comp.default_finance_book,
                          'accumulated_in_group_company' : True,
                          'report' : report_type})
     if report_type == 'Profit and Loss Statement':
@@ -126,8 +130,8 @@ def myLaterPages(canvas, doc):
     canvas.drawString(PAGE_WIDTH/2.0, 0.75 * inch, " %d " % doc.page)
     canvas.restoreState()
 
-def build_pdf(company,filename=""):
-    title = "Abrechnung "+company
+def build_pdf(company_name,filename=""):
+    title = "Abrechnung "+company_name
     ## dates
     start_date = date(datetime.today().year, 1, 1)
     end_date = datetime.today()
@@ -136,16 +140,17 @@ def build_pdf(company,filename=""):
     title += "  "+start_date.strftime('%d.%m.%Y')+\
              " - "+end_date.strftime('%d.%m.%Y')
     if not filename:
-        filename = "Abrechnung_"+company.replace(" ","_")+\
+        filename = "Abrechnung_"+company_name.replace(" ","_")+\
                    "_"+start_date_str+".pdf"
     doc = SimpleDocTemplate(filename)
     ## container for the 'Flowable' objects
     elements = []
     elements.append(Spacer(1,0.8*inch))
-    elements.append(format_report(company,'Profit and Loss Statement',
+    elements.append(format_report(company_name,'Profit and Loss Statement',
                                   start_date_str,end_date_str))
-    elements.append(PageBreak())
-    elements.append(format_report(company,'Balance Sheet',
+    #elements.append(PageBreak())
+    elements.append(Spacer(1,0.8*inch))
+    elements.append(format_report(company_name,'Balance Sheet',
                                   start_date_str,end_date_str))
     ## write the document to disk
     doc.build(elements,
