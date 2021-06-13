@@ -106,11 +106,12 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
         if not any([r[col['fieldname']] for r in report['result']\
                     if col['fieldname'] in r]):
             columns.remove(col)
-    # remove all duplicate columns
-    col = remove_dup(columns,report)
-    while col:
-        columns.remove(col)
+    # if consolidated, remove all duplicate columns (=companies)
+    if consolidated:
         col = remove_dup(columns,report)
+        while col:
+            columns.remove(col)
+            col = remove_dup(columns,report)
     # build data        
     col_fields = [col['fieldname'] for col in columns]
     col_labels = [col['label'][0:10] for col in columns]
