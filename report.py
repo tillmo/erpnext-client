@@ -96,7 +96,8 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
     else:                
         report_name=report_type
         filters['periodicity'] = periodicity
-    report = gui_api_wrapper(Api.api.query_report,report_name=report_name,filters=filters)
+    report = gui_api_wrapper(Api.api.query_report,report_name=report_name,
+                             filters=filters)
     if report_type == 'Profit and Loss Statement':
         subtitle = 'Einnahmen/Ausgaben'
     else:
@@ -147,6 +148,71 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
             report_data[i]['bold'] = 2
         elif r['indent'] >= 2:
             report_data[i]['bold'] = 1
-    return table.Table(report_data,['account_name']+col_fields,header,title,filename=filename)
+    return table.Table(report_data,['account_name']+col_fields,header,title,
+                       filename=filename,enable_events=True)
 
+def format_GL(r):
+    if 'remarks' in r:
+        if r['remarks'] in ['Keine Anmerkungen','No Remarks']:
+            r['remarks'] = ''
+    if r['account'] == "'Opening'":
+        r['account'] = 'Eröffnung'
+        r['bold'] = 3
+    elif r['account'] == "'Total'":
+        r['account'] = 'Total'
+        r['bold'] = 3
+    elif r['account'] == "'Closing (Opening + Total)'":
+        r['account'] = 'Abschluss (Eröffnung + Total)'
+        r['bold'] = 3
+    return r
 
+def is_relevat_GL(r):
+    if not ('debit' in r and 'credit' in r and 'balance' in r):
+        return False
+    #if not (r['debit'] or r['credit'] or r['balance']):
+    #    return False
+    return True
+
+def keep_first(data,accounts):
+    data1 = []
+    found = False
+    #print(r['account'])
+    for r in data:
+        if r['account'] in accounts:
+            #print("found",found)
+            if found:
+                continue
+            else:
+                found = True
+        data1.append(r)
+    return data1  
+
+def general_ledger(company_name,account):
+    ## dates
+    start_date = date(datetime.today().year, 1, 1)
+    end_date = datetime.today()
+    start_date_str = start_date.strftime('%Y-%m-%d')
+    end_date_str = end_date.strftime('%Y-%m-%d')
+    filters={'company' : company_name,
+             'account' : account,
+             'from_date' : start_date_str,
+             'to_date' : end_date_str}
+    try:
+        report = Api.api.query_report(report_name='General ledger',
+                                      filters=filters)
+    except Exception:
+        return None
+    columns = ['posting_date','account','debit','credit','balance','against',
+               'remarks','voucher_no']
+    headings = ['Datum','Konto','Soll','Haben','Stand','Gegenkonto',
+                'Bemerkungen','Beleg']
+    report_data = [r for r in report['result'] if is_relevat_GL(r)]
+    report_data = keep_first(report_data,["'Opening'"])
+    report_data.reverse()
+    report_data = keep_first(report_data,["'Total'"])
+    report_data = keep_first(report_data,["'Closing (Opening + Total)'"])
+    report_data.reverse()
+    report_data = [format_GL(r) for r in report_data]
+    return table.Table(report_data,columns,headings,'Hauptbuch für '+account)
+
+    

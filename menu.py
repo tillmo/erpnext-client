@@ -463,7 +463,14 @@ def event_handler(event,window):
             child = report.build_report(comp,consolidated=False,balance=True)
             tbl.child = child
             tbl.child_title = " mit Bilanz"
-        tbl.display()
+        while True:
+            ix = tbl.display()
+            if ix is False:
+                break
+            account = tbl.entries[ix]['account']
+            tbl1 = report.general_ledger(comp,account)
+            if tbl1:
+                tbl1.display()
     if show_company_data:
         print()
         show_data()
