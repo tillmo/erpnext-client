@@ -260,7 +260,7 @@ def event_handler(event,window):
                 j1['caccount'] = j1['accounts'][1]['account']
                 jes1.append(j1)
             title = "Buchungssätze"
-            tbl = table.Table(jes1,keys,headings,title,enable_events=True)
+            tbl = table.Table(jes1,keys,headings,title,enable_events=True,display_row_numbers=True)
             ix = tbl.display()
             if ix is False:
                 break
@@ -283,7 +283,7 @@ def event_handler(event,window):
             comp = company.Company.get_company(settings['-company-'])
             pes = comp.open_payment_entries()
             title = "Zahlungen"
-            tbl = table.Table(pes,keys,headings,title,enable_events=True)
+            tbl = table.Table(pes,keys,headings,title,enable_events=True,display_row_numbers=True)
             ix = tbl.display()
             if ix is False:
                 break
@@ -351,7 +351,7 @@ def event_handler(event,window):
                     del inv_docs[i]['bt']
                     del inv_docs[i]['btname']
             tbl = table.Table(inv_docs,keys+['btname'],headings+['Bank'],event,
-                            enable_events=True)
+                            enable_events=True,display_row_numbers=True)
             ix = tbl.display()
             if ix is False:
                 break
@@ -405,7 +405,8 @@ def event_handler(event,window):
             for bt in bts:
                 bt['amount'] = bt['unallocated_amount']*np.sign(bt['deposit']-bt['withdrawal'])
             title = "Banktransaktionen"
-            tbl = table.Table(bts,keys,headings,title,enable_events=True,max_col_width=120)
+            tbl = table.Table(bts,keys,headings,title,enable_events=True,max_col_width=120,
+                              display_row_numbers=True)
             ix = tbl.display()
             if ix is False:
                 break
@@ -432,7 +433,8 @@ def event_handler(event,window):
                     bt['open'] = '*'
             bts.reverse()    
             title = "Banktransaktionen für "+event
-            tbl = table.Table(bts,keys,headings,title,enable_events=True,max_col_width=120)
+            tbl = table.Table(bts,keys,headings,title,enable_events=True,max_col_width=120,
+                              display_row_numbers=True)
             ix = tbl.display()
             if ix is False:
                 break
@@ -463,7 +465,6 @@ def event_handler(event,window):
 def menus():
     settings = sg.UserSettings()
 
-    sg.theme('LightGreen')
     sg.set_options(element_padding=(0, 0))
 
     # ------ Menu Definition ------ #
@@ -512,6 +513,25 @@ def menus():
 
 #  loop needed for re-display of window in case of changed server settings
 def main_loop():
+    # Use only colors in the format of #RRGGBB
+    MyAmber = {"BACKGROUND": "#ebb41c",
+               "TEXT": "#000000",
+               "INPUT": "#FDFFF7",
+               "TEXT_INPUT": "#000000",
+               "SCROLL": "#FDFFF7",
+               "BUTTON": ("#000000",
+                          "#fdcb52"),
+               "PROGRESS": ('#000000', '#000000'),
+               "BORDER": 1,
+               "SLIDER_DEPTH": 0,
+               "PROGRESS_DEPTH": 0,}
+
+    # Add your dictionary to the PySimpleGUI themes
+    sg.theme_add_new('MyAmber', MyAmber)
+
+    # Switch your theme to use the newly added one
+    sg.theme('My Amber')
+
     if not sg.UserSettings()['-setup-']: 
         company.Company.init_companies()
     while True:

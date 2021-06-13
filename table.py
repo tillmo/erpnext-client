@@ -11,7 +11,8 @@ def csv_export(filename,data,headings):
     print(filename," exportiert")    
 
 class Table:
-    def __init__(self,entries,keys,headings,title,enable_events=False,max_col_width=60):
+    def __init__(self,entries,keys,headings,title,enable_events=False,max_col_width=60,
+                 display_row_numbers=False):
         # table data, as list of dicts
         self.entries = entries
         # column headings for display
@@ -21,6 +22,7 @@ class Table:
         self.title = title
         self.enable_events = enable_events
         self.max_col_width = max_col_width
+        self.display_row_numbers = display_row_numbers
     def display(self):
         settings = sg.UserSettings()
         data = [[utils.to_str(utils.get(e,k)) for k in self.keys] for e in self.entries]
@@ -28,11 +30,15 @@ class Table:
                              default_extension = 'csv',enable_events=True)],
                   [sg.Table(values=data, headings=self.headings, max_col_width=self.max_col_width,
                    auto_size_columns=len(data) > 0,
-                   display_row_numbers=True,
+                   display_row_numbers=self.display_row_numbers,
                    justification='left',
                    num_rows=30,
                    key='-TABLE-',
                    enable_events=self.enable_events,
+                   background_color = "lightgrey",
+                   alternating_row_color = "white",
+                   #header_background_color = None,
+                   row_colors = None,
                    row_height=25)]]
         window1 = sg.Window(self.title, layout, finalize=True)
         #window1.Widget.column('#3', anchor='e')
