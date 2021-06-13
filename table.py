@@ -2,13 +2,14 @@ import PySimpleGUI as sg
 import csv
 import report
 import utils
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+import reportlab.platypus as pl
+from reportlab.rl_config import defaultPageSize
+from reportlab.lib.units import inch
+PAGE_HEIGHT=defaultPageSize[1]
+PAGE_WIDTH=defaultPageSize[0]
 
-def csv_export(filename,data,headings):
-    with open(filename, mode='w') as f:
-        writer = csv.writer(f, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(headings)
-        writer.writerows(data)
-    print(filename," exportiert")    
 
 def myFirstPage(title):
     def myPage(canvas, doc):
@@ -27,47 +28,9 @@ def myLaterPages(canvas, doc):
     canvas.drawString(PAGE_WIDTH/2.0, 0.75 * inch, " %d " % doc.page)
     canvas.restoreState()
     
-def pdf_export():
-    doc = SimpleDocTemplate(filename)
-    ## container for the 'Flowable' objects
-    elements = []
-    elements.append(Spacer(1,0.8*inch))
-    grid = [('INNERGRID', (0,0), (-1,-1), 0.25, colors.black),
-            ('BOX', (0,0), (-1,-1), 0.25, colors.black),
-            ('ALIGN',(1,0),(-1,-1),'RIGHT'),
-            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold')]
-    for i in range(len(report_data)):
-        if i in leaves:
-            continue
-        r = report_data[i]
-        if not 'indent' in r:
-            grid.append(('FONTNAME',(0,i+1),(-1,i+1),'Helvetica-Bold'))
-        elif r['indent'] == 1:
-            grid.append(('FONTNAME',(0,i+1),(-1,i+1),'Helvetica-BoldOblique'))
-        elif r['indent'] >= 2:
-            grid.append(('FONTNAME',(0,i+1),(-1,i+1),'Helvetica-Oblique'))
-    t=Table([header]+data)
-    t.setStyle(TableStyle(grid))
-    elements.append(format_report(company_name,'Profit and Loss Statement',
-                                  start_date_str,end_date_str,
-                                  periodicity=periodicity,
-                                  consolidated=consolidated))
-    #elements.append(PageBreak())
-    elements.append(Spacer(1,0.8*inch))
-    elements.append(format_report(company_name,'Balance Sheet',
-                                  start_date_str,end_date_str,
-                                  periodicity='Yearly',
-                                  consolidated=consolidated))
-    ## write the document to disk
-    doc.build(elements,
-              onFirstPage=myFirstPage(title),
-              onLaterPages=myLaterPages)
-    print("Abrechnug unter {} gespeichert".format(pdf)) 
-    return filename
-
 class Table:
     def __init__(self,entries,keys,headings,title,enable_events=False,max_col_width=60,
-                 display_row_numbers=False):
+                 display_row_numbers=False,filename=None):
         # table data, as list of dicts
         self.entries = entries
         # column headings for display
@@ -78,17 +41,58 @@ class Table:
         self.enable_events = enable_events
         self.max_col_width = max_col_width
         self.display_row_numbers = display_row_numbers
-    def display(self):
-        settings = sg.UserSettings()
-        data = [[utils.to_str(utils.get(e,k)) for k in self.keys] for e in self.entries]
+        self.filename = filename
+        self.data = [[utils.to_str(utils.get(e,k)) for k in self.keys] for e in self.entries]
+
+    def csv_export(self):
+        with open(self.filename, mode='w') as f:
+            writer = csv.writer(f, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+            writer.writerow(self.headings)
+            writer.writerows(self.data)
+        print(self.filename," exportiert")    
+
+    def pdf_export(self):
+        # layout
+        grid = [('INNERGRID', (0,0), (-1,-1), 0.25, colors.black),
+                ('BOX', (0,0), (-1,-1), 0.25, colors.black),
+                ('ALIGN',(1,0),(-1,-1),'RIGHT'),
+                ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold')]
+        # typeset some rows in bold
+        for i in range(len(self.entries)):
+            e = self.entries[i]
+            if not 'bold' in e:
+                continue
+            if not 'indent' in e:
+                grid.append(('FONTNAME',(0,i+1),(-1,i+1),'Helvetica-Bold'))
+            elif e['indent'] == 1:
+                grid.append(('FONTNAME',(0,i+1),(-1,i+1),'Helvetica-BoldOblique'))
+            elif e['indent'] >= 2:
+                grid.append(('FONTNAME',(0,i+1),(-1,i+1),'Helvetica-Oblique'))
+        # build list of 'Flowable' objects
+        elements = []
+        elements.append(pl.Spacer(1,0.8*inch))
+        t=pl.Table([self.headings]+self.data)
+        t.setStyle(pl.TableStyle(grid))
+        elements.append(t)
+        ## render document and write it to disk
+        doc = pl.SimpleDocTemplate(self.filename)
+        doc.build(elements,
+                  onFirstPage=myFirstPage(self.title),
+                  onLaterPages=myLaterPages)
+        print(self.filename," exportiert")    
+
+    def window(self):
         row_colors = []
         for i in range(len(self.entries)):
             if 'bold' in self.entries[i]:
                 row_colors.append((i,"#f5eace"))
-        layout = [[sg.SaveAs(button_text = 'CSV-Export',
-                             default_extension = 'csv',enable_events=True)],
-                  [sg.Table(values=data, headings=self.headings, max_col_width=self.max_col_width,
-                   auto_size_columns=len(data) > 0,
+        layout = [[sg.SaveAs(button_text = 'CSV-Export', 
+                             default_extension = 'csv',enable_events=True),
+                   sg.SaveAs(button_text = 'PDF-Export', 
+                             default_extension = 'pdf',enable_events=True)],
+                  [sg.Table(values=self.data, headings=self.headings,
+                   max_col_width=self.max_col_width,
+                   auto_size_columns=len(self.data) > 0,
                    display_row_numbers=self.display_row_numbers,
                    justification='left',
                    num_rows=30,
@@ -99,25 +103,34 @@ class Table:
                    #header_background_color = None,
                    row_colors = row_colors,
                    row_height=25)]]
-        window1 = sg.Window(self.title, layout, finalize=True)
-        #window1.Widget.column('#3', anchor='e')
-        window1.bring_to_front()
+        return sg.Window(self.title, layout, finalize=True)
+
+    def display(self):
+        window = self.window()
+        window.bring_to_front()
         while True:
-            (event,values) = window1.read()
+            (event,values) = window.read()
             #print(event,values)
-            if event == 'CSV-Export':
+            if event == 'PDF-Export':   # strange, but PDF and CSV are swappeed here!
                 if values['CSV-Export']:
-                    csv_export(values['CSV-Export'],data,self.headings)    
+                    self.filename = values['CSV-Export']
+                    self.csv_export()
+                continue
+            if event == 'CSV-Export':
+                if values['PDF-Export']:
+                    self.filename = values['PDF-Export']
+                if self.filename:    
+                    self.pdf_export()
                 continue
             elif event == '-TABLE-':
                 ix = values['-TABLE-'][0]
                 if 'disabled' in self.entries[ix] and self.entries[ix]['disabled']:
                     continue
                 else:
-                    window1.close()
+                    window.close()
                     return ix
             break
-        window1.close()
+        window.close()
         return False
 
     

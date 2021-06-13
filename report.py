@@ -5,13 +5,6 @@ import table
 import utils
 from datetime import datetime
 from datetime import date
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, PageBreak, Preformatted, Spacer, Paragraph
-from reportlab.rl_config import defaultPageSize
-from reportlab.lib.units import inch
-PAGE_HEIGHT=defaultPageSize[1]
-PAGE_WIDTH=defaultPageSize[0]
 
 def format_float(n):
     if type(n)==str:
@@ -103,9 +96,9 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
         filters['periodicity'] = periodicity
     report = gui_api_wrapper(Api.api.query_report,report_name=report_name,filters=filters)
     if report_type == 'Profit and Loss Statement':
-        title = 'Einnahmen/Ausgaben'
+        subtitle = 'Einnahmen/Ausgaben'
     else:
-        title = 'Bilanz'
+        subtitle = 'Bilanz'
     columns = [col for col in report['columns']\
                if not col['fieldname'] in ['account','currency']]
     # remove all zero columns
@@ -121,7 +114,7 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
     # build data        
     col_fields = [col['fieldname'] for col in columns]
     col_labels = [col['label'][0:10] for col in columns]
-    header = [title] + col_labels
+    header = [subtitle] + col_labels
     report_data = [format_account(r) for r in report['result']\
                    if ('account_name' in r) and\
                       is_relevant(r,col_fields)]
@@ -151,6 +144,6 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
             report_data[i]['bold'] = 2
         elif r['indent'] >= 2:
             report_data[i]['bold'] = 1
-    return table.Table(report_data,['account_name']+col_fields,header,title)
+    return table.Table(report_data,['account_name']+col_fields,header,title,filename=filename)
 
 

@@ -455,7 +455,7 @@ def event_handler(event,window):
         else:    
             consolidated = False
             periodicity = None
-        balance =  event=='Bilanz'   
+        balance = event=='Bilanz'   
         tbl = report.build_report(comp,consolidated=consolidated,balance=balance,
                                   periodicity=periodicity)
         tbl.display()
