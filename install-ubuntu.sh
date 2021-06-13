@@ -42,7 +42,4 @@ echo "Icon=$DIR/erpnext.png" >>$DESKTOP
 # Python packages
 cd $DIR
 pip3 install -r requirements.txt
-
-
-
-
+pip3 install -r requirements-linux.txt
