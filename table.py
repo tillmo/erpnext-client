@@ -126,7 +126,7 @@ class Table:
         window.bring_to_front()
         while True:
             (event,values) = window.read()
-            print(event,values)
+            #print(event,values)
             if event == 'CSV':
                 if values['CSV']:
                     self.filename = values['CSV']
