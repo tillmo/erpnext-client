@@ -156,17 +156,23 @@ def myLaterPages(canvas, doc):
 
 def build_pdf(company_name,filename="",consolidated=False,
               periodicity='Yearly'):
-    title = "Abrechnung "+company_name
+    if periodicity=='Monthly':
+        title = "Monatsabrechnung"
+    elif periodicity=='Quarterly':
+        title = "Quartalsabrechnung"
+    else:
+        title = "Abrechnung"
+    title += " "+company_name    
     ## dates
     start_date = date(datetime.today().year, 1, 1)
     end_date = datetime.today()
     start_date_str = start_date.strftime('%Y-%m-%d')
     end_date_str = end_date.strftime('%Y-%m-%d')
+    if not filename:
+        filename = title.replace(" ","_")+\
+                   "_"+start_date_str+".pdf"
     title += "  "+start_date.strftime('%d.%m.%Y')+\
              " - "+end_date.strftime('%d.%m.%Y')
-    if not filename:
-        filename = "Abrechnung_"+company_name.replace(" ","_")+\
-                   "_"+start_date_str+".pdf"
     doc = SimpleDocTemplate(filename)
     ## container for the 'Flowable' objects
     elements = []

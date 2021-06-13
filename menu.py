@@ -439,14 +439,17 @@ def event_handler(event,window):
             comp = company.Company.get_company(settings['-company-'])
             comp.reconciliate(bts[ix])
             show_company_data = True
-    elif event in ['Abrechnung', 'Quartalsabrechnung']:
+    elif event in ['Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung']:
         comp = settings['-company-']
         if event=='Abrechnung':
             consolidated = True
             periodicity='Yearly'
-        else:    
+        elif event=='Quartalsabrechnung':
             consolidated = False
             periodicity='Quarterly'
+        else:    
+            consolidated = False
+            periodicity='Monthly'
         pdf = report.build_pdf(comp,consolidated=consolidated,
                                periodicity=periodicity)
         print("Abrechnug unter {} gespeichert".format(pdf)) 
@@ -468,7 +471,7 @@ def menus():
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
                 ['&Anzeigen', ['Buchungssätze','Zahlungen','Einkaufsrechnungen','Verkaufsrechnungen','Banktransaktionen']],
                 ['Bankkonten', bank.BankAccount.get_baccount_names()], 
-                ['Berichte', ['Abrechnung', 'Quartalsabrechnung']], 
+                ['Berichte', ['Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung']], 
                 ['Bereich', company.Company.all()], 
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
