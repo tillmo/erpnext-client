@@ -1,5 +1,6 @@
 import company
 from api import Api
+import table
 import utils
 from datetime import datetime
 from datetime import date
@@ -64,26 +65,19 @@ def format_report(company_name,report_type,start_date,end_date,
                   periodicity='Yearly',
                   consolidated=False):
     comp = company.Company.get_company(company_name)
+    filters={'company' : company_name,
+             'period_start_date' : start_date,
+             'period_end_date' : end_date,
+             #'include_default_book_entries' : True,
+             'finance_book' : comp.default_finance_book,
+             'accumulated_in_group_company' : True,
+             'report' : report_type}
     if consolidated:
-        report = Api.api.query_report(\
-                    report_name="Consolidated Financial Statement",
-                    filters={'company' : company_name,
-                             'period_start_date' : start_date,
-                             'period_end_date' : end_date,
-                             #'include_default_book_entries' : True,
-                             'finance_book' : comp.default_finance_book,
-                             'accumulated_in_group_company' : True,
-                             'report' : report_type})
-    else:    
-        report = Api.api.query_report(\
-                    report_name=report_type,
-                    filters={'company' : company_name,
-                             'period_start_date' : start_date,
-                             'period_end_date' : end_date,
-                             #'include_default_book_entries' : True,
-                             'finance_book' : comp.default_finance_book,
-                             'periodicity' : periodicity,
-                             'accumulated_in_group_company' : True})
+        report_name="Consolidated Financial Statement"
+    else:                
+        report_name=report_type
+        filters['periodicity'] = periodicity
+    report = Api.api.query_report(report_name=report_name,filters=filters)
     if report_type == 'Profit and Loss Statement':
         report_msg = 'Einnahmen/Ausgaben'
     else:
