@@ -7,6 +7,7 @@ import csv
 import codecs
 import sys
 import time
+import numpy as np
 
 def running_linux():
     return sys.platform.startswith('linux')
@@ -113,3 +114,22 @@ def find_ref(line):
             if sum(c.isdigit() for c in w)>3:
                 return w
     return "unbekannt"
+
+def to_str(x):
+    if type(x) in [float,np.float32,np.float64]:
+        return "{: >9.2f}".format(x).replace(".",",")
+    d = show_date4(x)
+    if d:
+        return d
+    else:
+        return x
+
+def get(e,k):
+    if k in e:
+        return e[k]
+    else:
+        return ""
+
+def format_entry(doc,keys,headings):
+    return "\n".join([h+": "+to_str(get(doc,k)) for (k,h) in zip(keys,headings)])
+    

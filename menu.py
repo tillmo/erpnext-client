@@ -8,9 +8,9 @@ from invoice import Invoice
 import purchase_invoice
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper, api_wrapper_test, api_wrapper
+import table
 from version import VERSION 
 import traceback
-import csv
 import tkinter
 import os
 import tempfile
@@ -95,65 +95,7 @@ def show_data():
             if num_sis:
                 print("{} offene Verkaufsrechnungen; {}/desk#List/Sales Invoice/List?company={}".\
                       format(num_sis,server_info,comp_name))
-def to_str(x):
-    if type(x) in [float,np.float32,np.float64]:
-        return "{: >9.2f}".format(x).replace(".",",")
-    d = utils.show_date4(x)
-    if d:
-        return d
-    else:
-        return x
 
-def csv_export(filename,data,headings):
-    with open(filename, mode='w') as f:
-        writer = csv.writer(f, delimiter=';', quotechar='"', quoting=csv.QUOTE_MINIMAL)
-        writer.writerow(headings)
-        writer.writerows(data)
-    print(filename," exportiert")    
-
-def get(e,k):
-    if k in e:
-        return e[k]
-    else:
-        return ""
-    
-def show_table(entries,keys,headings,title,enable_events=False,max_col_width=60):
-    settings = sg.UserSettings()
-    data = [[to_str(get(e,k)) for k in keys] for e in entries]
-    layout = [[sg.SaveAs(button_text = 'CSV-Export',
-                         default_extension = 'csv',enable_events=True)],
-              [sg.Table(values=data, headings=headings, max_col_width=max_col_width,
-               auto_size_columns=len(data) > 0,
-               display_row_numbers=True,
-               justification='left',
-               num_rows=30,
-               key='-TABLE-',
-               enable_events=enable_events,
-               row_height=25)]]
-    window1 = sg.Window(title, layout, finalize=True)
-    #window1.Widget.column('#3', anchor='e')
-    window1.bring_to_front()
-    while True:
-        (event,values) = window1.read()
-        #print(event,values)
-        if event == 'CSV-Export':
-            if values['CSV-Export']:
-                csv_export(values['CSV-Export'],data,headings)    
-            continue
-        elif event == '-TABLE-':
-            ix = values['-TABLE-'][0]
-            if 'disabled' in entries[ix] and entries[ix]['disabled']:
-                continue
-            else:
-                window1.close()
-                return ix
-        break
-    window1.close()
-    return False
-
-def format_entry(doc,keys,headings):
-    return "\n".join([h+": "+to_str(get(doc,k)) for (k,h) in zip(keys,headings)])
-    
 # ------ Process menu choices ------ #
 def event_handler(event,window):
     settings = sg.UserSettings()
@@ -318,11 +260,12 @@ def event_handler(event,window):
                 j1['caccount'] = j1['accounts'][1]['account']
                 jes1.append(j1)
             title = "Buchungssätze"
-            ix = show_table(jes1,keys,headings,title,enable_events=True)
+            tbl = table.Table(jes1,keys,headings,title,enable_events=True)
+            ix = tbl.display()
             if ix is False:
                 break
             je = jes[ix]
-            details = format_entry(jes1[ix],keys,headings)
+            details = utils.format_entry(jes1[ix],keys,headings)
             choice = easygui.buttonbox("Buchungssatz {}\n{} ".\
                                            format(je['name'],details),
                                        "Buchungssatz",
@@ -340,11 +283,12 @@ def event_handler(event,window):
             comp = company.Company.get_company(settings['-company-'])
             pes = comp.open_payment_entries()
             title = "Zahlungen"
-            ix = show_table(pes,keys,headings,title,enable_events=True)
+            tbl = table.Table(pes,keys,headings,title,enable_events=True)
+            ix = tbl.display()
             if ix is False:
                 break
             pe = pes[ix]
-            details = format_entry(pe,keys,headings)
+            details = utils.format_entry(pe,keys,headings)
             choice = easygui.buttonbox("Zahlung {}\n{} ".\
                                            format(pe['name'],details),
                                        "Zahlung",
@@ -406,12 +350,13 @@ def event_handler(event,window):
                 for (i,s) in entries[1:]:
                     del inv_docs[i]['bt']
                     del inv_docs[i]['btname']
-            ix = show_table(inv_docs,keys+['btname'],headings+['Bank'],event,
+            tbl = table.Table(inv_docs,keys+['btname'],headings+['Bank'],event,
                             enable_events=True)
+            ix = tbl.display()
             if ix is False:
                 break
             inv_doc = inv_docs[ix]
-            details = format_entry(inv_doc,keys,headings)
+            details = utils.format_entry(inv_doc,keys,headings)
             msg = "{} {}\n{} ".\
                       format(event[:-2],inv_doc['name'],details)
             choices = ["Buchen","Löschen","Buchungskonto bearbeiten",
@@ -460,7 +405,8 @@ def event_handler(event,window):
             for bt in bts:
                 bt['amount'] = bt['unallocated_amount']*np.sign(bt['deposit']-bt['withdrawal'])
             title = "Banktransaktionen"
-            ix = show_table(bts,keys,headings,title,enable_events=True,max_col_width=120)
+            tbl = table.Table(bts,keys,headings,title,enable_events=True,max_col_width=120)
+            ix = tbl.display()
             if ix is False:
                 break
             comp.reconciliate(bts[ix])
@@ -486,7 +432,8 @@ def event_handler(event,window):
                     bt['open'] = '*'
             bts.reverse()    
             title = "Banktransaktionen für "+event
-            ix = show_table(bts,keys,headings,title,enable_events=True,max_col_width=120)
+            tbl = table.Table(bts,keys,headings,title,enable_events=True,max_col_width=120)
+            ix = tbl.display()
             if ix is False:
                 break
             comp = company.Company.get_company(settings['-company-'])
