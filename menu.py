@@ -458,6 +458,11 @@ def event_handler(event,window):
         balance = event=='Bilanz'   
         tbl = report.build_report(comp,consolidated=consolidated,balance=balance,
                                   periodicity=periodicity)
+        # in PDF, always also display balance
+        if event != 'Bilanz':
+            child = report.build_report(comp,consolidated=False,balance=True)
+            tbl.child = child
+            tbl.child_title = " mit Bilanz"
         tbl.display()
     if show_company_data:
         print()
