@@ -59,6 +59,8 @@ def is_relevant(r,col_fields):
 
 def build_report(company_name,filename="",consolidated=False,balance=False,
                  periodicity='Yearly'):
+    if not periodicity:
+        periodicity = 'Yearly'
     if periodicity=='Monthly':
         title = "Monatsabrechnung"
     elif periodicity=='Quarterly':
