@@ -84,7 +84,7 @@ class Table:
         row_colors = []
         for i in range(len(self.entries)):
             if 'bold' in self.entries[i]:
-                row_colors.append((i,"darkgrey"))
+                row_colors.append((i,"#f5eace"))
         layout = [[sg.SaveAs(button_text = 'CSV-Export',
                              default_extension = 'csv',enable_events=True)],
                   [sg.Table(values=data, headings=self.headings, max_col_width=self.max_col_width,
