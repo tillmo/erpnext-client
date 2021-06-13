@@ -441,20 +441,24 @@ def event_handler(event,window):
             comp = company.Company.get_company(settings['-company-'])
             comp.reconciliate(bts[ix])
             show_company_data = True
-    elif event in ['Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung']:
+    elif event in ['Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz']:
         comp = settings['-company-']
         if event=='Abrechnung':
             consolidated = True
-            periodicity='Yearly'
+            periodicity = 'Yearly'
         elif event=='Quartalsabrechnung':
             consolidated = False
-            periodicity='Quarterly'
+            periodicity = 'Quarterly'
+        elif event=='Monatsabrechnung':
+            consolidated = False
+            periodicity = 'Monthly'
         else:    
             consolidated = False
-            periodicity='Monthly'
-        pdf = report.build_pdf(comp,consolidated=consolidated,
-                               periodicity=periodicity)
-        print("Abrechnug unter {} gespeichert".format(pdf)) 
+            periodicity = None
+        balance =  event=='Bilanz'   
+        tbl = report.build_report(comp,consolidated=consolidated,balance=balance,
+                                  periodicity=periodicity)
+        tbl.display()
     if show_company_data:
         print()
         show_data()
@@ -472,7 +476,7 @@ def menus():
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
                 ['&Anzeigen', ['Buchungssätze','Zahlungen','Einkaufsrechnungen','Verkaufsrechnungen','Banktransaktionen']],
                 ['Bankkonten', bank.BankAccount.get_baccount_names()], 
-                ['Berichte', ['Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung']], 
+                ['Berichte', ['Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz']], 
                 ['Bereich', company.Company.all()], 
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
