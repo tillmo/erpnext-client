@@ -105,10 +105,12 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
     columns = [col for col in report['columns']\
                if not col['fieldname'] in ['account','currency']]
     # remove all zero columns
+    columns1 = []
     for col in columns:
-        if not any([r[col['fieldname']] for r in report['result']\
+        if any([r[col['fieldname']] for r in report['result']\
                     if col['fieldname'] in r]):
-            columns.remove(col)
+            columns1.append(col)
+    columns = columns1        
     # if consolidated, remove all duplicate columns (=companies)
     if consolidated:
         col = remove_dup(columns,report)
