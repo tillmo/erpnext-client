@@ -471,6 +471,9 @@ def event_handler(event,window):
             tbl1 = report.general_ledger(comp,account)
             if tbl1:
                 tbl1.display()
+    elif event=='Chancen':
+        tbl = report.opportunities(settings['-company-'])
+        tbl.display()
     if show_company_data:
         print()
         show_data()
@@ -488,7 +491,7 @@ def menus():
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
                 ['&Anzeigen', ['Buchungssätze','Zahlungen','Einkaufsrechnungen','Verkaufsrechnungen','Banktransaktionen']],
                 ['Bankkonten', bank.BankAccount.get_baccount_names()], 
-                ['Berichte', ['Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz']], 
+                ['Berichte', ['Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Chancen']], 
                 ['Bereich', company.Company.all()], 
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]

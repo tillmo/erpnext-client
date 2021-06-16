@@ -1,5 +1,5 @@
 import company
-from api import Api
+from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
 import table
 import utils
@@ -74,7 +74,7 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
         report_type = 'Profit and Loss Statement'
     title += " "+company_name    
     ## dates
-    start_date = date(datetime.today().year, 1, 1)
+    start_date = date(datetime.today().year-1, 1, 1)
     end_date = datetime.today()
     start_date_str = start_date.strftime('%Y-%m-%d')
     end_date_str = end_date.strftime('%Y-%m-%d')
@@ -217,4 +217,40 @@ def general_ledger(company_name,account):
     report_data = [format_GL(r) for r in report_data]
     return table.Table(report_data,columns,headings,'Hauptbuch für '+account)
 
+    
+def opportunities(company_name):
+    opps = gui_api_wrapper(Api.api.get_list,'Opportunity',limit_page_length=LIMIT)
+    opps.sort(key=lambda x: x['transaction_date'],reverse=True)
+    quots = gui_api_wrapper(Api.api.get_list,'Quotation',limit_page_length=LIMIT)
+    sos = gui_api_wrapper(Api.api.get_list,'Sales Order',limit_page_length=LIMIT)
+    for so in sos:
+        so1 = Api.api.get_doc('Sales Order',so['name'])
+        so['quotation'] = so1['items'][0]['prevdoc_docname']
+    sis = gui_api_wrapper(Api.api.get_list,'Sales Invoice',limit_page_length=LIMIT)
+    for si in sis:
+        si1 = Api.api.get_doc('Sales Invoice',si['name'])
+        item = si1['items'][0]
+        if 'sales_order' in item:
+            si['sales_order'] = item['sales_order']
+        else:    
+            si['sales_order'] = None
+    for opp in opps:
+        for quot in quots:
+            if quot['opportunity'] == opp['name']:
+                opp['quotation'] = quot['name']
+                for so in sos:
+                    if  so['quotation']== quot['name']:
+                        opp['sales_order'] = so['name']
+                        for si in sis:
+                            if  si['sales_order']== so['name']:
+                                opp['sales_invoice'] = si['name']
+                                break
+                        break
+    columns = ['title', 'transaction_date', 'quotation', 'sales_order', 'sales_inovice', 'bauzeichnung_liegt_vor',
+               'auszug_solarkataster_liegt_vor','belegungsplan_liegt_vor',
+               'statik_liegt_vor','artikelliste_liegt_vor',
+               'verschattungsanalyse_liegt_vor','eigenverbrauchsanalyse_liegt_vor']
+    headings = ['Titel','Datum','Angebot', 'Auftragsbest.', 'Rechnung', 'Bauzeichnung','Kataster','Belegungsplan','Statik',
+                'Artikelliste','Verschattung','Eigen']
+    return table.Table(opps,columns,headings,'Chacen für '+company_name)
     
