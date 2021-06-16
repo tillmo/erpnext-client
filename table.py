@@ -104,21 +104,22 @@ class Table:
             text = 'PDF'+self.child_title
             buttons += [sg.SaveAs(button_text = text, k = 'PDF+', target='PDF+',
                                   default_extension = 'pdf',enable_events=True)]
-            
+        num_rows = max([5,min([30,len(self.entries)])])
         layout = [buttons,
                   [sg.Table(values=self.data, headings=self.headings,
                    max_col_width=self.max_col_width,
                    auto_size_columns=len(self.data) > 0,
                    display_row_numbers=self.display_row_numbers,
                    justification='left',
-                   num_rows=30,
+                   num_rows=num_rows,
+                   font=('Helvetica',12),
                    key='-TABLE-',
                    enable_events=self.enable_events,
                    background_color = "lightgrey",
                    alternating_row_color = "white",
                    #header_background_color = None,
                    row_colors = row_colors,
-                   row_height=25)]]
+                            row_height=25)]]
         return sg.Window(self.title, layout, finalize=True)
 
     def display(self):
