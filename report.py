@@ -219,38 +219,46 @@ def general_ledger(company_name,account):
 
     
 def opportunities(company_name):
-    opps = gui_api_wrapper(Api.api.get_list,'Opportunity',limit_page_length=LIMIT)
-    opps.sort(key=lambda x: x['transaction_date'],reverse=True)
-    quots = gui_api_wrapper(Api.api.get_list,'Quotation',limit_page_length=LIMIT)
-    sos = gui_api_wrapper(Api.api.get_list,'Sales Order',limit_page_length=LIMIT)
-    for so in sos:
-        so1 = Api.api.get_doc('Sales Order',so['name'])
-        so['quotation'] = so1['items'][0]['prevdoc_docname']
-    sis = gui_api_wrapper(Api.api.get_list,'Sales Invoice',limit_page_length=LIMIT)
-    for si in sis:
-        si1 = Api.api.get_doc('Sales Invoice',si['name'])
-        item = si1['items'][0]
-        if 'sales_order' in item:
-            si['sales_order'] = item['sales_order']
+    opps = {}
+    for opp in gui_api_wrapper(Api.api.get_list,'Opportunity',limit_page_length=LIMIT):
+        opps[opp['name']] = opp
+    quots = {}
+    for quot in gui_api_wrapper(Api.api.get_list,'Quotation',limit_page_length=LIMIT):
+        if quot['opportunity']:
+            if quot['opportunity'] in opps:
+                opps[quot['opportunity']]['quotation'] = quot['name']
+        quots[quot['name']] = quot
+    sos = {}    
+    for so in gui_api_wrapper(Api.api.get_list,'Sales Order',fields=["`tabSales Order Item`.prevdoc_docname as quotation","name"],limit_page_length=LIMIT):
+        quot_name = so["quotation"]
+        if quot_name:
+            quot = quots[quot_name]
+            quot['sales_order'] = so['name']
+            quots[quot_name] = quot
+            opp_name = quot['opportunity']
+            if opp_name:
+                opp = opps[opp_name]
+                if opp:
+                    opp['sales_order'] = so['name']
+                    opps[opp_name] = opp
+                    sos[so['name']] = so
+    sis = {}
+    for si in gui_api_wrapper(Api.api.get_list,'Sales Invoice',fields=["`tabSales Invoice Item`.sales_order as item_sales_order","name"],limit_page_length=LIMIT):
+        if 'item_sales_order' in si:    
+            so_name = si['item_sales_order']
         else:    
-            si['sales_order'] = None
-    for opp in opps:
-        for quot in quots:
-            if quot['opportunity'] == opp['name']:
-                opp['quotation'] = quot['name']
-                for so in sos:
-                    if  so['quotation']== quot['name']:
-                        opp['sales_order'] = so['name']
-                        for si in sis:
-                            if  si['sales_order']== so['name']:
-                                opp['sales_invoice'] = si['name']
-                                break
-                        break
-    columns = ['title', 'transaction_date', 'quotation', 'sales_order', 'sales_inovice', 'bauzeichnung_liegt_vor',
+            so_name = None
+        #if so:
+        #    sos[so_name]['sales_invoice'] = si['name']
+        #    so = sos[so_name]
+        sis[si['name']] = si
+    opps = [opp for opp in opps.values() if 'transaction_date' in opp]
+    opps.sort(key=lambda x: x['transaction_date'],reverse=True)
+    columns = ['title', 'transaction_date', 'nur_balkonmodul', 'quotation', 'sales_order', 'sales_inovice', 'bauzeichnung_liegt_vor',
                'auszug_solarkataster_liegt_vor','belegungsplan_liegt_vor',
                'statik_liegt_vor','artikelliste_liegt_vor',
                'verschattungsanalyse_liegt_vor','eigenverbrauchsanalyse_liegt_vor']
-    headings = ['Titel','Datum','Angebot', 'Auftragsbest.', 'Rechnung', 'Bauzeichnung','Kataster','Belegungsplan','Statik',
+    headings = ['Titel','Datum','Balkon','Angebot', 'Auftragsbest.', 'Rechnung', 'Bauzeichnung','Kataster','Belegungsplan','Statik',
                 'Artikelliste','Verschattung','Eigen']
     return table.Table(opps,columns,headings,'Chacen für '+company_name)
     
