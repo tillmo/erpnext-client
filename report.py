@@ -217,10 +217,19 @@ def general_ledger(company_name,account):
     report_data = [format_GL(r) for r in report_data]
     return table.Table(report_data,columns,headings,'Hauptbuch für '+account)
 
-    
-def opportunities(company_name):
+
+def format_opp(opp):
+    for field in ['nur_balkonmodul', 'selbstbau', 'mit_speicher', 'is_paid']:
+       if field in opp:
+           if opp[field]:
+               opp[field] = "✓"
+           else:
+               opp[field] = " "
+    return opp
+
+def opportunities(company_name,balkon=False):
     opps = {}
-    for opp in gui_api_wrapper(Api.api.get_list,'Opportunity',limit_page_length=LIMIT):
+    for opp in gui_api_wrapper(Api.api.get_list,'Opportunity',filters={'status': ['!=','Cancelled'], 'nur_balkonmodul':balkon},limit_page_length=LIMIT):
         opps[opp['name']] = opp
     quots = {}
     for quot in gui_api_wrapper(Api.api.get_list,'Quotation',limit_page_length=LIMIT):
@@ -229,36 +238,55 @@ def opportunities(company_name):
                 opps[quot['opportunity']]['quotation'] = quot['name']
         quots[quot['name']] = quot
     sos = {}    
-    for so in gui_api_wrapper(Api.api.get_list,'Sales Order',fields=["`tabSales Order Item`.prevdoc_docname as quotation","name"],limit_page_length=LIMIT):
+    for so in gui_api_wrapper(Api.api.get_list,'Sales Order',filters={'status': ['!=','Cancelled']},fields=["`tabSales Order Item`.prevdoc_docname as quotation","name"],limit_page_length=LIMIT):
         quot_name = so["quotation"]
         if quot_name:
             quot = quots[quot_name]
             quot['sales_order'] = so['name']
             quots[quot_name] = quot
             opp_name = quot['opportunity']
-            if opp_name:
+            if opp_name and opp_name in opps:
                 opp = opps[opp_name]
                 if opp:
                     opp['sales_order'] = so['name']
                     opps[opp_name] = opp
                     sos[so['name']] = so
     sis = {}
-    for si in gui_api_wrapper(Api.api.get_list,'Sales Invoice',fields=["`tabSales Invoice Item`.sales_order as item_sales_order","name"],limit_page_length=LIMIT):
+    for si in gui_api_wrapper(Api.api.get_list,'Sales Invoice',filters={'status': ['!=','Cancelled']},fields=["`tabSales Invoice Item`.sales_order as item_sales_order","name","status"],limit_page_length=LIMIT):
         if 'item_sales_order' in si:    
             so_name = si['item_sales_order']
         else:    
             so_name = None
-        #if so:
-        #    sos[so_name]['sales_invoice'] = si['name']
-        #    so = sos[so_name]
+        if so_name and so_name in sos:
+            sos[so_name]['sales_invoice'] = si['name']
+            so = sos[so_name]
+            if so:
+                quot_name = so['quotation']
+                if quot_name:
+                    quot = quots[quot_name]
+                    if quot:
+                        opp_name = quot['opportunity']
+                        if opp_name:
+                            opp = opps[opp_name]
+                            if opp:
+                                opp['sales_invoice'] = si['name']
+                                opp['is_paid'] = si['status'] == 'Paid'
+                                opps[opp_name] = opp
         sis[si['name']] = si
-    opps = [opp for opp in opps.values() if 'transaction_date' in opp]
+    opps = [format_opp(opp) for opp in opps.values()\
+            if 'transaction_date' in opp]
     opps.sort(key=lambda x: x['transaction_date'],reverse=True)
-    columns = ['title', 'transaction_date', 'nur_balkonmodul', 'quotation', 'sales_order', 'sales_inovice', 'bauzeichnung_liegt_vor',
-               'auszug_solarkataster_liegt_vor','belegungsplan_liegt_vor',
-               'statik_liegt_vor','artikelliste_liegt_vor',
-               'verschattungsanalyse_liegt_vor','eigenverbrauchsanalyse_liegt_vor']
-    headings = ['Titel','Datum','Balkon','Angebot', 'Auftragsbest.', 'Rechnung', 'Bauzeichnung','Kataster','Belegungsplan','Statik',
-                'Artikelliste','Verschattung','Eigen']
+    columns = ['title', 'transaction_date', 'selbstbau',
+               'mit_speicher', 'quotation', 'sales_order', 'sales_invoice',
+               'is_paid']
+               #'bauzeichnung_liegt_vor',
+               #'auszug_solarkataster_liegt_vor','belegungsplan_liegt_vor',
+               #'statik_liegt_vor','artikelliste_liegt_vor',
+               #'verschattungsanalyse_liegt_vor',
+               #'eigenverbrauchsanalyse_liegt_vor']
+    headings = ['Titel','Datum','Selbstbau','Speicher','Angebot',
+                'Auftragsbest.', 'Rechnung','bezahlt']
+                #], 'Bauzeichnung','Kataster','Belegungsplan',
+                #'Statik', 'Artikelliste','Verschattung','Eigen']
     return table.Table(opps,columns,headings,'Chacen für '+company_name)
     
