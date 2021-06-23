@@ -219,12 +219,24 @@ def general_ledger(company_name,account):
 
 
 def format_opp(opp):
-    for field in ['nur_balkonmodul', 'selbstbau', 'mit_speicher', 'is_paid']:
+    for field in ['nur_balkonmodul', 'selbstbau', 'mit_speicher',
+                  'is_paid','kostenvoranschlag', 'selbstbauset',
+                  'elektriker', 'ballastierung']: #,
+                  #'angebot_1_liegt_vor', 'angebot_2_liegt_vor',
+                  #'bauzeichnung_liegt_vor',
+                  #'auszug_solarkataster_liegt_vor','belegungsplan_liegt_vor',
+                  #'statik_liegt_vor','artikelliste_liegt_vor',
+                  #'verschattungsanalyse_liegt_vor',
+                  #'eigenverbrauchsanalyse_liegt_vor']:
        if field in opp:
            if opp[field]:
                opp[field] = "✓"
            else:
                opp[field] = " "
+    for field in ['global_margin', 'soliaufschlag']:
+       if field in opp:
+           if not opp[field]:
+               opp[field] = ""
     return opp
 
 def opportunities(company_name,balkon=False):
@@ -235,7 +247,13 @@ def opportunities(company_name,balkon=False):
     for quot in gui_api_wrapper(Api.api.get_list,'Quotation',limit_page_length=LIMIT):
         if quot['opportunity']:
             if quot['opportunity'] in opps:
-                opps[quot['opportunity']]['quotation'] = quot['name']
+                opp = quot['opportunity']
+                opps[opp]['quotation'] = quot['name']
+                opps[opp]['global_margin'] = quot['global_margin']
+                opps[opp]['soliaufschlag'] = quot['soliaufschlag']
+                opps[opp]['kostenvoranschlag'] = quot['kostenvoranschlag']
+                opps[opp]['elektriker'] = quot['elektriker']
+                opps[opp]['ballastierung'] = quot['ballastierung']
         quots[quot['name']] = quot
     sos = {}    
     for so in gui_api_wrapper(Api.api.get_list,'Sales Order',filters={'status': ['!=','Cancelled']},fields=["`tabSales Order Item`.prevdoc_docname as quotation","name"],limit_page_length=LIMIT):
@@ -276,17 +294,24 @@ def opportunities(company_name,balkon=False):
     opps = [format_opp(opp) for opp in opps.values()\
             if 'transaction_date' in opp]
     opps.sort(key=lambda x: x['transaction_date'],reverse=True)
-    columns = ['title', 'transaction_date', 'selbstbau',
+    columns = ['title', 'transaction_date', 'selbstbau', 'selbstbauset',
                'mit_speicher', 'quotation', 'sales_order', 'sales_invoice',
-               'is_paid']
+               'is_paid',
+               #'global_margin',
+               'soliaufschlag', 'kostenvoranschlag',
+               'elektriker', 'ballastierung'] #, 
+               #'angebot_1_liegt_vor', 'angebot_2_liegt_vor',
                #'bauzeichnung_liegt_vor',
                #'auszug_solarkataster_liegt_vor','belegungsplan_liegt_vor',
                #'statik_liegt_vor','artikelliste_liegt_vor',
                #'verschattungsanalyse_liegt_vor',
                #'eigenverbrauchsanalyse_liegt_vor']
-    headings = ['Titel','Datum','Selbstbau','Speicher','Angebot',
-                'Auftragsbest.', 'Rechnung','bezahlt']
-                #], 'Bauzeichnung','Kataster','Belegungsplan',
-                #'Statik', 'Artikelliste','Verschattung','Eigen']
+    headings = ['Titel','Datum','Selbstbau','Set','Speicher','Angebot',
+                'Auftragsbest.', 'Rechnung','bezahlt',
+                #'Marge',
+                'Soli', 'Voranschlag', 'Elektriker', 'Ballastierung'] #,
+                #'Angebot1', 'Angebot2', 
+                #'Bauzeichnung','Kataster','Belegungsplan',
+                # 'Statik', 'Artikelliste','Verschattung','Eigen']
     return table.Table(opps,columns,headings,'Chacen für '+company_name)
     
