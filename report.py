@@ -242,6 +242,9 @@ def format_opp(opp):
     for field, value in opp.items():
         if value is None:
             opp[field] = ""
+        if type(value)==str:    
+            opp[field] = opp[field].strip()
+            opp[field] = opp[field][0:20]
     return opp
 
 def opportunities(company_name,balkon=False):
@@ -299,32 +302,32 @@ def opportunities(company_name,balkon=False):
     opps = [format_opp(opp) for opp in opps.values()\
             if 'transaction_date' in opp]
     opps.sort(key=lambda x: x['transaction_date'],reverse=True)
-    columns = ['title', 'transaction_date']
+    columns = ['title', 'transaction_date','soliaufschlag']
     if not balkon:
         columns += ['selbstbau', 'selbstbauset',
-                    'mit_speicher', 'quotation', 'sales_order',
+                    'mit_speicher', 'kostenvoranschlag',
+                    'elektriker', 'ballastierung',
+                    'quotation', 'sales_order',
                     'anzahlung','oksolarteure','anmeldung_eingereicht',
                     'anmeldung_bewilligt', 'auftragsnummer_lieferant',
                     'lieferant_bezahlt', 'liefertermin_material', 'bautermin']
-    columns += ['sales_invoice','is_paid',
+    columns += ['sales_invoice','is_paid']
                 #'global_margin',
-                'soliaufschlag', 'kostenvoranschlag',
-                'elektriker', 'ballastierung'] #, 
                 #'angebot_1_liegt_vor', 'angebot_2_liegt_vor',
                 #'bauzeichnung_liegt_vor',
                 #'auszug_solarkataster_liegt_vor','belegungsplan_liegt_vor',
                 #'statik_liegt_vor','artikelliste_liegt_vor',
                 #'verschattungsanalyse_liegt_vor',
                 #'eigenverbrauchsanalyse_liegt_vor']
-    headings = ['Titel','Datum']
+    headings = ['Titel','Datum','Soli']
     if not balkon:
-        headings += ['Selbstbau','Set','Speicher','Angebot',
-                     'Auftragsbest.','Anzahlung','OK Solarteure',
-                     'Anmeldung eingereicht', 'Anmeldung bewilligt',
-                     'Auftragsnr. Lieferant']
-    headings += ['Rechnung','bezahlt',
+        headings += ['Selbst','Set','Speich','KV','Elektr.',
+                     'Ball.', 'Angebot',
+                     'Auftragsbest.','Anzahlung','OK Sol.',
+                     'Anm. eing.', 'Anm. bew.',
+                     'Auftragsnr.','bez.', 'Liefertermin', 'Bautermin']
+    headings += ['Rechnung','bez.']
                  #'Marge',
-                 'Soli', 'Voranschlag', 'Elektriker', 'Ballastierung'] #,
                  #'Angebot1', 'Angebot2', 
                  #'Bauzeichnung','Kataster','Belegungsplan',
                  # 'Statik', 'Artikelliste','Verschattung','Eigen']
