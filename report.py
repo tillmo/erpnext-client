@@ -220,6 +220,8 @@ def general_ledger(company_name,account):
 
 def format_opp(opp):
     for field in ['nur_balkonmodul', 'selbstbau', 'mit_speicher',
+                  'oksolarteure','anmeldung_eingereicht',
+                  'anmeldung_bewilligt',
                   'is_paid','kostenvoranschlag', 'selbstbauset',
                   'elektriker', 'ballastierung']: #,
                   #'angebot_1_liegt_vor', 'angebot_2_liegt_vor',
@@ -237,6 +239,9 @@ def format_opp(opp):
        if field in opp:
            if not opp[field]:
                opp[field] = ""
+    for field, value in opp.items():
+        if value is None:
+            opp[field] = ""
     return opp
 
 def opportunities(company_name,balkon=False):
@@ -294,24 +299,34 @@ def opportunities(company_name,balkon=False):
     opps = [format_opp(opp) for opp in opps.values()\
             if 'transaction_date' in opp]
     opps.sort(key=lambda x: x['transaction_date'],reverse=True)
-    columns = ['title', 'transaction_date', 'selbstbau', 'selbstbauset',
-               'mit_speicher', 'quotation', 'sales_order', 'sales_invoice',
-               'is_paid',
-               #'global_margin',
-               'soliaufschlag', 'kostenvoranschlag',
-               'elektriker', 'ballastierung'] #, 
-               #'angebot_1_liegt_vor', 'angebot_2_liegt_vor',
-               #'bauzeichnung_liegt_vor',
-               #'auszug_solarkataster_liegt_vor','belegungsplan_liegt_vor',
-               #'statik_liegt_vor','artikelliste_liegt_vor',
-               #'verschattungsanalyse_liegt_vor',
-               #'eigenverbrauchsanalyse_liegt_vor']
-    headings = ['Titel','Datum','Selbstbau','Set','Speicher','Angebot',
-                'Auftragsbest.', 'Rechnung','bezahlt',
-                #'Marge',
-                'Soli', 'Voranschlag', 'Elektriker', 'Ballastierung'] #,
-                #'Angebot1', 'Angebot2', 
-                #'Bauzeichnung','Kataster','Belegungsplan',
-                # 'Statik', 'Artikelliste','Verschattung','Eigen']
+    columns = ['title', 'transaction_date']
+    if not balkon:
+        columns += ['selbstbau', 'selbstbauset',
+                    'mit_speicher', 'quotation', 'sales_order',
+                    'anzahlung','oksolarteure','anmeldung_eingereicht',
+                    'anmeldung_bewilligt', 'auftragsnummer_lieferant',
+                    'lieferant_bezahlt', 'liefertermin_material', 'bautermin']
+    columns += ['sales_invoice','is_paid',
+                #'global_margin',
+                'soliaufschlag', 'kostenvoranschlag',
+                'elektriker', 'ballastierung'] #, 
+                #'angebot_1_liegt_vor', 'angebot_2_liegt_vor',
+                #'bauzeichnung_liegt_vor',
+                #'auszug_solarkataster_liegt_vor','belegungsplan_liegt_vor',
+                #'statik_liegt_vor','artikelliste_liegt_vor',
+                #'verschattungsanalyse_liegt_vor',
+                #'eigenverbrauchsanalyse_liegt_vor']
+    headings = ['Titel','Datum']
+    if not balkon:
+        headings += ['Selbstbau','Set','Speicher','Angebot',
+                     'Auftragsbest.','Anzahlung','OK Solarteure',
+                     'Anmeldung eingereicht', 'Anmeldung bewilligt',
+                     'Auftragsnr. Lieferant']
+    headings += ['Rechnung','bezahlt',
+                 #'Marge',
+                 'Soli', 'Voranschlag', 'Elektriker', 'Ballastierung'] #,
+                 #'Angebot1', 'Angebot2', 
+                 #'Bauzeichnung','Kataster','Belegungsplan',
+                 # 'Statik', 'Artikelliste','Verschattung','Eigen']
     return table.Table(opps,columns,headings,'Chacen für '+company_name)
     
