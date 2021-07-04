@@ -264,7 +264,7 @@ def opportunities(company_name,balkon=False):
                 opps[opp]['ballastierung'] = quot['ballastierung']
         quots[quot['name']] = quot
     sos = {}    
-    for so in gui_api_wrapper(Api.api.get_list,'Sales Order',filters={'status': ['!=','Cancelled']},fields=["`tabSales Order Item`.prevdoc_docname as quotation","name"],limit_page_length=LIMIT):
+    for so in gui_api_wrapper(Api.api.get_list,'Sales Order',filters={'status': ['!=','Cancelled']},fields=["`tabSales Order Item`.prevdoc_docname as quotation","name","status"],limit_page_length=LIMIT):
         quot_name = so["quotation"]
         if quot_name:
             quot = quots[quot_name]
@@ -275,6 +275,8 @@ def opportunities(company_name,balkon=False):
                 opp = opps[opp_name]
                 if opp:
                     opp['sales_order'] = so['name']
+                    if so['status'] != "Draft":
+                        opp['sales_order'] += "*"
                     opps[opp_name] = opp
                     sos[so['name']] = so
     sis = {}
@@ -296,6 +298,8 @@ def opportunities(company_name,balkon=False):
                             opp = opps[opp_name]
                             if opp:
                                 opp['sales_invoice'] = si['name']
+                                if si['status'] != "Draft":
+                                    opp['sales_invoice'] += "*"
                                 opp['is_paid'] = si['status'] == 'Paid'
                                 opps[opp_name] = opp
         sis[si['name']] = si
