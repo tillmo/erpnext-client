@@ -1,7 +1,12 @@
+- Lieferanten-Auftragsbestätigung einlesen, an Chance heften, Nr. ablegen
+  - Kundenanzahlung in Chance eintragen
+  - bei Lieferantenzahlung die Nr. erkennen, Zahlungs-ID in Chance ablegen
+  - Sobald Kundenrechnung gebucht ist, diese automatisch zahlen
+    - möglichst gleichzeitig auch Lieferantenrechnung buchen und autom. zahlen
+    - als einen Workflow in Client implementieren?
 - if for a purchase invoice with negative total, the second invoice already exists, another invoice must be read in
 - Auftragsbestätigung: Solipreis raus, stattdessen: welchen Preis man gewählt hat (Häkchen für verschiedene Optionen)
 - show draft invoices that should be submitted
-- wp for invoices
 - update_stock depdendent on balkonmodul
 - sales documents without address
 - stock purchase invoices with scan
