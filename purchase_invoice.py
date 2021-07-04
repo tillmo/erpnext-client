@@ -459,26 +459,30 @@ class PurchaseInvoice(Invoice):
         else:
             return None
         self.compute_total()
-        accounts = self.company.leaf_accounts_for_credit
-        account_names = [acc['name'] for acc in accounts]
-        pinvs = self.company.purchase_invoices[self.supplier]
-        paccs = [pi['expense_account'] for pi in pinvs if 'expense_account' in pi]
-        paccs = list(set(paccs))
-        for acc in paccs:
-            try:
-                account_names.remove(j)
-            except Exception:
-                pass
-        account_names = paccs + account_names
-        title = 'Buchungskonto wählen'
-        msg = 'Bitte ein Buchungskonto wählen\n'
-        account = easygui.choicebox(msg, title, account_names)
-        if not account:
-            return None
+        if not self.update_stock:
+            accounts = self.company.leaf_accounts_for_credit
+            account_names = [acc['name'] for acc in accounts]
+            pinvs = self.company.purchase_invoices[self.supplier]
+            paccs = [pi['expense_account'] for pi in pinvs if 'expense_account' in pi]
+            paccs = list(set(paccs))
+            for acc in paccs:
+                try:
+                    account_names.remove(j)
+                except Exception:
+                    pass
+            account_names = paccs + account_names
+            title = 'Buchungskonto wählen'
+            msg = 'Bitte ein Buchungskonto wählen\n'
+            account = easygui.choicebox(msg, title, account_names)
+            if not account:
+                return None
+        else:
+            account = None
         self.assign_default_e_items({self.default_vat:account})
         return self
     
     def parse_invoice(self,infile):
+        self.extract_items = False
         lines = pdf_to_text(infile)
         if lines:
             head = lines[0]
@@ -497,10 +501,8 @@ class PurchaseInvoice(Invoice):
                     else:    
                         self.supplier = supplier
                     self.multi = info['multi']    
+                    self.extract_items = True
                     return self
-        if self.update_stock:
-            easygui.msgbox('Kann keine Artikel aus der Rechnung extrahieren.\nFür die Option "mit Lagerhaltung" ist dies jedoch notwendig')
-            return None
         return self.parse_generic(lines)
 
     def compute_total(self):
@@ -520,9 +522,10 @@ class PurchaseInvoice(Invoice):
             [{'item_code' : settings.DEFAULT_ITEM_CODE,
               'qty' : 1,
               'rate' : self.totals[vat],
-              'expense_account' : accounts[vat],
               'cost_center' : self.company.cost_center} \
                     for vat in self.vat_rates if vat in accounts and self.totals[vat]]
+        if not self.update_stock:
+             self.e_items['expense_account'] = accounts[vat]
 
     def create_taxes(self):
         self.taxes = []
@@ -671,7 +674,8 @@ class PurchaseInvoice(Invoice):
         print("Prüfe auf doppelte Rechung")
         if self.check_if_present():
             return None
-        if self.update_stock:
+        if self.extract_items:
+            Api.load_item_data()
             print("Hole Lagerdaten")
             yesterd = utils.yesterday(self.date)
             self.e_items = list(map(lambda item: \
