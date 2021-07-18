@@ -247,97 +247,84 @@ def format_opp(opp):
             opp[field] = opp[field][0:23]
     return opp
 
-def opportunities_aux(company_name,balkon=False):
+def opportunities_data(company_name,balkon=False):
     opps = {}
     for opp in gui_api_wrapper(Api.api.get_list,'Opportunity',filters={'company':company_name,'status': ['!=','Cancelled'], 'nur_balkonmodul':balkon},limit_page_length=LIMIT):
         opps[opp['name']] = opp
     quots = {}
-    for quot in gui_api_wrapper(Api.api.get_list,'Quotation',filters={'company':company_name},limit_page_length=LIMIT):
-        if quot['opportunity'] and quot['opportunity'] in opps:
-            opp = quot['opportunity']
-            opps[opp]['quotation'] = quot['name']
-            opps[opp]['global_margin'] = quot['global_margin']
-            opps[opp]['soliaufschlag'] = quot['soliaufschlag']
-            opps[opp]['kostenvoranschlag'] = quot['kostenvoranschlag']
-            opps[opp]['elektriker'] = quot['elektriker']
-            opps[opp]['ballastierung'] = quot['ballastierung']
-        #else:
-        #    quot['title'] += "?A"
-        #    opps[quot['name']] = quot
+    for quot in gui_api_wrapper(Api.api.get_list,'Quotation',filters={'company':company_name,'status': ['not in',['Cancelled','Expired']]},limit_page_length=LIMIT):
+        if quot['opportunity']:
+            if quot['opportunity'] in opps:
+                opp = quot['opportunity']
+                opps[opp]['quotation'] = quot['name']
+                opps[opp]['global_margin'] = quot['global_margin']
+                opps[opp]['soliaufschlag'] = quot['soliaufschlag']
+                opps[opp]['kostenvoranschlag'] = quot['kostenvoranschlag']
+                opps[opp]['elektriker'] = quot['elektriker']
+                opps[opp]['ballastierung'] = quot['ballastierung']
+        else:
+            quot['title'] += "?A"
+            quot['quotation'] = quot['name']
+            opps[quot['name']] = quot
         quots[quot['name']] = quot
     sos = {}    
-    for so in gui_api_wrapper(Api.api.get_list,'Sales Order',filters={'company':company_name,'status': ['!=','Cancelled']},fields=["`tabSales Order Item`.prevdoc_docname as quotation","name","status"],limit_page_length=LIMIT):
+    for so in gui_api_wrapper(Api.api.get_list,'Sales Order',filters={'company':company_name,'status': ['!=','Cancelled']},fields=["`tabSales Order Item`.prevdoc_docname as quotation","name","status","title","customer_name","transaction_date"],limit_page_length=LIMIT):
         quot_name = so["quotation"]
         if quot_name:
-            quot = quots[quot_name]
-            quot['sales_order'] = so['name']
-            quots[quot_name] = quot
-            opp_name = quot['opportunity']
-            if opp_name and opp_name in opps:
-                opp = opps[opp_name]
-                if opp:
-                    opp['sales_order'] = so['name']
-                    if so['status'] != "Draft":
-                        opp['sales_order'] += "*"
-                    opps[opp_name] = opp
-                    sos[so['name']] = so
+            if quot_name in quots:
+                quot = quots[quot_name]
+                quot['sales_order'] = so['name']
+                quots[quot_name] = quot
+                opp_name = quot['opportunity']
+                if opp_name and opp_name in opps:
+                    opp = opps[opp_name]
+                    if opp:
+                        opp['sales_order'] = so['name']
+                        if so['status'] != "Draft":
+                            opp['sales_order'] += "*"
+                        opps[opp_name] = opp
+                        sos[so['name']] = so
+        else:
+            if so['title']=='{customer_name}':
+                so['title']=so['customer_name']
+            so['title'] += "?AB"
+            so['sales_order'] = so['name']
+            opps[so['name']] = so
+            sos[so['name']] = so
     sis = {}
-    for si in gui_api_wrapper(Api.api.get_list,'Sales Invoice',filters={'company':company_name,'status': ['!=','Cancelled']},fields=["`tabSales Invoice Item`.sales_order as item_sales_order","name","status"],limit_page_length=LIMIT):
+    for si in gui_api_wrapper(Api.api.get_list,'Sales Invoice',filters={'company':company_name,'balkonmodul':balkon,'status': ['!=','Cancelled']},fields=["`tabSales Invoice Item`.sales_order as item_sales_order","name","status","title","posting_date"],limit_page_length=LIMIT):
         if 'item_sales_order' in si:    
             so_name = si['item_sales_order']
         else:    
             so_name = None
-        if so_name and so_name in sos:
-            sos[so_name]['sales_invoice'] = si['name']
-            so = sos[so_name]
-            if so:
-                quot_name = so['quotation']
-                if quot_name:
-                    quot = quots[quot_name]
-                    if quot:
-                        opp_name = quot['opportunity']
-                        if opp_name:
-                            opp = opps[opp_name]
-                            if opp:
-                                opp['sales_invoice'] = si['name']
-                                if si['status'] != "Draft":
-                                    opp['sales_invoice'] += "*"
-                                opp['is_paid'] = si['status'] == 'Paid'
-                                opps[opp_name] = opp
+        if so_name:
+            if so_name in sos:
+                sos[so_name]['sales_invoice'] = si['name']
+                so = sos[so_name]
+                if so:
+                    quot_name = so['quotation']
+                    if quot_name:
+                        quot = quots[quot_name]
+                        if quot:
+                            opp_name = quot['opportunity']
+                            if opp_name:
+                                opp = opps[opp_name]
+                                if opp:
+                                    opp['sales_invoice'] = si['name']
+                                    if si['status'] != "Draft":
+                                        opp['sales_invoice'] += "*"
+                                    opp['is_paid'] = si['status'] == 'Paid'
+                                    opps[opp_name] = opp
+        else:
+            si['title'] += "?R"
+            si['sales_invoice'] = si['name']
+            si['transaction_date'] = si['posting_date']
+            opps[si['name']] = si
         sis[si['name']] = si
     return opps
 
-def remove_ast(s):
-    if s[-1]=='*':
-        return s[0:-1]
-    else:
-        return s
-
 def opportunities(company_name,balkon=False):
-    opps = opportunities_aux(company_name,balkon)
-    if not balkon:
-        opps_balkon = opportunities_aux(company_name,True)
-        all_opps = {**opps, **opps_balkon}
-        for quot in gui_api_wrapper(Api.api.get_list,'Quotation',filters={'company':company_name,'status': ['!=','Cancelled']},limit_page_length=LIMIT):
-            if not quot['opportunity'] or not (quot['opportunity'] in all_opps):
-                opp = quot['title']+"?A"
-                opps[opp] = {'title': quot['title']+"?A",
-                             'quotation':  quot['name'],
-                             'transaction_date': quot['transaction_date']}
-        sos = [remove_ast(opp['sales_order']) for opp in all_opps.values() if 'sales_order' in opp]        
-        for so in gui_api_wrapper(Api.api.get_list,'Sales Order',filters={'company':company_name,'status': ['!=','Cancelled']},limit_page_length=LIMIT):
-            if not so['name'] in sos:
-                opp = so['title']+"?AB"
-                opps[opp] = {'title': so['customer_name']+"?AB",
-                             'sales_order': so['name'],
-                             'transaction_date': so['transaction_date']}
-        sis = [remove_ast(opp['sales_invoice']) for opp in all_opps.values() if 'sales_invoice' in opp]
-        for si in gui_api_wrapper(Api.api.get_list,'Sales Invoice',filters={'company':company_name,'status': ['!=','Cancelled']},limit_page_length=LIMIT):
-            if not si['balkonmodul'] and not si['name'] in sis:
-                opp = si['title']+"?R"
-                opps[opp] = {'title': si['title']+"?R",
-                             'sales_invoice': si['name'],
-                             'transaction_date': si['posting_date']}
+    opps = opportunities_data(company_name,balkon)
     opps = [format_opp(opp) for opp in opps.values()]
     opps.sort(key=lambda x: x['transaction_date'],reverse=True)
     columns = ['title', 'transaction_date','soliaufschlag']
