@@ -249,10 +249,10 @@ def format_opp(opp):
 
 def opportunities_aux(company_name,balkon=False):
     opps = {}
-    for opp in gui_api_wrapper(Api.api.get_list,'Opportunity',filters={'status': ['!=','Cancelled'], 'nur_balkonmodul':balkon},limit_page_length=LIMIT):
+    for opp in gui_api_wrapper(Api.api.get_list,'Opportunity',filters={'company':company_name,'status': ['!=','Cancelled'], 'nur_balkonmodul':balkon},limit_page_length=LIMIT):
         opps[opp['name']] = opp
     quots = {}
-    for quot in gui_api_wrapper(Api.api.get_list,'Quotation',limit_page_length=LIMIT):
+    for quot in gui_api_wrapper(Api.api.get_list,'Quotation',filters={'company':company_name},limit_page_length=LIMIT):
         if quot['opportunity']:
             if quot['opportunity'] in opps:
                 opp = quot['opportunity']
@@ -264,7 +264,7 @@ def opportunities_aux(company_name,balkon=False):
                 opps[opp]['ballastierung'] = quot['ballastierung']
         quots[quot['name']] = quot
     sos = {}    
-    for so in gui_api_wrapper(Api.api.get_list,'Sales Order',filters={'status': ['!=','Cancelled']},fields=["`tabSales Order Item`.prevdoc_docname as quotation","name","status"],limit_page_length=LIMIT):
+    for so in gui_api_wrapper(Api.api.get_list,'Sales Order',filters={'company':company_name,'status': ['!=','Cancelled']},fields=["`tabSales Order Item`.prevdoc_docname as quotation","name","status"],limit_page_length=LIMIT):
         quot_name = so["quotation"]
         if quot_name:
             quot = quots[quot_name]
@@ -280,7 +280,7 @@ def opportunities_aux(company_name,balkon=False):
                     opps[opp_name] = opp
                     sos[so['name']] = so
     sis = {}
-    for si in gui_api_wrapper(Api.api.get_list,'Sales Invoice',filters={'status': ['!=','Cancelled']},fields=["`tabSales Invoice Item`.sales_order as item_sales_order","name","status"],limit_page_length=LIMIT):
+    for si in gui_api_wrapper(Api.api.get_list,'Sales Invoice',filters={'company':company_name,'status': ['!=','Cancelled']},fields=["`tabSales Invoice Item`.sales_order as item_sales_order","name","status"],limit_page_length=LIMIT):
         if 'item_sales_order' in si:    
             so_name = si['item_sales_order']
         else:    
@@ -316,21 +316,21 @@ def opportunities(company_name,balkon=False):
     if not balkon:
         opps_balkon = opportunities_aux(company_name,True)
         all_opps = {**opps, **opps_balkon}
-        for quot in gui_api_wrapper(Api.api.get_list,'Quotation',filters={'status': ['!=','Cancelled']},limit_page_length=LIMIT):
+        for quot in gui_api_wrapper(Api.api.get_list,'Quotation',filters={'company':company_name,'status': ['!=','Cancelled']},limit_page_length=LIMIT):
             if not quot['opportunity'] or not (quot['opportunity'] in all_opps):
                 opp = quot['title']+"?A"
                 opps[opp] = {'title': quot['title']+"?A",
                              'quotation':  quot['name'],
                              'transaction_date': quot['transaction_date']}
         sos = [remove_ast(opp['sales_order']) for opp in all_opps.values() if 'sales_order' in opp]        
-        for so in gui_api_wrapper(Api.api.get_list,'Sales Order',filters={'status': ['!=','Cancelled']},limit_page_length=LIMIT):
+        for so in gui_api_wrapper(Api.api.get_list,'Sales Order',filters={'company':company_name,'status': ['!=','Cancelled']},limit_page_length=LIMIT):
             if not so['name'] in sos:
                 opp = so['title']+"?AB"
                 opps[opp] = {'title': so['customer_name']+"?AB",
                              'sales_order': so['name'],
                              'transaction_date': so['transaction_date']}
         sis = [remove_ast(opp['sales_invoice']) for opp in all_opps.values() if 'sales_invoice' in opp]
-        for si in gui_api_wrapper(Api.api.get_list,'Sales Invoice',filters={'status': ['!=','Cancelled']},limit_page_length=LIMIT):
+        for si in gui_api_wrapper(Api.api.get_list,'Sales Invoice',filters={'company':company_name,'status': ['!=','Cancelled']},limit_page_length=LIMIT):
             if not si['balkonmodul'] and not si['name'] in sis:
                 opp = si['title']+"?R"
                 opps[opp] = {'title': si['title']+"?R",
