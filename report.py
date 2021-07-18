@@ -253,15 +253,17 @@ def opportunities_aux(company_name,balkon=False):
         opps[opp['name']] = opp
     quots = {}
     for quot in gui_api_wrapper(Api.api.get_list,'Quotation',filters={'company':company_name},limit_page_length=LIMIT):
-        if quot['opportunity']:
-            if quot['opportunity'] in opps:
-                opp = quot['opportunity']
-                opps[opp]['quotation'] = quot['name']
-                opps[opp]['global_margin'] = quot['global_margin']
-                opps[opp]['soliaufschlag'] = quot['soliaufschlag']
-                opps[opp]['kostenvoranschlag'] = quot['kostenvoranschlag']
-                opps[opp]['elektriker'] = quot['elektriker']
-                opps[opp]['ballastierung'] = quot['ballastierung']
+        if quot['opportunity'] and quot['opportunity'] in opps:
+            opp = quot['opportunity']
+            opps[opp]['quotation'] = quot['name']
+            opps[opp]['global_margin'] = quot['global_margin']
+            opps[opp]['soliaufschlag'] = quot['soliaufschlag']
+            opps[opp]['kostenvoranschlag'] = quot['kostenvoranschlag']
+            opps[opp]['elektriker'] = quot['elektriker']
+            opps[opp]['ballastierung'] = quot['ballastierung']
+        #else:
+        #    quot['title'] += "?A"
+        #    opps[quot['name']] = quot
         quots[quot['name']] = quot
     sos = {}    
     for so in gui_api_wrapper(Api.api.get_list,'Sales Order',filters={'company':company_name,'status': ['!=','Cancelled']},fields=["`tabSales Order Item`.prevdoc_docname as quotation","name","status"],limit_page_length=LIMIT):
