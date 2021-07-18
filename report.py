@@ -244,7 +244,7 @@ def format_opp(opp):
             opp[field] = ""
         if type(value)==str:    
             opp[field] = opp[field].strip()
-            opp[field] = opp[field][0:20]
+            opp[field] = opp[field][0:23]
     return opp
 
 def opportunities_aux(company_name,balkon=False):
@@ -316,7 +316,7 @@ def opportunities(company_name,balkon=False):
     if not balkon:
         opps_balkon = opportunities_aux(company_name,True)
         all_opps = {**opps, **opps_balkon}
-        for quot in gui_api_wrapper(Api.api.get_list,'Quotation',limit_page_length=LIMIT):
+        for quot in gui_api_wrapper(Api.api.get_list,'Quotation',filters={'status': ['!=','Cancelled']},limit_page_length=LIMIT):
             if not quot['opportunity'] or not (quot['opportunity'] in all_opps):
                 opp = quot['title']+"?A"
                 opps[opp] = {'title': quot['title']+"?A",
@@ -326,7 +326,7 @@ def opportunities(company_name,balkon=False):
         for so in gui_api_wrapper(Api.api.get_list,'Sales Order',filters={'status': ['!=','Cancelled']},limit_page_length=LIMIT):
             if not so['name'] in sos:
                 opp = so['title']+"?AB"
-                opps[opp] = {'title': so['title']+"?AB",
+                opps[opp] = {'title': so['customer_name']+"?AB",
                              'sales_order': so['name'],
                              'transaction_date': so['transaction_date']}
         sis = [remove_ast(opp['sales_invoice']) for opp in all_opps.values() if 'sales_invoice' in opp]
