@@ -247,7 +247,7 @@ def format_opp(opp):
             opp[field] = opp[field][0:20]
     return opp
 
-def opportunities(company_name,balkon=False):
+def opportunities_aux(company_name,balkon=False):
     opps = {}
     for opp in gui_api_wrapper(Api.api.get_list,'Opportunity',filters={'status': ['!=','Cancelled'], 'nur_balkonmodul':balkon},limit_page_length=LIMIT):
         opps[opp['name']] = opp
@@ -303,8 +303,40 @@ def opportunities(company_name,balkon=False):
                                 opp['is_paid'] = si['status'] == 'Paid'
                                 opps[opp_name] = opp
         sis[si['name']] = si
-    opps = [format_opp(opp) for opp in opps.values()\
-            if 'transaction_date' in opp]
+    return opps
+
+def remove_ast(s):
+    if s[-1]=='*':
+        return s[0:-1]
+    else:
+        return s
+
+def opportunities(company_name,balkon=False):
+    opps = opportunities_aux(company_name,balkon)
+    if not balkon:
+        opps_balkon = opportunities_aux(company_name,True)
+        all_opps = {**opps, **opps_balkon}
+        for quot in gui_api_wrapper(Api.api.get_list,'Quotation',limit_page_length=LIMIT):
+            if not quot['opportunity'] or not (quot['opportunity'] in all_opps):
+                opp = quot['title']+"?A"
+                opps[opp] = {'title': quot['title']+"?A",
+                             'quotation':  quot['name'],
+                             'transaction_date': quot['transaction_date']}
+        sos = [remove_ast(opp['sales_order']) for opp in all_opps.values() if 'sales_order' in opp]        
+        for so in gui_api_wrapper(Api.api.get_list,'Sales Order',filters={'status': ['!=','Cancelled']},limit_page_length=LIMIT):
+            if not so['name'] in sos:
+                opp = so['title']+"?AB"
+                opps[opp] = {'title': so['title']+"?AB",
+                             'sales_order': so['name'],
+                             'transaction_date': so['transaction_date']}
+        sis = [remove_ast(opp['sales_invoice']) for opp in all_opps.values() if 'sales_invoice' in opp]
+        for si in gui_api_wrapper(Api.api.get_list,'Sales Invoice',filters={'status': ['!=','Cancelled']},limit_page_length=LIMIT):
+            if not si['balkonmodul'] and not si['name'] in sis:
+                opp = si['title']+"?R"
+                opps[opp] = {'title': si['title']+"?R",
+                             'sales_invoice': si['name'],
+                             'transaction_date': si['posting_date']}
+    opps = [format_opp(opp) for opp in opps.values()]
     opps.sort(key=lambda x: x['transaction_date'],reverse=True)
     columns = ['title', 'transaction_date','soliaufschlag']
     if not balkon:

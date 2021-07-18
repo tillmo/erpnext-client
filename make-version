@@ -5,4 +5,4 @@ echo "'" >> version.py
 cat version.py 
 git add version.py
 git commit -m "version"
-git push
+#git push

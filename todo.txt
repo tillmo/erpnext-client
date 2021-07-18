@@ -1,3 +1,5 @@
+- Keine Option "Sofort buchen" für Lager-Rechnungen ohne extract_items
+- Rechnung alpha solar
 - Lieferanten-Auftragsbestätigung einlesen, an Chance heften, Nr. ablegen
   - Kundenanzahlung in Chance eintragen
   - bei Lieferantenzahlung die Nr. erkennen, Zahlungs-ID in Chance ablegen
