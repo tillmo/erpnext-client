@@ -31,6 +31,7 @@ class BankAccount(Doc):
     def get_balance(self):
         bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
                               filters={'bank_account':self.name,
+                                       'docstatus': ['!=', 2],
                                        'status': ['!=','Cancelled']},
                               limit_page_length=LIMIT)
         self.balance = sum([bt['deposit']-bt['withdrawal'] for bt in bts])
@@ -458,6 +459,7 @@ class BankStatement:
             del bt1['doctype']
             del bt1['unallocated_amount']
             bt1['status'] = ['!=','Cancelled']
+            bt1['docstatus'] = ['!=',2]
             #todo: relax the filter wrt the date (which sometimes is adapted by the bank)
             bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',filters=bt1)
             if not bts:

@@ -416,6 +416,7 @@ def event_handler(event,window):
         while True:
             bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
                               filters={'bank_account':event,
+                                       'docstatus': ['!=', 2],
                                        'status': ['!=', 'Cancelled']},
                                        order_by='date asc',
                                        limit_page_length=LIMIT)
