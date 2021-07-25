@@ -60,11 +60,15 @@ def extract_no(lines):
         if "rechnungsnr" in lline\
           or "rechnungs-Nr" in lline\
           or "rechnungsnummer" in lline\
-          or ("rechnung" in lline and "nr" in lline):
-            s = re.search(r"[nN][rR][:. ]*([A-Za-z0-9-]+)",line)
+          or ("rechnung" in lline and "nr" in lline)\
+          or ("rechnung:" in lline):
+            s = re.search(r"[nN][rR][:. ]*([A-Za-z0-9/-]+)",line)
             if s:
                 return s.group(1)
-            s = re.search(r"nummer[:. ]*([A-Za-z0-9-]+)",line)
+            s = re.search(r"nummer[:. ]*([A-Za-z0-9/-]+)",line)
+            if s:
+                return s.group(1)
+            s = re.search(r"Rechnung[:. ]*([A-Za-z0-9/-]+)",line)
             if s:
                 return s.group(1)
     return None
@@ -525,7 +529,7 @@ class PurchaseInvoice(Invoice):
               'cost_center' : self.company.cost_center} \
                     for vat in self.vat_rates if vat in accounts and self.totals[vat]]
         if not self.update_stock:
-             self.e_items['expense_account'] = accounts[vat]
+            self.e_items[0]['expense_account'] = accounts[self.vat_rates[0]]
 
     def create_taxes(self):
         self.taxes = []
