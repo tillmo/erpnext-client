@@ -249,6 +249,16 @@ def format_opp(opp):
 
 def opportunities_data(company_name,balkon=False):
     opps = {}
+    if balkon:
+        for si in gui_api_wrapper(Api.api.get_list,'Sales Invoice',filters={'company':company_name,'balkonmodul':balkon,'status': ['!=','Cancelled']},limit_page_length=LIMIT):
+            si['transaction_date'] = si['posting_date']
+            opp = si
+            opp['sales_invoice'] = si['name']
+            if si['status'] != "Draft":
+                opp['sales_invoice'] += "*"
+            opp['is_paid'] = si['status'] == 'Paid'
+            opps[si['name']] = opp
+        return opps
     for opp in gui_api_wrapper(Api.api.get_list,'Opportunity',filters={'company':company_name,'status': ['!=','Cancelled'], 'nur_balkonmodul':balkon},limit_page_length=LIMIT):
         opps[opp['name']] = opp
     quots = {}
