@@ -275,6 +275,7 @@ class PurchaseInvoice(Invoice):
         self.vat[self.default_vat] = PurchaseInvoice.get_amount_krannich([vat_line])
         self.shipping += rounding_error
         self.compute_total()
+        return self
 
     def parse_pvxchange(self,lines):
         items = []
@@ -283,13 +284,15 @@ class PurchaseInvoice(Invoice):
         self.date = None
         self.no = None
         for line in lines:
-            if "Bremen, den" in line:
-                self.date = utils.convert_date4(line.split()[2])
-            elif "Bremen," in line:
-                self.date = utils.convert_date4(line.split()[1])
+            words = line.split()
+            for i in [1,2]:
+                if len(words)>i:
+                    d = utils.convert_date4(words[i])
+                    if d:
+                        self.date = d
             if line[0:8] == "Rechnung":
-                if len(line.split())>1:
-                    self.no = line.split()[2]
+                if len(words)>1:
+                    self.no = words[2]
             if preamble:
                 if len(line)>=4 and line[0:4]=="Pos.":
                     preamble = False
@@ -298,7 +301,7 @@ class PurchaseInvoice(Invoice):
                 preamble = True
                 continue
             try:
-                pos_no = int(line.split()[0])
+                pos_no = int(words[0])
             except Exception:
                 pos_no = -1
             if pos_no == 28219:
@@ -333,6 +336,7 @@ class PurchaseInvoice(Invoice):
         total_line = [line for line in items[-1] if 'Nettosumme' in line][0]
         self.totals[self.default_vat] = utils.read_float(total_line.split()[-2])
         self.compute_total()
+        return self
 
     def parse_nkk(self,lines):
         self.date = None
@@ -356,6 +360,7 @@ class PurchaseInvoice(Invoice):
         self.shipping = 0.0
         self.compute_total()
         self.assign_default_e_items(NKK_ACCOUNTS)
+        return self
 
     def parse_kornkraft(self,lines):
         self.date = None
@@ -387,6 +392,7 @@ class PurchaseInvoice(Invoice):
         self.shipping = 0.0
         self.compute_total()
         self.assign_default_e_items(KORNKRAFT_ACCOUNTS)
+        return self
 
     def parse_generic(self,lines):
         if lines:
