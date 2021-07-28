@@ -214,6 +214,9 @@ class PurchaseInvoice(Invoice):
             if "Rechnung" in line:
                 self.no = line.split()[1]
                 self.date = utils.convert_date4(line.split()[2])
+            elif "Anzahlungsrechnung" in line:
+                print("Dies ist eine Anzahlungsrechnung")
+                return None
         self.items = []
         mypos = 0
         rounding_error = 0
@@ -499,7 +502,8 @@ class PurchaseInvoice(Invoice):
                 if supplier in head:
                     if info['raw']:
                         lines = pdf_to_text(infile,True)
-                    info['parser'](self,lines)
+                    if not info['parser'](self,lines):
+                        return None
                     if 'supplier' in info:
                         self.supplier = info['supplier'] 
                     else:    
