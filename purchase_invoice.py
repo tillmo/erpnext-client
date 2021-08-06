@@ -504,8 +504,9 @@ class PurchaseInvoice(Invoice):
                     if len(line)>2 and (line[-2]=='£' or line[-3]=='£'):
                         head = "Kornkraft Naturkost GmbH"
                         break
+            h80 = head[0:80]        
             for supplier,info in PurchaseInvoice.suppliers.items():
-                if supplier in head:
+                if supplier in h80:
                     if info['raw']:
                         lines = pdf_to_text(infile,True)
                     if not info['parser'](self,lines):
