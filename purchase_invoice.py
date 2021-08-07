@@ -402,18 +402,21 @@ class PurchaseInvoice(Invoice):
         return self
 
     def parse_generic(self,lines):
-        if lines:
-            (amount,vat) = extract_amount_and_vat(lines,self.vat_rates)
-        if lines and amount:    
-            self.vat[self.default_vat] = vat
-            self.totals[self.default_vat] = amount-self.vat[self.default_vat]
-            self.shipping = 0.0
-            self.date = extract_date(lines)
-            self.no = extract_no(lines)
-            self.supplier = extract_supplier(lines)
-            if self.check_if_present():
-                return None
-        else:
+        try:
+            if lines:
+                (amount,vat) = extract_amount_and_vat(lines,self.vat_rates)
+            if lines and amount:    
+                self.vat[self.default_vat] = vat
+                self.totals[self.default_vat] = amount-self.vat[self.default_vat]
+                self.shipping = 0.0
+                self.date = extract_date(lines)
+                self.no = extract_no(lines)
+                self.supplier = extract_supplier(lines)
+                if self.check_if_present():
+                    return None
+            else:
+                raise Exception("no data")
+        except Exception as e:
             amount = ""
             self.vat[self.default_vat] = ""
             self.totals[self.default_vat] = ""
@@ -503,29 +506,32 @@ class PurchaseInvoice(Invoice):
     
     def parse_invoice(self,infile):
         self.extract_items = False
-        lines = pdf_to_text(infile)
-        if lines:
-            head = lines[0][0:80]
-            if not head[0:10].split():
-                for line in lines[0:10]:
-                    if len(line)>2 and (line[-2]=='£' or line[-3]=='£'):
-                        head = "Kornkraft Naturkost GmbH"
-                        break
-            for supplier,info in PurchaseInvoice.suppliers.items():
-                if supplier in head:
-                    if info['raw']:
-                        lines = pdf_to_text(infile,True)
-                    if not info['parser'](self,lines):
-                        return None
-                    if 'supplier' in info:
-                        self.supplier = info['supplier'] 
-                    else:    
-                        self.supplier = supplier
-                    self.multi = info['multi']    
-                    self.extract_items = True
-                    return self
+        try:        
+            lines = pdf_to_text(infile)
+            if lines:
+                head = lines[0][0:80]
+                if not head[0:10].split():
+                    for line in lines[0:10]:
+                        if len(line)>2 and (line[-2]=='£' or line[-3]=='£'):
+                            head = "Kornkraft Naturkost GmbH"
+                            break
+                for supplier,info in PurchaseInvoice.suppliers.items():
+                    if supplier in head:
+                        if info['raw']:
+                            lines = pdf_to_text(infile,True)
+                        if not info['parser'](self,lines):
+                            return None
+                        if 'supplier' in info:
+                            self.supplier = info['supplier'] 
+                        else:    
+                            self.supplier = supplier
+                        self.multi = info['multi']    
+                        self.extract_items = True
+                        return self
+        except Exception as e:
+            pass
         return self.parse_generic(lines)
-
+        
     def compute_total(self):
         self.total = sum([t for v,t in self.totals.items()])
         self.total_vat = sum([t for v,t in self.vat.items()])
