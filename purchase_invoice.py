@@ -241,14 +241,15 @@ class PurchaseInvoice(Invoice):
                     break
                 s_item.long_description += l
             pos = int(item_str[0:7].split()[0])
-            if not (pos in [mypos,mypos+1,mypos+2]):
-                break
+            #if not (pos in [mypos,mypos+1,mypos+2]):
+            #    break
             if "Vorkasse" in s_item.description:
                 continue
             mypos = pos
-            #print(item_str)
             s_item.item_code = item_str.split()[1]
             q=re.search("([0-9]+) *([A-Za-z]+)",item_str[80:99])
+            if not q:
+                break
             s_item.qty = int(q.group(1))
             s_item.qty_unit = q.group(2)
             price = utils.read_float(item_str[130:142].split()[0])
@@ -539,6 +540,7 @@ class PurchaseInvoice(Invoice):
                             return None
         except Exception as e:
             print(e)
+            raise(e)
             print("Rückfall auf Standard-Rechnungsbehandlung")
         return self.parse_generic(lines,account,paid_by_submitter)
         
@@ -747,7 +749,10 @@ class PurchaseInvoice(Invoice):
             amount = item['qty']*item['rate']
             total += amount
             if Api.items_by_code:
-                item_name = Api.items_by_code[item['item_code']]['item_name']
+                try:
+                    item_name = Api.items_by_code[item['item_code']]['item_name']
+                except Exception:    
+                    item_name = ""
             else:
                 item_name = ""
             if 'expense_account' in item:
