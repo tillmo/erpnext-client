@@ -14,6 +14,8 @@ class Doc:
         elif doc:
             self.doc = doc
             self.name = doc['name']
+            if doctype:
+                self.doc['doctype'] = doctype
             if self.name:
                 self.erpnext = True
     def insert(self):

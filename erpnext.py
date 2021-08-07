@@ -101,8 +101,6 @@ if __name__ == '__main__':
         if not infile:
             easygui.msgbox(infile+" existiert nicht")
             exit(1)
-        if args.update_stock:
-            Api.load_item_data()
         purchase_invoice.PurchaseInvoice.read_and_transfer(infile,args.update_stock)    
     elif args.k:
         menu.initial_loads()

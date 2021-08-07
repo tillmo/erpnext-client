@@ -401,7 +401,7 @@ class PurchaseInvoice(Invoice):
         self.assign_default_e_items(KORNKRAFT_ACCOUNTS)
         return self
 
-    def parse_generic(self,lines):
+    def parse_generic(self,lines,default_account=None,paid_by_submitter=False):
         try:
             if lines:
                 (amount,vat) = extract_amount_and_vat(lines,self.vat_rates)
@@ -448,7 +448,7 @@ class PurchaseInvoice(Invoice):
                     [sg.Text('Brutto')],     
                     [sg.Input(default_text = str(amount), k='-gross-')],
                     [sg.Checkbox('Schon selbst bezahlt',
-                                 default=False, k='-paid-')],
+                                 default=paid_by_submitter, k='-paid-')],
                     [sg.Text('Kommentar')],     
                     [sg.Input(k='-remarks-')],
                     [sg.Button('Speichern')] ]
@@ -482,29 +482,34 @@ class PurchaseInvoice(Invoice):
         else:
             return None
         self.compute_total()
+        account = None
         if not self.update_stock:
             accounts = self.company.leaf_accounts_for_credit
             account_names = [acc['name'] for acc in accounts]
-            pinvs = self.company.purchase_invoices[self.supplier]
-            paccs = [pi['expense_account'] for pi in pinvs if 'expense_account' in pi]
-            paccs = list(set(paccs))
-            for acc in paccs:
-                try:
-                    account_names.remove(j)
-                except Exception:
-                    pass
-            account_names = paccs + account_names
-            title = 'Buchungskonto wählen'
-            msg = 'Bitte ein Buchungskonto wählen\n'
-            account = easygui.choicebox(msg, title, account_names)
+            if default_account:
+                for acc in account_names:
+                    if default_account in acc:
+                        account = acc
             if not account:
-                return None
-        else:
-            account = None
+                pinvs = self.company.purchase_invoices[self.supplier]
+                paccs = [pi['expense_account'] \
+                         for pi in pinvs if 'expense_account' in pi]
+                paccs = list(set(paccs))
+                for acc in paccs:
+                    try:
+                        account_names.remove(j)
+                    except Exception:
+                        pass
+                account_names = paccs + account_names
+                title = 'Buchungskonto wählen'
+                msg = 'Bitte ein Buchungskonto wählen\n'
+                account = easygui.choicebox(msg, title, account_names)
+                if not account:
+                    return None
         self.assign_default_e_items({self.default_vat:account})
         return self
     
-    def parse_invoice(self,infile):
+    def parse_invoice(self,infile,account=None,paid_by_submitter=False):
         self.extract_items = False
         try:        
             lines = pdf_to_text(infile)
@@ -530,7 +535,7 @@ class PurchaseInvoice(Invoice):
                         return self
         except Exception as e:
             pass
-        return self.parse_generic(lines)
+        return self.parse_generic(lines,account,paid_by_submitter)
         
     def compute_total(self):
         self.total = sum([t for v,t in self.totals.items()])
@@ -665,18 +670,19 @@ class PurchaseInvoice(Invoice):
 
     # for testing    
     @classmethod
-    def parse_and_dump(cls,infile,update_stock):
-        inv = purchase_invoice.PurchaseInvoice(update_stock).parse_invoice(infile)
+    def parse_and_dump(cls,infile,update_stock,account=None,paid_by_submitter=False):
+        inv = purchase_invoice.PurchaseInvoice(update_stock).parse_invoice(infile,account,paid_by_submitter)
         pprint(vars(inv))
         pprint(list(map(lambda x: pprint(vars(x)),inv.items)))
 
     @classmethod
-    def read_and_transfer(cls,infile,update_stock):
+    def read_and_transfer(cls,infile,update_stock,account=None,paid_by_submitter=False):
         one_more = True
         inv = None
         while one_more:
             one_more = False
-            inv_new = PurchaseInvoice(update_stock).read_pdf(infile)
+            inv_new = PurchaseInvoice(update_stock).\
+                        read_pdf(infile,account,paid_by_submitter)
             if inv_new:
                 inv_new.merge(inv)
                 inv = inv_new
@@ -694,9 +700,9 @@ class PurchaseInvoice(Invoice):
             print("Keine Einkaufsrechnung angelegt")
         return inv
 
-    def read_pdf(self,infile):
+    def read_pdf(self,infile,account=None,paid_by_submitter=False):
         self.infiles = [infile]
-        if not self.parse_invoice(infile):
+        if not self.parse_invoice(infile,account,paid_by_submitter):
             return None
         print("Prüfe auf doppelte Rechung")
         if self.check_if_present():

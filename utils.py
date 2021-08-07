@@ -8,6 +8,8 @@ import codecs
 import sys
 import time
 import numpy as np
+import tempfile
+import os
 
 def running_linux():
     return sys.platform.startswith('linux')
@@ -132,4 +134,21 @@ def get(e,k):
 
 def format_entry(doc,keys,headings):
     return "\n".join([h+": "+to_str(get(doc,k)) for (k,h) in zip(keys,headings)])
+
+def format_dic(bool_fields,path_fields,dic):
+    for field in bool_fields:
+        if field in dic:
+            if dic[field]:
+                dic[field] = "✓"
+            else:
+                dic[field] = " "
+    for field in path_fields:
+        dic["short_"+field] = dic[field].split("/")[-1]
+    return dic
+
+def store_temp_file(data,ext):
+    new_file, filename = tempfile.mkstemp(suffix=ext)
+    with os.fdopen(new_file,'wb') as f:
+        f.write(data)
+    return filename
     

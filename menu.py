@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import utils
 import PySimpleGUI as sg
+import doc
 import report
 import company
 import bank
@@ -85,6 +86,10 @@ def show_data():
             if num_pes:
                 print("{} offene Zahlungen; {}/desk#List/Payment Entry/List?company={}".\
                       format(num_pes,server_info,comp_name))
+            num_pres = len(comp.get_open_pre_invoices())
+            if num_pres:
+                print("{} offene Prerechnungen; {}/desk#List/PreRechnung/List?company={}".\
+                      format(num_pres,server_info,comp_name))
             num_pis = len(comp.get_open_purchase_invoices())
             if num_pis:
                 print("{} offene Einkaufsrechnungen; {}/desk#List/Purchase Invoice/List?company={}".\
@@ -297,6 +302,31 @@ def event_handler(event,window):
             elif choice == "Löschen":
                 bank.BankTransaction.delete_entry(pe['name'],is_journal=False)
                 show_company_data = True
+    elif event == 'Prerechnungen':
+        while True:
+            keys = ['datum','name','short_pdf','balkonmodule','selbst_bezahlt','vom_konto_überwiesen']
+            headings = ['Datum','Name','pdf','Balkon','selbst bez.','überwiesen']
+            comp = company.Company.get_company(settings['-company-'])
+            invs = [utils.format_dic(['balkonmodule','selbst_bezahlt',
+                                      'vom_konto_überwiesen'],['pdf'],inv)\
+                    for inv in comp.get_open_pre_invoices()]
+            tbl = table.Table(invs,keys,headings,event,
+                            enable_events=True,display_row_numbers=True)
+            ix = tbl.display()
+            if ix is False:
+                break
+            inv = invs[ix]
+            pdf = Api.api.get_file(inv['pdf'])
+            f= utils.store_temp_file(pdf,".pdf")
+            pinv = purchase_invoice.PurchaseInvoice.read_and_transfer\
+                    (f,inv['balkonmodule']=="✓",inv['buchungskonto'],
+                     inv['selbst_bezahlt']=="✓")
+            if pinv:
+                inv['eingepflegt'] = True
+                inv['purchase_invoice'] = pinv.doc['name']
+                inv_doc = doc.Doc(doc=inv,doctype='PreRechnung')
+                inv_doc.update()
+            os.remove(f)
     elif event in ['Einkaufsrechnungen','Verkaufsrechnungen']:
         while True:
             keys = ['posting_date','outstanding_amount','bill_no','status','account','supplier','title']
@@ -489,7 +519,7 @@ def menus():
     # ------ Menu Definition ------ #
     menu_def = [['&Einlesen', ['&Kontoauszug', '&Einkaufsrechnung', '&Einkaufsrechnung Balkonmodule']],
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
-                ['&Anzeigen', ['Buchungssätze','Zahlungen','Einkaufsrechnungen','Verkaufsrechnungen','Banktransaktionen']],
+                ['&Anzeigen', ['Buchungssätze','Zahlungen','Prerechnungen','Einkaufsrechnungen','Verkaufsrechnungen','Banktransaktionen']],
                 ['Bankkonten', bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Chancen', 'Chancen Balkon']], 
                 ['Bereich', company.Company.all()], 

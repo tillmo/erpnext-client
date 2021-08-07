@@ -279,6 +279,9 @@ class FrappeClient(object):
 		params['report_name'] = report_name
 		return self.get_api('frappe.desk.query_report.run',params)
 
+	def get_file(self, path):
+		'''Returns a file from the file system'''
+		return self.session.get(self.url + path).content
 	def get_api(self, method, params={}):
 		res = self.session.get(self.url + '/api/method/' + method + '/', params=params)
 		return self.post_process(res)
