@@ -278,7 +278,7 @@ class PurchaseInvoice(Invoice):
                        if 'Insurance' in line or 'Freight' in line\
                            or 'Neukundenrabatt' in line])
                 break
-        self.totals[self.default_vat] = utils.read_float(vat_line[145:157])
+        self.totals[self.default_vat] = utils.read_float(vat_line[146:159])
         self.vat[self.default_vat] = PurchaseInvoice.get_amount_krannich([vat_line])
         self.shipping += rounding_error
         self.compute_total()
@@ -532,9 +532,14 @@ class PurchaseInvoice(Invoice):
                             self.supplier = supplier
                         self.multi = info['multi']    
                         self.extract_items = True
-                        return self
+                        if self.items:
+                            return self
+                        else:
+                            print("Konnte keine Artikel extrahieren")
+                            return None
         except Exception as e:
-            pass
+            print(e)
+            print("Rückfall auf Standard-Rechnungsbehandlung")
         return self.parse_generic(lines,account,paid_by_submitter)
         
     def compute_total(self):
