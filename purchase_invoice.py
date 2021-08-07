@@ -55,6 +55,7 @@ def extract_date(lines):
     return None
 
 def extract_no(lines):
+    nos = []
     for line in lines:
         lline = line.lower()
         if "rechnungsnr" in lline\
@@ -63,18 +64,24 @@ def extract_no(lines):
           or ("rechnung" in lline and "nr" in lline)\
           or ("rechnung:" in lline):
             s = re.search(r"[nN][rR][:. ]*([A-Za-z0-9/-]+)",line)
-            if s:
-                return s.group(1)
-            s = re.search(r"nummer[:. ]*([A-Za-z0-9/-]+)",line)
-            if s:
-                return s.group(1)
+            if s and s.group(1):
+                nos.append(s.group(1))
+                continue
+            s = re.search(r"[rR]e.*nummer[:. ]*([A-Za-z0-9/-]+)",line)
+            if s and s.group(1):
+                nos.append(s.group(1))
+                continue
             s = re.search(r"Rechnung[:. ]*([A-Za-z0-9/-]+)",line)
-            if s:
-                return s.group(1)
-    return None
+            if s and s.group(1):
+                nos.append(s.group(1))
+                continue
+    if not nos:        
+        return None
+    nos.sort(key=lambda s: len(s),reverse=True)
+    return nos[0]
 
 def extract_supplier(lines):
-    return " ".join(lines[0].split())
+    return " ".join(lines[0][0:80].split())
 
 def pdf_to_text(file,raw=False):
     cmd = ["pdftotext","-nopgbrk"]
