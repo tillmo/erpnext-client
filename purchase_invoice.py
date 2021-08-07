@@ -539,9 +539,11 @@ class PurchaseInvoice(Invoice):
                             print("Konnte keine Artikel extrahieren")
                             return None
         except Exception as e:
-            print(e)
-            raise(e)
-            print("Rückfall auf Standard-Rechnungsbehandlung")
+            if self.update_stock:
+                print(e)
+                raise e
+            else:
+                print("Rückfall auf Standard-Rechnungsbehandlung")
         return self.parse_generic(lines,account,paid_by_submitter)
         
     def compute_total(self):
