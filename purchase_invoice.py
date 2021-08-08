@@ -540,9 +540,9 @@ class PurchaseInvoice(Invoice):
                             return None
         except Exception as e:
             if self.update_stock:
-                print(e)
                 raise e
             else:
+                print(e)
                 print("Rückfall auf Standard-Rechnungsbehandlung")
         return self.parse_generic(lines,account,paid_by_submitter)
         
