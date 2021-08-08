@@ -241,6 +241,8 @@ class PurchaseInvoice(Invoice):
                     break
                 s_item.long_description += l
             pos = int(item_str[0:7].split()[0])
+            if pos>1000:
+                continue
             #if not (pos in [mypos,mypos+1,mypos+2]):
             #    break
             if "Vorkasse" in s_item.description:
@@ -249,7 +251,7 @@ class PurchaseInvoice(Invoice):
             s_item.item_code = item_str.split()[1]
             q=re.search("([0-9]+) *([A-Za-z]+)",item_str[80:99])
             if not q:
-                break
+                continue
             s_item.qty = int(q.group(1))
             s_item.qty_unit = q.group(2)
             price = utils.read_float(item_str[130:142].split()[0])
