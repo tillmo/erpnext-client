@@ -82,9 +82,10 @@ def show_data():
             if num_jes:
                 print("{} offene Buchungssätze; {}/desk#List/Journal Entry/List?company={}".\
                       format(num_jes,server_info,comp_name))
-            num_pes = len(comp.open_payment_entries())
+            num_pes = len(comp.unbooked_payment_entries())\
+                      +len(comp.unassigned_payment_entries())
             if num_pes:
-                print("{} offene Zahlungen; {}/desk#List/Payment Entry/List?company={}".\
+                print("{} offene (An)Zahlungen; {}/desk#List/Payment Entry/List?company={}".\
                       format(num_pes,server_info,comp_name))
             num_pres = len(comp.get_open_pre_invoices())
             if num_pres:
@@ -133,11 +134,11 @@ def event_handler(event,window):
         print('Dann hier unter Einlesen - Kontoauszug die csv-Datei hochladen')
         print('Danach unter Bearbeiten - Banktransaktionen die Banktransaktionen zuordnen')
         print('Jeder Banktransaktion muss ein ERPNext-Buchungskonto oder eine offene Rechnung zugeordnet werden')
-        print('- Dadurch entsteht ein ERPNext-Buchungssatz oder eine ERPNext-Zahlung')
+        print('- Dadurch entsteht ein ERPNext-Buchungssatz oder eine ERPNext-(An)Zahlung')
         print('- Man kann die Bearbeitung einer Banktransaktion auch abbrechen und mit der nächsten weitermachen')
         print('  - Die Banktransaktion bleibt dann offen und kann später bearbeitet werden')
-        print('Schließlich müssen die ERPNext-Buchungssätze und ERPNext-Zahlungen noch gebucht werden')
-        print('-> Das geht unter Anzeigen - Buchungssätze bzw. Anzeigen - Zahlungen, oder auf der ERPNext-Seite')
+        print('Schließlich müssen die ERPNext-Buchungssätze und ERPNext-(An)Zahlungen noch gebucht werden')
+        print('-> Das geht unter Anzeigen - Buchungssätze bzw. Anzeigen - (An)Zahlungen, oder auf der ERPNext-Seite')
     elif event == 'Hilfe Rechnungen':
         print()
         print('Einlesen von Einkaufsrechnungen:')
@@ -155,7 +156,7 @@ def event_handler(event,window):
         print('Dort muss sie noch geprüft und gebucht werden')
     elif event == 'Hilfe Buchen':
         print()
-        print('In ERPNext werden Dokumente wie Rechnungen, Buchungssätze und Zahlungen zunächst als Entwurf gespeichert.')
+        print('In ERPNext werden Dokumente wie Rechnungen, Buchungssätze und (An)Zahlungen zunächst als Entwurf gespeichert.')
         print('Im Entwurfsstadium kann ein Dokument noch bearbeitet oder auch gelöscht werden.')
         print('Schließlich muss das Dokument gebucht werden. Nur dann wird es für die Abrechnung wirksam.')
         print('Ein einmal gebuchtes Dokument bleibt für immer im System. Es kann nicht mehr bearbeitet werden. Das ist gesetzlich so vorgeschrieben.')
@@ -279,13 +280,16 @@ def event_handler(event,window):
             elif choice == "Löschen":
                 bank.BankTransaction.delete_entry(je['name'])
                 show_company_data = True
-    elif event == 'Zahlungen':
+    elif event == 'Unverbuchte (An)Zahlungen':
         while True:
-            keys = ['posting_date','paid_amount','party','reference_no']
-            headings = ['Datum','Betrag','Gezahlt an','Referenz.']
+            keys = ['posting_date','name','paid_amount','party','reference_no']
+            headings = ['Datum','Name','Betrag','Gezahlt an','Referenz.']
             comp = company.Company.get_company(settings['-company-'])
-            pes = comp.open_payment_entries()
-            title = "Zahlungen"
+            pes = comp.unbooked_payment_entries()
+            for pe in pes:
+                if pe['payment_type']=='Pay':
+                    pe['paid_amount'] = -pe['paid_amount']
+            title = "Offene (An)Zahlungen"
             tbl = table.Table(pes,keys,headings,title,enable_events=True,display_row_numbers=True)
             ix = tbl.display()
             if ix is False:
@@ -302,6 +306,38 @@ def event_handler(event,window):
             elif choice == "Löschen":
                 bank.BankTransaction.delete_entry(pe['name'],is_journal=False)
                 show_company_data = True
+    elif event == 'Unzugeordnete (An)Zahlungen':
+        while True:
+            keys = ['posting_date','name','paid_amount','party','reference_no']
+            headings = ['Datum','Name','Betrag','Gezahlt an','Referenz.']
+            comp = company.Company.get_company(settings['-company-'])
+            pes = comp.unassigned_payment_entries()
+            for pe in pes:
+                if pe['payment_type']=='Pay':
+                    pe['paid_amount'] = -pe['paid_amount']
+            title = "Unzugeordnete (An)Zahlungen"
+            tbl = table.Table(pes,keys,headings,title,enable_events=True,display_row_numbers=True)
+            ix = tbl.display()
+            if ix is False:
+                break
+            pe = pes[ix]
+            details = utils.format_entry(pe,keys,headings)
+            if pe['payment_type']=='Pay':
+                invs = comp.get_open_purchase_invoices()
+            else:    
+                invs = comp.get_open_sales_invoices()
+            if not invs:
+                continue
+            invs.sort(key=lambda inv: abs(inv.outstanding-abs(pe['paid_amount'])))
+            inv_texts = list(map(lambda inv: utils.showlist([inv.name,inv.party,inv.reference,inv.outstanding]),invs))
+            if len(inv_texts)<=1:
+                inv_texts.append("Nichts")
+            title = "Zugehörige Rechnung wählen"
+            msg = details+"\n\n"+title+"\n"
+            choice = easygui.choicebox(msg, title, inv_texts)
+            if choice in inv_texts:
+                pass # todo: reconciliate payment and invoice
+                #bank.BankTransaction.submit_entry(pe['name'],is_journal=False)
     elif event == 'Prerechnungen':
         while True:
             keys = ['datum','name','short_pdf','balkonmodule','selbst_bezahlt','vom_konto_überwiesen']
@@ -519,7 +555,7 @@ def menus():
     # ------ Menu Definition ------ #
     menu_def = [['&Einlesen', ['&Kontoauszug', '&Einkaufsrechnung', '&Einkaufsrechnung Balkonmodule']],
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
-                ['&Anzeigen', ['Buchungssätze','Zahlungen','Prerechnungen','Einkaufsrechnungen','Verkaufsrechnungen','Banktransaktionen']],
+                ['&Anzeigen', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Prerechnungen','Einkaufsrechnungen','Verkaufsrechnungen','Banktransaktionen']],
                 ['Bankkonten', bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Chancen', 'Chancen Balkon']], 
                 ['Bereich', company.Company.all()], 

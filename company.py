@@ -178,8 +178,14 @@ class Company(Doc):
                                                 filters={'company':self.name,
                                                          'docstatus':0},
                                                 limit_page_length=LIMIT)
-    def open_payment_entries(self):
+    def unbooked_payment_entries(self):
         return gui_api_wrapper(Api.api.get_list,'Payment Entry',
-                                                filters={'company':self.name,
-                                                         'docstatus':0},
-                                                limit_page_length=LIMIT)
+                               filters={'company':self.name,
+                                        'docstatus':0},
+                                        limit_page_length=LIMIT)
+    def unassigned_payment_entries(self):
+        return gui_api_wrapper(Api.api.get_list,'Payment Entry',
+                               filters={'company':self.name,
+                                        'docstatus':1,
+                                        'unallocated_amount':['>',0]},
+                                        limit_page_length=LIMIT)
