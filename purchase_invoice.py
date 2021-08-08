@@ -242,7 +242,7 @@ class PurchaseInvoice(Invoice):
                 s_item.long_description += l
             pos = int(item_str[0:7].split()[0])
             if pos>1000:
-                continue
+                break
             #if not (pos in [mypos,mypos+1,mypos+2]):
             #    break
             if "Vorkasse" in s_item.description:
