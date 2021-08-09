@@ -387,7 +387,7 @@ def event_handler(event,window):
                 inv_doc['account'] = accounts[0]
                 if len(accounts)>1:
                     inv_doc['account']+" + weitere"
-                total = inv_doc['grand_total']
+                total = inv_doc['outstanding_amount']
                 if inv_type=='Purchase Invoice':
                     total = -total
                 bt = bank.BankTransaction.find_bank_transaction(\
