@@ -102,8 +102,8 @@ def get_file(title):
 
 def title():
     settings = sg.UserSettings()
-    title = TITLE+settings['-company-']
-    title += '@'+settings['-server-']
+    title = TITLE+settings.get('-company-', 'Unbekannt')
+    title += '@'+settings.get('-server-', 'unbekannt')
     title += " "+VERSION
     return title
 
