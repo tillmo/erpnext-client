@@ -102,11 +102,9 @@ def get_file(title):
 
 def title():
     settings = sg.UserSettings()
-    title = TITLE+settings.get('-company-', 'Unbekannt')
-    title += '@'+settings.get('-server-', 'unbekannt')
-    title += " "+VERSION
-    return title
-
+    company = settings.get('-company-', 'Unbekannt')
+    server = settings.get('-server-', 'unbekannt')
+    return f'{TITLE}{company}@{server} {VERSION}'
 
 def find_ref(line):
     for w in line.split():
