@@ -571,23 +571,30 @@ def menus():
     company_name = settings['-company-']
     if not company_name:
         company_name = "... <Bitte erst Server-Einstellungen setzen>"
+    last_window_location = tuple(sg.UserSettings().get('-last-window-location-', (None, None)))
     window = sg.Window(utils.title(),
                        layout,
                        default_element_size=(12, 1),
                        default_button_element_size=(12, 1),
+                       location=last_window_location,
                        finalize=True)
 
     # ------ Loop & Process button menu choices ------ #
     window.bring_to_front()
+    last_window_location = window.current_location(more_accurate=True)
     initial_loads()
     show_data()
     while True:
         event, values = window.read()
+        current_window_location = window.current_location(more_accurate=True)
+        if current_window_location != (None, None):
+            last_window_location = current_window_location
         try:
             res = event_handler(event,window)
         except Exception as e:
             res = utils.title()+"\n"+str(e)+"\n"+traceback.format_exc()
         if res=="exit":
+            sg.UserSettings().set('-last-window-location-', last_window_location)
             window.close()
             return True
         elif res=="outer":
