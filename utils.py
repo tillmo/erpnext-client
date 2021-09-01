@@ -150,3 +150,10 @@ def store_temp_file(data,ext):
         f.write(data)
     return filename
     
+def get_current_location(window):
+    import inspect
+    if 'more_accurate' in inspect.signature(window.current_location).parameters:
+        return window.current_location(more_accurate=True)
+
+    # return invalid location because an inaccurate location is more annoying than no location
+    return (None, None)

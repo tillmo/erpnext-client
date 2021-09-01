@@ -581,12 +581,12 @@ def menus():
 
     # ------ Loop & Process button menu choices ------ #
     window.bring_to_front()
-    last_window_location = window.current_location(more_accurate=True)
+    last_window_location = utils.get_current_location(window)
     initial_loads()
     show_data()
     while True:
         event, values = window.read()
-        current_window_location = window.current_location(more_accurate=True)
+        current_window_location = utils.get_current_location(window)
         if current_window_location != (None, None):
             last_window_location = current_window_location
         try:
