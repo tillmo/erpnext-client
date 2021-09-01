@@ -1,7 +1,5 @@
 requests>=2.3.0
 easygui
-PySimpleGUI
+PySimpleGUI>=4.47.0
 numpy
 reportlab
-
-
