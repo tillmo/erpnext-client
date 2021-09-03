@@ -102,11 +102,9 @@ def get_file(title):
 
 def title():
     settings = sg.UserSettings()
-    title = TITLE+settings['-company-']
-    title += '@'+settings['-server-']
-    title += " "+VERSION
-    return title
-
+    company = settings.get('-company-', 'Unbekannt')
+    server = settings.get('-server-', 'unbekannt')
+    return f'{TITLE}{company}@{server} {VERSION}'
 
 def find_ref(line):
     for w in line.split():
@@ -152,3 +150,10 @@ def store_temp_file(data,ext):
         f.write(data)
     return filename
     
+def get_current_location(window):
+    import inspect
+    if 'more_accurate' in inspect.signature(window.current_location).parameters:
+        return window.current_location(more_accurate=True)
+
+    # return invalid location because an inaccurate location is more annoying than no location
+    return (None, None)

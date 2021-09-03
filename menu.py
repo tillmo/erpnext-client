@@ -18,6 +18,8 @@ import tempfile
 import easygui
 import numpy as np
 from collections import defaultdict
+import subprocess
+import sys
 
 def initial_loads():
     if sg.UserSettings()['-setup-']:
@@ -207,7 +209,23 @@ def event_handler(event,window):
         f = open(tmp,'r')
         print(f.read())
         f.close()
-        print("Bitte Programm neu starten.")
+
+        print()
+        print("Aktualisiere die Python-Umgebung...")
+        python = sys.executable
+        requirements_file = os.path.join(settings['-folder-'], 'requirements.txt')
+        result = subprocess.run([python, '-m', 'pip', 'install', '-r', requirements_file],
+                                stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT,
+                                cwd=settings['-folder-'],
+                                text=True)  # for automatic decoding of stdout/stderr
+        print(result.stdout)
+        print()
+        if result.returncode != 0:
+            print('Die Aktualisierung der Python-Umgebung scheint fehlgeschlagen zu sein.')
+            print('Bitte Programm beenden, dann "pip3 install -r {requirements_file}" ausführen und schließlich das Programm neu starten.')
+        else:
+            print("Bitte Programm neu starten.")
     elif event == 'Sofort buchen':
         c = checkbox_input('Buchungseinstellungen',
                            'Ein Dokument muss gebucht werden, um für die Abrechnung wirksam zu werden.\nEin einmal gebuchtes Dokument bleibt für immer im System. Es kann nicht mehr bearbeitet werden. Das ist gesetzlich so vorgeschrieben.\nBei einer Einkaufsrechnung wird in jedem Fall gefragt, ob diese gebucht werden soll.',
@@ -571,23 +589,30 @@ def menus():
     company_name = settings['-company-']
     if not company_name:
         company_name = "... <Bitte erst Server-Einstellungen setzen>"
+    last_window_location = tuple(sg.UserSettings().get('-last-window-location-', (None, None)))
     window = sg.Window(utils.title(),
                        layout,
                        default_element_size=(12, 1),
                        default_button_element_size=(12, 1),
+                       location=last_window_location,
                        finalize=True)
 
     # ------ Loop & Process button menu choices ------ #
     window.bring_to_front()
+    last_window_location = utils.get_current_location(window)
     initial_loads()
     show_data()
     while True:
         event, values = window.read()
+        current_window_location = utils.get_current_location(window)
+        if current_window_location != (None, None):
+            last_window_location = current_window_location
         try:
             res = event_handler(event,window)
         except Exception as e:
             res = utils.title()+"\n"+str(e)+"\n"+traceback.format_exc()
         if res=="exit":
+            sg.UserSettings().set('-last-window-location-', last_window_location)
             window.close()
             return True
         elif res=="outer":
