@@ -89,7 +89,7 @@ def show_data():
             if num_pes:
                 print("{} offene (An)Zahlungen; {}/desk#List/Payment Entry/List?company={}".\
                       format(num_pes,server_info,comp_name))
-            num_pres = len(comp.get_open_pre_invoices())
+            num_pres = len(comp.get_open_pre_invoices(True))+len(comp.get_open_pre_invoices(False))
             if num_pres:
                 print("{} offene Prerechnungen; {}/desk#List/PreRechnung/List?company={}".\
                       format(num_pres,server_info,comp_name))
@@ -356,14 +356,14 @@ def event_handler(event,window):
             if choice in inv_texts:
                 pass # todo: reconciliate payment and invoice
                 #bank.BankTransaction.submit_entry(pe['name'],is_journal=False)
-    elif event == 'Prerechnungen':
+    elif event in ['Prerechnungen','Prerechnungen Balkon']:
         while True:
             keys = ['datum','name','short_pdf','balkonmodule','selbst_bezahlt','vom_konto_überwiesen']
             headings = ['Datum','Name','pdf','Balkon','selbst bez.','überwiesen']
             comp = company.Company.get_company(settings['-company-'])
             invs = [utils.format_dic(['balkonmodule','selbst_bezahlt',
                                       'vom_konto_überwiesen'],['pdf'],inv)\
-                    for inv in comp.get_open_pre_invoices()]
+                    for inv in comp.get_open_pre_invoices(event=='Prerechnungen Balkon')]
             tbl = table.Table(invs,keys,headings,event,
                             enable_events=True,display_row_numbers=True)
             ix = tbl.display()
@@ -573,7 +573,7 @@ def menus():
     # ------ Menu Definition ------ #
     menu_def = [['&Einlesen', ['&Kontoauszug', '&Einkaufsrechnung', '&Einkaufsrechnung Balkonmodule']],
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
-                ['&Anzeigen', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Prerechnungen','Einkaufsrechnungen','Verkaufsrechnungen','Banktransaktionen']],
+                ['&Anzeigen', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Prerechnungen','Prerechnungen Balkon','Einkaufsrechnungen','Verkaufsrechnungen','Banktransaktionen']],
                 ['Bankkonten', bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Chancen', 'Chancen Balkon']], 
                 ['Bereich', company.Company.all()], 

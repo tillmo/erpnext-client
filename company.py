@@ -140,11 +140,12 @@ class Company(Doc):
     def get_open_invoices(self):
         return self.get_open_invoices_of_type('Purchase Invoice') + \
                self.get_open_invoices_of_type('Sales Invoice')
-    def get_open_pre_invoices(self):
+    def get_open_pre_invoices(self,balkon):
         return gui_api_wrapper(\
                 Api.api.get_list,'PreRechnung',
                 filters={'eingepflegt':False,
                          'typ':'Rechnung',
+                         'balkonmodule':balkon,
                          'company':self.name},
                 limit_page_length=LIMIT)
 
