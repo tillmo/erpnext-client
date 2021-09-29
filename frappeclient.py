@@ -282,6 +282,12 @@ class FrappeClient(object):
 	def get_file(self, path):
 		'''Returns a file from the file system'''
 		return self.session.get(self.url + path).content
+
+	def get_unreconciled_entries(self,name):
+		res = self.session.get(self.url + '/api/resource/' + 'Payment Reconciliation' + '/' + name)
+
+		return self.post_process(res)
+
 	def get_api(self, method, params={}):
 		res = self.session.get(self.url + '/api/method/' + method + '/', params=params)
 		return self.post_process(res)
