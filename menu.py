@@ -53,7 +53,7 @@ def purchase_inv(update_stock):
     filename = utils.get_file('Einkaufsrechnung als PDF')
     if filename:
         print("Lese {} ein ...".format(filename))
-        return purchase_invoice.PurchaseInvoice.read_and_transfer(filename,update_stock)    
+        return purchase_invoice.PurchaseInvoice.read_and_transfer(filename,update_stock)
     return False
 
 def show_data():
@@ -372,15 +372,15 @@ def event_handler(event,window):
             if ix is False:
                 break
             inv = invs[ix]
-            print(inv)
             pdf = Api.api.get_file(inv['pdf'])
             f= utils.store_temp_file(pdf,".pdf")
             pinv = purchase_invoice.PurchaseInvoice.read_and_transfer\
                     (f,inv['balkonmodule'],inv['buchungskonto'],
                      inv['selbst_bezahlt'])
-            if pinv:
+            if pinv: # also for duplicates, update 'eingepflegt'
                 inv['eingepflegt'] = True
-                inv['purchase_invoice'] = pinv.doc['name']
+                if not pinv.is_duplicate:
+                    inv['purchase_invoice'] = pinv.doc['name']
                 inv_doc = doc.Doc(doc=inv,doctype='PreRechnung')
                 inv_doc.update()
             os.remove(f)

@@ -7,7 +7,7 @@ import PySimpleGUI as sg
 import easygui
 import subprocess
 import re
-from api import Api, WAREHOUSE
+from api import Api, WAREHOUSE, LIMIT
 from api_wrapper import gui_api_wrapper
 import settings
 import doc
@@ -416,7 +416,7 @@ class PurchaseInvoice(Invoice):
                 self.no = extract_no(lines)
                 self.supplier = extract_supplier(lines)
                 if self.check_if_present():
-                    return None
+                    return self
             else:
                 raise Exception("no data")
         except Exception as e:
@@ -427,7 +427,8 @@ class PurchaseInvoice(Invoice):
             self.date = ""
             self.no = ""
             self.supplier = ""
-        suppliers = gui_api_wrapper(Api.api.get_list,"Supplier")
+        suppliers = gui_api_wrapper(Api.api.get_list,"Supplier",
+                                    limit_page_length=LIMIT)
         supplier_names = [supp['name'] for supp in suppliers]+['neu']
         def_supp = self.supplier if self.supplier in supplier_names else "neu"
         def_new_supp = "" if self.supplier in supplier_names else self.supplier
@@ -635,6 +636,7 @@ class PurchaseInvoice(Invoice):
                                {'bill_no': self.no, 'status': ['!=','Cancelled']})
         if invs:
             easygui.msgbox("Einkaufsrechnung {} ist schon als {} in ERPNext eingetragen worden".format(self.no,invs[0]['name']))
+            self.is_duplicate = True
             return True
         return False
 
@@ -655,6 +657,7 @@ class PurchaseInvoice(Invoice):
             self.totals[vat] = 0.0
         self.multi = False
         self.infiles = []
+        self.is_duplicate = False
 
     def merge(self,inv):
         if not inv:
@@ -694,7 +697,9 @@ class PurchaseInvoice(Invoice):
             one_more = False
             inv_new = PurchaseInvoice(update_stock).\
                         read_pdf(infile,account,paid_by_submitter)
-            if inv_new:
+            if (inv is None) and inv_new and inv_new.is_duplicate:
+                return inv_new
+            if inv_new and not inv_new.is_duplicate:
                 inv_new.merge(inv)
                 inv = inv_new
                 if inv.total<0:
@@ -705,7 +710,7 @@ class PurchaseInvoice(Invoice):
                     one_more = easygui.buttonbox(title, title,["Ja","Nein"])=="Ja"
                 if one_more:
                     infile = utils.get_file('Weitere Einkaufsrechnung als PDF')
-        if inv:
+        if inv and not inv.is_duplicate:
             inv = inv.send_to_erpnext()
         if not inv:
             print("Keine Einkaufsrechnung angelegt")
@@ -717,7 +722,7 @@ class PurchaseInvoice(Invoice):
             return None
         print("Prüfe auf doppelte Rechung")
         if self.check_if_present():
-            return None
+            return self
         if self.extract_items:
             Api.load_item_data()
             print("Hole Lagerdaten")
