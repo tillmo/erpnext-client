@@ -243,7 +243,8 @@ class BankTransaction(Doc):
                 party_type = 'Supplier'
                 party_descr = 'Lieferanten'
                 is_recv = False
-            parties = gui_api_wrapper(Api.api.get_list,party_type)
+            parties = gui_api_wrapper(Api.api.get_list,party_type,
+                                      limit_page_length=LIMIT)
             party_names = list(map(lambda p: p['name'],parties))
             party_names.sort(key=str.casefold)
             title = party_descr+" wählen"
