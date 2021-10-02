@@ -48,6 +48,8 @@ def remove_dup(columns,report):
     return None
 
 def is_relevant(r,col_fields):
+    if r['account_name'] in ['Total Asset (Debit)','Total Liability (Credit)']:
+        return False
     for c in col_fields:
         el = r[c]
         if type(el) == str:
@@ -56,7 +58,7 @@ def is_relevant(r,col_fields):
         else:
             if round(el):
                 return True
-    return False
+    return not ('indent' in r) or r['indent'] == 0
 
 def build_trees(data,ix,indent,parent=None):
     tr_list = []
@@ -78,6 +80,12 @@ def build_tree(data):
     return tr
 
 
+def build_sums(tr):
+    for t in tr.children:
+        build_sums(t)
+    if not tr.is_leaf and not tr.name=="root":
+        tr.data['total'] = sum([t.data['total'] for t in tr.children])
+        
 def build_report(company_name,filename="",consolidated=False,balance=False,
                  periodicity='Yearly'):
     if not periodicity:
@@ -141,6 +149,9 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
     # build data        
     col_fields = [col['fieldname'] for col in columns]
     col_labels = [col['label'][0:10] for col in columns]
+    if balance:
+        col_fields = ['total']
+        col_labels = ['Total']
     header = [subtitle] + col_labels
     report_data = [format_account(r) for r in report['result']\
                    if ('account_name' in r) and\
@@ -150,6 +161,32 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
     # print tree
     #for pre, fill, node in RenderTree(tr):
     #     print("%s%s" % (pre, node.name))
+    # avoid negative entries in balance
+    swap_accounts = {'1400':'Anzahlungen Verkauf','1600':'Anzahlungen Einkauf'}
+    swap_account_list = list(swap_accounts.keys())
+    swap_data = {}
+    if balance:
+        p_sum = 0
+        for node in PostOrderIter(tr):
+            if node.name[0:4] in swap_account_list and node.data['total'] < 0:
+                swap_data[node.name[0:4]] = -node.data['total']
+                node.data['total'] = 0
+        for node in PostOrderIter(tr):
+            if node.name[0:4] in swap_account_list:
+                acc_no = node.name[0:4]
+                accs = swap_account_list.copy()
+                accs.remove(acc_no)
+                s_acc_no = accs[0]
+                if s_acc_no in swap_data:
+                    node.data['total'] = swap_data[s_acc_no]
+                    node.data['account_name'] = "   "*round(node.data['indent'])+swap_accounts[s_acc_no]
+        build_sums(tr)        
+        for node in PostOrderIter(tr):
+            if node.name!='root':
+                if node.data['account_name'] in ['Passiva','Überschuss/Defizit']:
+                    p_sum += node.data['total']
+                elif node.data['account_name'] == 'Summe Vermögensquellen (Passiva)':
+                    node.data['total'] = p_sum
     # formant non-leaf nodes according to indent
     r_data = []
     for node in PostOrderIter(tr):
