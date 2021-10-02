@@ -150,6 +150,7 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
     # print tree
     #for pre, fill, node in RenderTree(tr):
     #     print("%s%s" % (pre, node.name))
+    # formant non-leaf nodes according to indent
     r_data = []
     for node in PostOrderIter(tr):
         if node.name != "root":
