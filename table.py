@@ -65,11 +65,11 @@ class Table:
             e = self.entries[i]
             if not 'bold' in e:
                 continue
-            if not 'indent' in e:
+            if e['bold'] == 3:
                 grid.append(('FONTNAME',(0,i+1),(-1,i+1),'Helvetica-Bold'))
-            elif e['indent'] == 1:
+            elif e['bold'] == 2:
                 grid.append(('FONTNAME',(0,i+1),(-1,i+1),'Helvetica-BoldOblique'))
-            elif e['indent'] >= 2:
+            elif e['bold'] >= 1:
                 grid.append(('FONTNAME',(0,i+1),(-1,i+1),'Helvetica-Oblique'))
         # build list of 'Flowable' objects
         elements = []

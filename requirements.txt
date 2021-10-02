@@ -3,3 +3,4 @@ easygui
 PySimpleGUI>=4.47.0
 numpy
 reportlab
+anytree

@@ -5,6 +5,7 @@ import table
 import utils
 from datetime import datetime
 from datetime import date
+from anytree import Node, RenderTree, PostOrderIter
 
 def format_float(n):
     if type(n)==str:
@@ -56,6 +57,26 @@ def is_relevant(r,col_fields):
             if round(el):
                 return True
     return False
+
+def build_trees(data,ix,indent,parent=None):
+    tr_list = []
+    l = len(data)
+    while ix<l:
+        r = data[ix]
+        r_indent = int(r['indent']) if 'indent' in r else 0
+        if r_indent<indent:
+            return (ix,tr_list)
+        tr = Node(r['account_name'].strip(),data=r,parent=parent)
+        ix += 1
+        (ix,trs) = build_trees(data,ix,r_indent+1,tr)
+        tr_list.append(tr)
+    return (ix,tr_list)
+
+def build_tree(data):
+    tr = Node("root")
+    _,trs = build_trees(data,0,0,tr)
+    return tr
+
 
 def build_report(company_name,filename="",consolidated=False,balance=False,
                  periodicity='Yearly'):
@@ -124,33 +145,24 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
     report_data = [format_account(r) for r in report['result']\
                    if ('account_name' in r) and\
                       is_relevant(r,col_fields)]
-    leaves = []
-    tentative_leaves = []
-    old_indent = 0
-    for i in range(len(report_data)):
-        r = report_data[i]
-        if not 'indent' in r:
-            cur_indent = 0
-        else:
-            cur_indent = round(r['indent'])
-        if cur_indent > old_indent:
-            tentative_leaves = [i]
-        elif cur_indent == old_indent:    
-            tentative_leaves.append(i)
-        else:    
-            leaves += tentative_leaves.copy()
-            tentative_leaves = []
-        old_indent = cur_indent
-    for i in range(len(report_data)):
-        if i in leaves:
-            continue
-        if not 'indent' in r:
-            report_data[i]['bold'] = 3
-        elif r['indent'] == 1:
-            report_data[i]['bold'] = 2
-        elif r['indent'] >= 2:
-            report_data[i]['bold'] = 1
-    return table.Table(report_data,['account_name']+col_fields,header,title,
+    # using indentation, organise list of records into list of trees
+    tr = build_tree(report_data)
+    # print tree
+    #for pre, fill, node in RenderTree(tr):
+    #     print("%s%s" % (pre, node.name))
+    r_data = []
+    for node in PostOrderIter(tr):
+        if node.name != "root":
+            r = node.data
+            if not node.is_leaf:
+                if (not 'indent' in r) or r['indent'] == 0:
+                    r['bold'] = 3
+                elif r['indent'] == 1:
+                    r['bold'] = 2
+                elif r['indent'] >= 2:
+                    r['bold'] = 1
+            r_data.append(r)
+    return table.Table(r_data,['account_name']+col_fields,header,title,
                        filename=filename,enable_events=True)
 
 def format_GL(r):
