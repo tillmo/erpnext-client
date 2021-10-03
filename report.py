@@ -6,6 +6,7 @@ import utils
 from datetime import datetime
 from datetime import date
 from anytree import Node, RenderTree, PostOrderIter
+from collections import defaultdict
 
 def format_float(n):
     if type(n)==str:
@@ -80,11 +81,12 @@ def build_tree(data):
     return tr
 
 
-def build_sums(tr):
+def build_sums(tr,cols):
     for t in tr.children:
-        build_sums(t)
+        build_sums(t,cols)
     if not tr.is_leaf and not tr.name=="root":
-        tr.data['total'] = sum([t.data['total'] for t in tr.children])
+        for c in cols:
+            tr.data[c] = sum([t.data[c] for t in tr.children])
         
 def build_report(company_name,filename="",consolidated=False,balance=False,
                  periodicity='Yearly'):
@@ -150,8 +152,8 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
     col_fields = [col['fieldname'] for col in columns]
     col_labels = [col['label'][0:10] for col in columns]
     if balance:
-        col_fields = ['total']
-        col_labels = ['Total']
+        col_fields.append('total')
+        col_labels.append('Total')
     header = [subtitle] + col_labels
     report_data = [format_account(r) for r in report['result']\
                    if ('account_name' in r) and\
@@ -166,27 +168,31 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
     swap_account_list = list(swap_accounts.keys())
     swap_data = {}
     if balance:
-        p_sum = 0
         for node in PostOrderIter(tr):
             if node.name[0:4] in swap_account_list and node.data['total'] < 0:
-                swap_data[node.name[0:4]] = -node.data['total']
-                node.data['total'] = 0
+                for c in col_fields:
+                    swap_data[(node.name[0:4],c)] = -node.data[c]
+                    node.data[c] = 0
         for node in PostOrderIter(tr):
             if node.name[0:4] in swap_account_list:
                 acc_no = node.name[0:4]
                 accs = swap_account_list.copy()
                 accs.remove(acc_no)
                 s_acc_no = accs[0]
-                if s_acc_no in swap_data:
-                    node.data['total'] = swap_data[s_acc_no]
-                    node.data['account_name'] = "   "*round(node.data['indent'])+swap_accounts[s_acc_no]
-        build_sums(tr)        
+                for c in col_fields:
+                    if (s_acc_no,c) in swap_data:
+                        node.data['account_name'] = "   "*round(node.data['indent'])+swap_accounts[s_acc_no]
+                        node.data[c] = swap_data[(s_acc_no,c)]
+        build_sums(tr,col_fields)        
+        p_sum = defaultdict(lambda: 0)
         for node in PostOrderIter(tr):
             if node.name!='root':
                 if node.data['account_name'] in ['Passiva','Überschuss/Defizit']:
-                    p_sum += node.data['total']
+                    for c in col_fields:
+                        p_sum[c] += node.data[c]
                 elif node.data['account_name'] == 'Summe Vermögensquellen (Passiva)':
-                    node.data['total'] = p_sum
+                    for c in col_fields:
+                        node.data[c] = p_sum[c]
     # formant non-leaf nodes according to indent
     r_data = []
     for node in PostOrderIter(tr):
