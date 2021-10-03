@@ -17,7 +17,7 @@ def format_float(n):
 def format_account(r):
     account = r['account_name']
     account = account.replace("'","")
-    if account == 'Total Asset (Debit)':
+    if account in ['Total Asset (Debit)','Aktiva']:
         account = 'Summe Vermögenswerte (Aktiva)'
     elif account == 'Total Liability (Credit)':
         account = 'Teilsumme Vermögensquellen (Passiva)'
