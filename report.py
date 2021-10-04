@@ -252,14 +252,12 @@ def general_ledger(company_name,account):
     start_date_str = start_date.strftime('%Y-%m-%d')
     end_date_str = end_date.strftime('%Y-%m-%d')
     filters={'company' : company_name,
-             'account' : account,
+             'account' : [account],
              'from_date' : start_date_str,
              'to_date' : end_date_str}
-    try:
-        report = Api.api.query_report(report_name='General ledger',
-                                      filters=filters)
-    except Exception:
-        return None
+    report = gui_api_wrapper(Api.api.query_report,
+                             report_name='General ledger',
+                             filters=filters)
     columns = ['posting_date','account','debit','credit','balance','against',
                'remarks','voucher_no']
     headings = ['Datum','Konto','Soll','Haben','Stand','Gegenkonto',
