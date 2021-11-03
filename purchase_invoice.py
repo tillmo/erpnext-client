@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from settings import WAREHOUSE, STANDARD_PRICE_LIST, STANDARD_ITEM_GROUP, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, DELIVERY_COST_DESCRIPTION, NKK_ACCOUNTS, KORNKRAFT_ACCOUNTS
+from settings import WAREHOUSE, STANDARD_PRICE_LIST, STANDARD_ITEM_GROUP, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, DELIVERY_COST_DESCRIPTION, NKK_ACCOUNTS, KORNKRAFT_ACCOUNTS, SOMIKO_ACCOUNTS
 
 import utils
 import PySimpleGUI as sg
@@ -225,65 +225,68 @@ class PurchaseInvoice(Invoice):
                 print("Dies ist eine Anzahlungsrechnung")
                 return None
         self.items = []
-        mypos = 0
+        self.shipping = 0
         rounding_error = 0
-        for item_lines in items[1:]:
-            item_str = item_lines[0]
-            clutter = ['Einzelpreis','Krannich','IBAN','Rechnung','Übertrag']
-            s_item = SupplierItem(self)
-            long_description_lines = \
-                [l for l in item_lines[1:] \
-                   if utils.no_substr(clutter,l) and l.strip()]
-            s_item.description = " ".join(long_description_lines[0][0:82].split())
-            s_item.long_description = ""
-            for l in long_description_lines:
-                if "Zwischensumme" in l:
+        if self.update_stock:
+            mypos = 0
+            for item_lines in items[1:]:
+                item_str = item_lines[0]
+                clutter = ['Einzelpreis','Krannich','IBAN','Rechnung','Übertrag']
+                s_item = SupplierItem(self)
+                long_description_lines = \
+                    [l for l in item_lines[1:] \
+                       if utils.no_substr(clutter,l) and l.strip()]
+                s_item.description = " ".join(long_description_lines[0][0:82].split())
+                s_item.long_description = ""
+                for l in long_description_lines:
+                    if "Zwischensumme" in l:
+                        break
+                    s_item.long_description += l
+                pos = int(item_str[0:7].split()[0])
+                if pos>1000:
                     break
-                s_item.long_description += l
-            pos = int(item_str[0:7].split()[0])
-            if pos>1000:
-                break
-            #if not (pos in [mypos,mypos+1,mypos+2]):
-            #    break
-            if "Vorkasse" in s_item.description:
-                continue
-            mypos = pos
-            s_item.item_code = item_str.split()[1]
-            q=re.search("([0-9]+) *([A-Za-z]+)",item_str[80:99])
-            if not q:
-                continue
-            s_item.qty = int(q.group(1))
-            s_item.qty_unit = q.group(2)
-            price = utils.read_float(item_str[130:142].split()[0])
-            try:
-                discount = utils.read_float(item_str[142:152].split()[0])
-            except Exception:
-                discount = 0
-            s_item.amount = utils.read_float(item_str[157:].split()[0])
-            if s_item.qty_unit=="Rol":
+                #if not (pos in [mypos,mypos+1,mypos+2]):
+                #    break
+                if "Vorkasse" in s_item.description:
+                    continue
+                mypos = pos
+                s_item.item_code = item_str.split()[1]
+                q=re.search("([0-9]+) *([A-Za-z]+)",item_str[80:99])
+                if not q:
+                    continue
+                s_item.qty = int(q.group(1))
+                s_item.qty_unit = q.group(2)
+                price = utils.read_float(item_str[130:142].split()[0])
                 try:
-                    r1 = re.search('[0-9]+ *[mM]', s_item.description)
-                    r2 = re.search('[0-9]+', r1.group(0))
-                    s_item.qty_unit = "Meter"
-                    s_item.qty = int(r2.group(0))
+                    discount = utils.read_float(item_str[142:152].split()[0])
                 except Exception:
-                    pass
-            s_item.rate = round(s_item.amount/s_item.qty,2)
-            rounding_error += s_item.amount-s_item.rate*s_item.qty
-            self.items.append(s_item)
+                    discount = 0
+                s_item.amount = utils.read_float(item_str[157:].split()[0])
+                if s_item.qty_unit=="Rol":
+                    try:
+                        r1 = re.search('[0-9]+ *[mM]', s_item.description)
+                        r2 = re.search('[0-9]+', r1.group(0))
+                        s_item.qty_unit = "Meter"
+                        s_item.qty = int(r2.group(0))
+                    except Exception:
+                        pass
+                s_item.rate = round(s_item.amount/s_item.qty,2)
+                rounding_error += s_item.amount-s_item.rate*s_item.qty
+                self.items.append(s_item)
         vat_line = ""
         for i in range(-1,-len(items),-1):
             vat_lines = [line for line in items[i] if 'MwSt' in line]
             if vat_lines:
                 vat_line = vat_lines[0]
-                self.shipping = PurchaseInvoice.get_amount_krannich\
-                    ([line for line in items[i]\
-                       if 'Insurance' in line or 'Freight' in line\
-                           or 'Neukundenrabatt' in line])
+                if self.update_stock:
+                    self.shipping = PurchaseInvoice.get_amount_krannich\
+                        ([line for line in items[i]\
+                           if 'Insurance' in line or 'Freight' in line\
+                               or 'Neukundenrabatt' in line])
                 break
-        self.totals[self.default_vat] = utils.read_float(vat_line[146:159])
-        self.vat[self.default_vat] = PurchaseInvoice.get_amount_krannich([vat_line])
         self.shipping += rounding_error
+        self.totals[self.default_vat] = utils.read_float(vat_line[146:162])
+        self.vat[self.default_vat] = PurchaseInvoice.get_amount_krannich([vat_line])
         self.compute_total()
         return self
 
@@ -323,24 +326,25 @@ class PurchaseInvoice(Invoice):
                 item.append(line)
         items.append(item)
         self.items = []
-        mypos = 0
-        for item_lines in items[1:-1]:
-            parts = " ".join(map(lambda s: s.strip(),item_lines)).split()
-            s_item = SupplierItem(self)
-            s_item.qty = int(parts[1])
-            s_item.rate = utils.read_float(parts[-4])
-            s_item.amount = utils.read_float(parts[-2])
-            s_item.qty_unit = "Stk"
-            s_item.description = " ".join(parts[2:-4])
-            s_item.long_description = s_item.description
-            try:
-                ind = parts.index('Artikelnummer:')
-                s_item.item_code = parts[ind+1]
-            except Exception:
-                s_item.item_code = None
-            if not (s_item.description=="Selbstabholer" and s_item.amount==0.0):
-                self.items.append(s_item)
         self.shipping = 0.0
+        if self.update_stock:
+            mypos = 0
+            for item_lines in items[1:-1]:
+                parts = " ".join(map(lambda s: s.strip(),item_lines)).split()
+                s_item = SupplierItem(self)
+                s_item.qty = int(parts[1])
+                s_item.rate = utils.read_float(parts[-4])
+                s_item.amount = utils.read_float(parts[-2])
+                s_item.qty_unit = "Stk"
+                s_item.description = " ".join(parts[2:-4])
+                s_item.long_description = s_item.description
+                try:
+                    ind = parts.index('Artikelnummer:')
+                    s_item.item_code = parts[ind+1]
+                except Exception:
+                    s_item.item_code = None
+                if not (s_item.description=="Selbstabholer" and s_item.amount==0.0):
+                    self.items.append(s_item)
         vat_line = [line for line in items[-1] if 'MwSt' in line][0]
         self.vat[self.default_vat] = utils.read_float(vat_line.split()[-2])
         total_line = [line for line in items[-1] if 'Nettosumme' in line][0]
@@ -535,12 +539,8 @@ class PurchaseInvoice(Invoice):
                         else:    
                             self.supplier = supplier
                         self.multi = info['multi']    
-                        self.extract_items = True
-                        if self.items:
-                            return self
-                        else:
-                            print("Konnte keine Artikel extrahieren")
-                            return None
+                        self.extract_items = self.update_stock
+                        return self
         except Exception as e:
             if self.update_stock:
                 raise e
@@ -658,6 +658,7 @@ class PurchaseInvoice(Invoice):
         self.multi = False
         self.infiles = []
         self.is_duplicate = False
+        self.e_items = []
 
     def merge(self,inv):
         if not inv:
@@ -737,6 +738,8 @@ class PurchaseInvoice(Invoice):
                 return None
             if not ask_if_to_continue(self.check_duplicates()):
                 return None
+        elif not self.e_items:
+            self.assign_default_e_items(SOMIKO_ACCOUNTS)
         self.create_taxes()    
         return self    
 
