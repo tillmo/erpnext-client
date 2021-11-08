@@ -420,5 +420,5 @@ def opportunities(company_name,balkon=False):
                  #'Angebot1', 'Angebot2', 
                  #'Bauzeichnung','Kataster','Belegungsplan',
                  # 'Statik', 'Artikelliste','Verschattung','Eigen']
-    return table.Table(opps,columns,headings,'Chacen für '+company_name)
+    return table.Table(opps,columns,headings,'Chancen für '+company_name)
     
