@@ -74,7 +74,7 @@ def show_data():
                       end="")
             print()
         comp = company.Company.get_company(comp_name)
-        server_info = "weiter unter Anzeigen oder im ERPNext-Webclient unter {}".format(settings['-server-'])
+        server_info = "weiter unter Offene Dokumente oder im ERPNext-Webclient unter {}".format(settings['-server-'])
         if comp:
             num_bts = len(comp.open_bank_transactions())
             if num_bts:
@@ -93,11 +93,11 @@ def show_data():
             if num_pres:
                 print("{} offene Prerechnungen; {}/desk#List/PreRechnung/List?company={}".\
                       format(num_pres,server_info,comp_name))
-            num_pis = len(comp.get_open_purchase_invoices())
+            num_pis = len(comp.get_purchase_invoices(True))
             if num_pis:
                 print("{} offene Einkaufsrechnungen; {}/desk#List/Purchase Invoice/List?company={}".\
                       format(num_pis,server_info,comp_name))
-            num_sis = len(comp.get_open_sales_invoices())
+            num_sis = len(comp.get_sales_invoices(True))
             if num_sis:
                 print("{} offene Verkaufsrechnungen; {}/desk#List/Sales Invoice/List?company={}".\
                       format(num_sis,server_info,comp_name))
@@ -140,7 +140,7 @@ def event_handler(event,window):
         print('- Man kann die Bearbeitung einer Banktransaktion auch abbrechen und mit der nächsten weitermachen')
         print('  - Die Banktransaktion bleibt dann offen und kann später bearbeitet werden')
         print('Schließlich müssen die ERPNext-Buchungssätze und ERPNext-(An)Zahlungen noch gebucht werden')
-        print('-> Das geht unter Anzeigen - Buchungssätze bzw. Anzeigen - (An)Zahlungen, oder auf der ERPNext-Seite')
+        print('-> Das geht unter Offene Dokumente - Buchungssätze bzw. Offene Dokumente - (An)Zahlungen, oder auf der ERPNext-Seite')
     elif event == 'Hilfe Rechnungen':
         print()
         print('Einlesen von Einkaufsrechnungen:')
@@ -384,16 +384,28 @@ def event_handler(event,window):
                 inv_doc = doc.Doc(doc=inv,doctype='PreRechnung')
                 inv_doc.update()
             os.remove(f)
-    elif event in ['Einkaufsrechnungen','Verkaufsrechnungen']:
+    elif event in ['offene Einkaufsrechnungen','offene Verkaufsrechnungen','Einkaufsrechnungen','Verkaufsrechnungen']:
+        event_words = event.split(" ")
+        open_invs = event_words[0]=='offene'
+        if open_invs:
+            add_keys = ['btname']
+            add_heads = ['Bank']
+            amount_key = ['outstanding_amount']
+            amount_head = ['Ausstehend']
+        else:    
+            add_keys = []
+            add_heads = []
+            amount_key = ['grand_total']
+            amount_head = ['Betrag']
         while True:
-            keys = ['posting_date','outstanding_amount','bill_no','status','account','supplier','title']
-            headings = ['Datum','Ausstehend','Rechungsnr.','Status','Buchungskonto','Lieferant','Titel']
+            keys = ['posting_date']+amount_key+['bill_no','status','account','supplier','title']
+            headings = ['Datum']+amount_head+['Rechungsnr.','Status','Buchungskonto','Lieferant','Titel']
             comp = company.Company.get_company(settings['-company-'])
-            if event == 'Einkaufsrechnungen':
+            if event_words[-1] == 'Einkaufsrechnungen':
                 inv_type = 'Purchase Invoice'
             else:
                 inv_type = 'Sales Invoice'
-            invs = comp.get_open_invoices_of_type(inv_type)
+            invs = comp.get_invoices_of_type(inv_type,open_invs)
             inv_docs = []
             bt_dict = defaultdict(list)
             for i in range(len(invs)):
@@ -403,31 +415,34 @@ def event_handler(event,window):
                                       name)
                 if not 'bill_no' in inv_doc:
                     inv_doc['bill_no'] = name
-                accounts = list(set(map(lambda i:i['expense_account'],
-                                    inv_doc['items'])))
-                inv_doc['account'] = accounts[0]
-                if len(accounts)>1:
-                    inv_doc['account']+" + weitere"
-                total = inv_doc['outstanding_amount']
-                if inv_type=='Purchase Invoice':
-                    total = -total
-                bt = bank.BankTransaction.find_bank_transaction(\
-                       comp.name,total,
-                       inv_doc['bill_no'] if 'bill_no' in inv_doc else "")
-                if bt:
-                    ref = None
-                    if 'customer' in inv_doc:
-                        ref = inv_doc['customer']
-                    if 'supplier' in inv_doc:
-                        ref = inv_doc['supplier']
-                    if ref:
-                        inv_doc['similarity'] = \
-                            utils.similar(bt.description.lower(),
-                                          ref.lower())
-                        bt_dict[bt.name].append((i,inv_doc['similarity']))
-                        inv_doc['bt'] = bt
-                        inv_doc['btname'] = bt.name
-                inv_doc['disabled'] = not (bt or inv_doc['status'] == 'Draft')
+                if open_invs and inv_doc['status'] != 'Draft':
+                    accounts = list(set(map(lambda i:i['expense_account'],
+                                        inv_doc['items'])))
+                    inv_doc['account'] = accounts[0]
+                    if len(accounts)>1:
+                        inv_doc['account']+" + weitere"
+                    total = inv_doc['outstanding_amount']
+                    if inv_type=='Purchase Invoice':
+                        total = -total
+                    bt = bank.BankTransaction.find_bank_transaction(\
+                           comp.name,total,
+                           inv_doc['bill_no'] if 'bill_no' in inv_doc else "")
+                    if bt:
+                        ref = None
+                        if 'customer' in inv_doc:
+                            ref = inv_doc['customer']
+                        if 'supplier' in inv_doc:
+                            ref = inv_doc['supplier']
+                        if ref:
+                            inv_doc['similarity'] = \
+                                utils.similar(bt.description.lower(),
+                                              ref.lower())
+                            bt_dict[bt.name].append((i,inv_doc['similarity']))
+                            inv_doc['bt'] = bt
+                            inv_doc['btname'] = bt.name
+                    inv_doc['disabled'] = not bt 
+                else:
+                    inv_doc['disabled'] = not (inv_doc['status'] == 'Draft')
                 inv_docs.append(inv_doc)
             # handle duplicate bank transactions, use best matching invoice
             for bt,entries in bt_dict.items():
@@ -435,7 +450,7 @@ def event_handler(event,window):
                 for (i,s) in entries[1:]:
                     del inv_docs[i]['bt']
                     del inv_docs[i]['btname']
-            tbl = table.Table(inv_docs,keys+['btname'],headings+['Bank'],event,
+            tbl = table.Table(inv_docs,keys+add_keys,headings+add_heads,event,
                             enable_events=True,display_row_numbers=True)
             ix = tbl.display()
             if ix is False:
@@ -566,7 +581,7 @@ def event_handler(event,window):
         show_data()
         window.set_title(utils.title())
         show_company_data = False
-    return "inner"    
+    return "inner"
 
 def menus():
     settings = sg.UserSettings()
@@ -576,8 +591,8 @@ def menus():
     # ------ Menu Definition ------ #
     menu_def = [['&Einlesen', ['&Kontoauszug', '&Einkaufsrechnung', '&Einkaufsrechnung Balkonmodule']],
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
-                ['&Anzeigen', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Prerechnungen','Prerechnungen Balkon','Einkaufsrechnungen','Verkaufsrechnungen','Banktransaktionen']],
-                ['Bankkonten', bank.BankAccount.get_baccount_names()], 
+                ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Prerechnungen','Prerechnungen Balkon','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen']],
+                ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Chancen', 'Chancen Balkon']], 
                 ['Bereich', company.Company.all()], 
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Update']], 

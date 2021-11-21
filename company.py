@@ -125,21 +125,25 @@ class Company(Doc):
             return Company.companies_by_name[name]
         except Exception:
             return None
-    def get_open_invoices_of_type(self,inv_type):
+    def get_invoices_of_type(self,inv_type,open_invs):
         is_sales = (inv_type=='Sales Invoice')
+        filters={'company':self.name}
+        if open_invs:
+            filters['status'] = ['in',['Draft','Unpaid','Overdue','Partly Paid']]
+        else:    
+            filters['status'] = ['in',['Paid']]
         invs = gui_api_wrapper(\
                 Api.api.get_list,inv_type,
-                filters={'status':['in',['Unpaid','Overdue','Partly Paid']],
-                         'company':self.name},
+                filters=filters,
                 limit_page_length=LIMIT)
         return list(map(lambda inv: Invoice(inv,is_sales),invs))
-    def get_open_sales_invoices(self):
-        return self.get_open_invoices_of_type('Sales Invoice')
-    def get_open_purchase_invoices(self):
-        return self.get_open_invoices_of_type('Purchase Invoice')
-    def get_open_invoices(self):
-        return self.get_open_invoices_of_type('Purchase Invoice') + \
-               self.get_open_invoices_of_type('Sales Invoice')
+    def get_sales_invoices(self,open_invs):
+        return self.get_invoices_of_type('Sales Invoice',open_invs)
+    def get_purchase_invoices(self,open_invs):
+        return self.get_invoices_of_type('Purchase Invoice',open_invs)
+    def get_invoices(self,open_invs):
+        return self.get_invoices_of_type('Purchase Invoice',open_invs) + \
+               self.get_invoices_of_type('Sales Invoice',open_invs)
     def get_open_pre_invoices(self,balkon):
         return gui_api_wrapper(\
                 Api.api.get_list,'PreRechnung',
