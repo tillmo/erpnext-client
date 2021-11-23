@@ -155,15 +155,15 @@ class Company(Doc):
 
     def reconciliate(self,bt):
         Api.load_account_data()
-        sinvs = self.get_open_sales_invoices()
-        pinvs = self.get_open_purchase_invoices()
+        sinvs = self.get_sales_invoices(True)
+        pinvs = self.get_purchase_invoices(True)
         bt = gui_api_wrapper(Api.api.get_doc,'Bank Transaction',bt['name'])
         bank.BankTransaction(bt).transfer(sinvs,pinvs)
 
     def reconciliate_all(self):
         Api.load_account_data()
-        sinvs = self.get_open_sales_invoices()
-        pinvs = self.get_open_purchase_invoices()
+        sinvs = self.get_sales_invoices(True)
+        pinvs = self.get_purchase_invoices(True)
         bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
                               filters={'company':self.name,
                                        'status':'Pending'})
