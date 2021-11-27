@@ -26,4 +26,8 @@ You now can start the client with `python3 erpnext.py` (or, in Windows 10, with 
 * handle this for multiple companies
 * currently, texts are in German only
  
+## running tests
+For running tests, please first run
+pip3 install -e .
+
 
