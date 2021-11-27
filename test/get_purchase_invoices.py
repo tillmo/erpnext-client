@@ -1,19 +1,9 @@
 #!/usr/bin/python3
 
-JOURNAL_LIMIT = 100
-
 from api import Api, LIMIT
-from api_wrapper import gui_api_wrapper, api_wrapper_test
-import os
-import PySimpleGUI as sg
 import pickle
 
-def init():
-    sg.user_settings_filename(filename='erpnext.json')
-    settings = sg.UserSettings()
-    settings['-setup-'] = not api_wrapper_test(Api.initialize)
-
-init()
+Api.initialize_with_settings()
 
 pinvs = Api.api.get_list("Purchase Invoice",
                          filters= {'status':['in',['Paid','Unpaid','Overdue','Partly Paid']]},

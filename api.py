@@ -1,4 +1,4 @@
-from api_wrapper import gui_api_wrapper
+from api_wrapper import gui_api_wrapper, api_wrapper_test
 import json
 from os.path import expanduser 
 from frappeclient import FrappeClient
@@ -20,6 +20,11 @@ class Api(object):
         Api.api = FrappeClient(settings['-server-'])
         Api.api.authenticate(settings['-key-'], settings['-secret-'])
         Api.api.get_list("Company")
+    @classmethod
+    def initialize_with_settings(cls):
+        sg.user_settings_filename(filename='erpnext.json')
+        settings = sg.UserSettings()
+        settings['-setup-'] = not api_wrapper_test(Api.initialize)
     @classmethod
     def load_item_data(cls):
         if not Api.items_by_code:
