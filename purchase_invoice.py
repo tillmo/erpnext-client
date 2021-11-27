@@ -408,7 +408,8 @@ class PurchaseInvoice(Invoice):
         self.assign_default_e_items(KORNKRAFT_ACCOUNTS)
         return self
 
-    def parse_generic(self,lines,default_account=None,paid_by_submitter=False):
+    def parse_generic(self,lines,default_account=None,paid_by_submitter=False,
+                      is_test=False):
         try:
             if lines:
                 (amount,vat) = extract_amount_and_vat(lines,self.vat_rates)
@@ -419,8 +420,9 @@ class PurchaseInvoice(Invoice):
                 self.date = extract_date(lines)
                 self.no = extract_no(lines)
                 self.supplier = extract_supplier(lines)
-                if self.check_if_present():
-                    return self
+                if not is_test:
+                    if self.check_if_present():
+                        return self
             else:
                 raise Exception("no data")
         except Exception as e:
@@ -431,6 +433,8 @@ class PurchaseInvoice(Invoice):
             self.date = ""
             self.no = ""
             self.supplier = ""
+        if is_test:
+            return self
         suppliers = gui_api_wrapper(Api.api.get_list,"Supplier",
                                     limit_page_length=LIMIT)
         supplier_names = [supp['name'] for supp in suppliers]+['neu']
@@ -517,7 +521,8 @@ class PurchaseInvoice(Invoice):
         self.assign_default_e_items({self.default_vat:account})
         return self
     
-    def parse_invoice(self,infile,account=None,paid_by_submitter=False):
+    def parse_invoice(self,infile,account=None,paid_by_submitter=False,
+                      is_test=False):
         self.extract_items = False
         try:        
             lines = pdf_to_text(infile)
@@ -547,7 +552,7 @@ class PurchaseInvoice(Invoice):
             else:
                 print(e)
                 print("Rückfall auf Standard-Rechnungsbehandlung")
-        return self.parse_generic(lines,account,paid_by_submitter)
+        return self.parse_generic(lines,account,paid_by_submitter,is_test)
         
     def compute_total(self):
         self.total = sum([t for v,t in self.totals.items()])
