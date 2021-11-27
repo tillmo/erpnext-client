@@ -14,24 +14,23 @@ def init():
     settings['-setup-'] = not api_wrapper_test(Api.initialize)
 
 init()
-print(gui_api_wrapper(Api.api.get_doc,'Payment Entry','ACC-PAY-2021-00014'))
-exit(0)
 
-pinvs = Api.api.get_list("Purchase Invoice",limit_page_length=1)
+pinvs = Api.api.get_list("Purchase Invoice",
+                         filters= {'status':['in',['Paid','Unpaid','Overdue','Partly Paid']]},
+                         limit_page_length=LIMIT)
 pinv_dict = {}
 for pinv in pinvs:
+    print(".",end="",flush=True)
     pname = pinv['name']
     full_pinv = Api.api.get_doc('Purchase Invoice',pname)
-    pinv_dict[pname] = full_pinv
-    pdf = Api.api.get_file(full_pinv['pdf'])
-    filename = "test/data/"+pname+".pdf"
-    with os.fdopen(filename,'wb') as f:
-        f.write(pdf)
-
-with os.fdopen(filename,'wb') as f:
-    f.write(pdf)
-        
+    if 'supplier_invoice' in full_pinv:
+        pinv_dict[pname] = full_pinv
+        pdf = Api.api.get_file(full_pinv['supplier_invoice'])
+        filename = "test/data/"+pname+".pdf"
+        with open(filename,'wb') as f:
+            f.write(pdf)
 
 pickle.dump(pinv_dict, open("test/data/purchase_invoices.p", "wb" ), protocol=4)
 
+print()
 
