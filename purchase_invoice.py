@@ -535,6 +535,7 @@ class PurchaseInvoice(Invoice):
                             break
                 for supplier,info in PurchaseInvoice.suppliers.items():
                     if supplier in head:
+                        self.parser = supplier
                         if info['raw']:
                             self.raw = True
                             lines = pdf_to_text(infile,True)
@@ -553,6 +554,7 @@ class PurchaseInvoice(Invoice):
             else:
                 print(e)
                 print("Rückfall auf Standard-Rechnungsbehandlung")
+        self.parser = "generic"
         return self.parse_generic(lines,account,paid_by_submitter,is_test)
         
     def compute_total(self):

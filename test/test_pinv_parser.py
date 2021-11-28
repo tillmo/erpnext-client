@@ -30,7 +30,7 @@ for name,pinv_doc in pinv_dict.items():
             print(name,"  computed invoice no: ",pinv.no,
                   "  test data :",pinv_doc['bill_no'])
             text = purchase_invoice.pdf_to_text(pdf_name,pinv.raw)
-            print('raw: ',pinv.raw,' len: ',len(text))
+            print('parser: ',pinv.parser,' raw: ',pinv.raw,' len: ',len(text))
             for line in text:
                 #if "echnung" in line or "ummer" in line:
                 if pinv_doc['bill_no'] in line:
