@@ -58,27 +58,35 @@ def extract_no(lines):
     nos = []
     for line in lines:
         lline = line.lower()
+        if ("Seite" in line and "von" in line) or "Verwendungszweck" in line\
+           or "in Rechnung" in line:
+            continue
         if "rechnungsnr" in lline\
           or "rechnungs-Nr" in lline\
           or "rechnungsnummer" in lline\
           or ("rechnung" in lline and "nr" in lline)\
-          or ("rechnung:" in lline):
-            s = re.search(r"[nN][rR][:. ]*([A-Za-z0-9/-]+)",line)
-            if s and s.group(1):
-                nos.append(s.group(1))
-                continue
-            s = re.search(r"[rR]e.*nummer[:. ]*([A-Za-z0-9/-]+)",line)
-            if s and s.group(1):
-                nos.append(s.group(1))
-                continue
-            s = re.search(r"Rechnung[:. ]*([A-Za-z0-9/-]+)",line)
-            if s and s.group(1):
-                nos.append(s.group(1))
-                continue
+          or ("rechnung " in lline)\
+          or ("rechnung:" in lline)\
+          or ("deine rechnung" in lline)\
+          or ("belegnummer" in lline):
+            for pattern in ["[nN][rR]","[rR]e.*nummer","Rechnung",
+                            "Belegnummer / Document Number",
+                            "Belegnummer"]:
+                s1 = re.search(pattern+"[:.– ]*([A-Za-z0-9/_–-]+([0-9/_–-]| (?! ))+)",line)
+                if s1 and s1.group(1):
+                    #print("line:",line)
+                    #print("s1:",s1.group(1))
+                    nos.append(s1.group(1))
+                    continue
+        if "EXP-" in line: # ERPNext invoices
+            s = re.search(r"EXP-[0-9][0-9]-[0-9][0-9]-[0-9]+",line)
+            if s and s.group(0):
+                nos.append(s.group(0))
+                continue            
     if not nos:        
         return None
     nos.sort(key=lambda s: len(s),reverse=True)
-    return nos[0]
+    return nos[0].strip()
 
 def extract_supplier(lines):
     return " ".join(lines[0][0:80].split())
@@ -410,29 +418,25 @@ class PurchaseInvoice(Invoice):
 
     def parse_generic(self,lines,default_account=None,paid_by_submitter=False,
                       is_test=False):
-        try:
-            if lines:
-                (amount,vat) = extract_amount_and_vat(lines,self.vat_rates)
-            if lines and amount:    
-                self.vat[self.default_vat] = vat
-                self.totals[self.default_vat] = amount-self.vat[self.default_vat]
-                self.shipping = 0.0
-                self.date = extract_date(lines)
-                self.no = extract_no(lines)
-                self.supplier = extract_supplier(lines)
-                if not is_test:
-                    if self.check_if_present():
-                        return self
-            else:
-                raise Exception("no data")
-        except Exception as e:
-            amount = ""
-            self.vat[self.default_vat] = ""
-            self.totals[self.default_vat] = ""
+        amount = ""
+        self.vat[self.default_vat] = ""
+        self.totals[self.default_vat] = ""
+        self.shipping = 0.0
+        self.date = ""
+        self.no = ""
+        self.supplier = ""
+        if lines:
+            (amount,vat) = extract_amount_and_vat(lines,self.vat_rates)
+            self.date = extract_date(lines)
+            self.no = extract_no(lines)
+            self.supplier = extract_supplier(lines)
+        if lines and amount:    
+            self.vat[self.default_vat] = vat
+            self.totals[self.default_vat] = amount-self.vat[self.default_vat]
             self.shipping = 0.0
-            self.date = ""
-            self.no = ""
-            self.supplier = ""
+            if not is_test:
+                if self.check_if_present():
+                    return self
         if is_test:
             return self
         suppliers = gui_api_wrapper(Api.api.get_list,"Supplier",
@@ -551,7 +555,7 @@ class PurchaseInvoice(Invoice):
         except Exception as e:
             if self.update_stock:
                 raise e
-            else:
+            elif not is_test:
                 print(e)
                 print("Rückfall auf Standard-Rechnungsbehandlung")
         self.parser = "generic"
@@ -562,7 +566,8 @@ class PurchaseInvoice(Invoice):
         self.total_vat = sum([t for v,t in self.vat.items()])
         self.gross_total = self.total + self.total_vat
         for vat in self.vat_rates:
-            if (round(self.totals[vat]*vat/100.0+0.00001,2)-self.vat[vat]):
+            if (round(self.totals[vat]*vat/100.0+0.00001,2)-self.vat[vat])\
+               and not is_test:
                 print("Abweichung bei MWSt! ",
                       vat,"% von",self.totals[vat]," = ",
                       round(self.totals[vat]*vat/100.0+0.00001,2),

@@ -6,7 +6,7 @@
 import os
 from api import Api, LIMIT
 from purchase_invoice import pdf_to_text
-import pickle
+import json
 
 Api.initialize_with_settings()
 
@@ -29,7 +29,8 @@ for pinv in pinvs:
             else:
                 os.remove(filename) 
 
-pickle.dump(pinv_dict, open("test/data/purchase_invoices.p", "wb" ), protocol=4)
+with open("test/data/purchase_invoices.json", 'w') as f:
+    json.dump(pinv_dict, f)
 
 print()
 
