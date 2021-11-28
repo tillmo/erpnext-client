@@ -536,6 +536,7 @@ class PurchaseInvoice(Invoice):
                 for supplier,info in PurchaseInvoice.suppliers.items():
                     if supplier in head:
                         if info['raw']:
+                            self.raw = True
                             lines = pdf_to_text(infile,True)
                         if not info['parser'](self,lines):
                             return None
@@ -664,6 +665,7 @@ class PurchaseInvoice(Invoice):
         self.infiles = []
         self.is_duplicate = False
         self.e_items = []
+        self.raw = False
 
     def merge(self,inv):
         if not inv:
