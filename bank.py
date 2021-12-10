@@ -205,6 +205,7 @@ class BankTransaction(Doc):
             side = "deposit"
         # find accounts that could match, using previous journal entries    
         account_names = list(map(lambda acc: acc['name'],accounts))
+        account_names.sort()
         jaccs = [(je['account'],
                  utils.similar(self.description,je['user_remark'])) \
                    for je in self.company.journal if 'user_remark' in je and je['user_remark']]
