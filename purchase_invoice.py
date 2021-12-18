@@ -566,8 +566,7 @@ class PurchaseInvoice(Invoice):
         self.total_vat = sum([t for v,t in self.vat.items()])
         self.gross_total = self.total + self.total_vat
         for vat in self.vat_rates:
-            if (round(self.totals[vat]*vat/100.0+0.00001,2)-self.vat[vat])\
-               and not is_test:
+            if (round(self.totals[vat]*vat/100.0+0.00001,2)-self.vat[vat]):
                 print("Abweichung bei MWSt! ",
                       vat,"% von",self.totals[vat]," = ",
                       round(self.totals[vat]*vat/100.0+0.00001,2),
