@@ -6,8 +6,8 @@ STANDARD_PRICE_LIST = 'Standard-Vertrieb'
 STANDARD_ITEM_GROUP = 'Produkte'
 STANDARD_NAMING_SERIES_PINV = 'EK .YYYY.-'
 VAT_DESCRIPTION = 'Umsatzsteuer'
-DELIVERY_COST_ACCOUNT = '4998 - Vertriebskosten - SoMiKo'
-DELIVERY_COST_DESCRIPTION = 'Vertriebskosten'
+DELIVERY_COST_ACCOUNT = '3800 - Bezugsnebenkosten - SoMiKo'
+DELIVERY_COST_DESCRIPTION = 'Bezugsnebenkosten'
 VALIDITY_DATE = '2020-10-01'
 
 NKK_ACCOUNTS = {19.0: '3401 - NKK 19% Vorsteuer - Laden',

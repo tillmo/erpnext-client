@@ -354,10 +354,11 @@ class PurchaseInvoice(Invoice):
                     s_item.item_code = parts[ind+1]
                 except Exception:
                     s_item.item_code = None
+                if s_item.description.strip()=="Transportkosten":
+                    self.shipping = s_item.amount
+                    continue
                 if not (s_item.description=="Selbstabholer" and s_item.amount==0.0):
                     self.items.append(s_item)
-        vat_line = ""
-        total_Line = ""
         for i in range(-1,-5,-1):
             try:
                 vat_line = [line for line in items[i] if 'MwSt' in line][0]
@@ -590,7 +591,7 @@ class PurchaseInvoice(Invoice):
               'rate' : self.totals[vat],
               'cost_center' : self.company.cost_center} \
                     for vat in self.vat_rates if vat in accounts and self.totals[vat]]
-        if not self.update_stock:
+        if not self.update_stock and self.vat_rates:
             self.e_items[0]['expense_account'] = accounts[self.vat_rates[0]]
 
     def create_taxes(self):
