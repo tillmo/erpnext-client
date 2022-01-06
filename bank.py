@@ -441,7 +441,7 @@ class BankStatement:
         if bacc.blz()=='83094495':
             b.read_sparda_ethik(infile,is_sparda=False)
         elif bacc.blz()=='25090500':
-            b.read_sparda_ethik(infile,is_sparda=True)
+            b.read_sparda_ethik(infile,is_sparda=False) # new Sparda format
         elif bacc.blz()=='29050101':
             b.read_sparkasse(infile)
         else:
