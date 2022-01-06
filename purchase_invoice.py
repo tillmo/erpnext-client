@@ -338,14 +338,17 @@ class PurchaseInvoice(Invoice):
         if self.update_stock:
             mypos = 0
             for item_lines in items[1:-1]:
-                parts = " ".join(map(lambda s: s.strip(),item_lines)).split()
-                s_item = SupplierItem(self)
-                s_item.qty = int(parts[1])
-                s_item.rate = utils.read_float(parts[-4])
-                s_item.amount = utils.read_float(parts[-2])
-                s_item.qty_unit = "Stk"
-                s_item.description = " ".join(parts[2:-4])
-                s_item.long_description = s_item.description
+                try:
+                    parts = " ".join(map(lambda s: s.strip(),item_lines)).split()
+                    s_item = SupplierItem(self)
+                    s_item.qty = int(parts[1])
+                    s_item.rate = utils.read_float(parts[-4])
+                    s_item.amount = utils.read_float(parts[-2])
+                    s_item.qty_unit = "Stk"
+                    s_item.description = " ".join(parts[2:-4])
+                    s_item.long_description = s_item.description
+                except Exception:
+                    continue
                 try:
                     ind = parts.index('Artikelnummer:')
                     s_item.item_code = parts[ind+1]
@@ -353,9 +356,16 @@ class PurchaseInvoice(Invoice):
                     s_item.item_code = None
                 if not (s_item.description=="Selbstabholer" and s_item.amount==0.0):
                     self.items.append(s_item)
-        vat_line = [line for line in items[-1] if 'MwSt' in line][0]
+        vat_line = ""
+        total_Line = ""
+        for i in range(-1,-5,-1):
+            try:
+                vat_line = [line for line in items[i] if 'MwSt' in line][0]
+                total_line = [line for line in items[i] if 'Nettosumme' in line][0]
+                break
+            except Exception:
+                pass
         self.vat[self.default_vat] = utils.read_float(vat_line.split()[-2])
-        total_line = [line for line in items[-1] if 'Nettosumme' in line][0]
         self.totals[self.default_vat] = utils.read_float(total_line.split()[-2])
         self.compute_total()
         return self
