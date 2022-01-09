@@ -1,3 +1,9 @@
+- Rechnungen Heckert
+- statt Rechnungsverschmelzung lieber return-Rechnungen
+- payment reconciliation
+- Excel-Tabelle mit Quittungen einlesen
+- MWSt-Abweichungen bei Tests
+
 - Keine Option "Sofort buchen" für Lager-Rechnungen ohne extract_items
 - Rechnung alpha solar
 - Lieferanten-Auftragsbestätigung einlesen, an Chance heften, Nr. ablegen
@@ -6,14 +12,11 @@
   - Sobald Kundenrechnung gebucht ist, diese automatisch zahlen
     - möglichst gleichzeitig auch Lieferantenrechnung buchen und autom. zahlen
     - als einen Workflow in Client implementieren?
-- if for a purchase invoice with negative total, the second invoice already exists, another invoice must be read in
 - Auftragsbestätigung: Solipreis raus, stattdessen: welchen Preis man gewählt hat (Häkchen für verschiedene Optionen)
 - show draft invoices that should be submitted
-- update_stock depdendent on balkonmodul
 - sales documents without address
 - stock purchase invoices with scan
 - why is bank transaction not found for purchase invoice?
-- sort accounts before displaying?
 - when processing bank transactions, distingiush "cancel" and "exit window"
 - ods for food coop
 - short overview of stock
@@ -22,6 +25,5 @@
 - display difference between bank account balance according to bank transfers and according to general legder
 - cost centers
 - merge settings
-- display funds
 - more flexible consolidated financial statement
 
