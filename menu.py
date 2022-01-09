@@ -341,9 +341,9 @@ def event_handler(event,window):
             pe = pes[ix]
             details = utils.format_entry(pe,keys,headings)
             if pe['payment_type']=='Pay':
-                invs = comp.get_open_purchase_invoices()
+                invs = comp.get_purchase_invoices(True)
             else:    
-                invs = comp.get_open_sales_invoices()
+                invs = comp.get_sales_invoices(True)
             if not invs:
                 continue
             invs.sort(key=lambda inv: abs(inv.outstanding-abs(pe['paid_amount'])))
