@@ -326,13 +326,13 @@ def event_handler(event,window):
                 show_company_data = True
     elif event == 'Unzugeordnete (An)Zahlungen':
         while True:
-            keys = ['posting_date','name','paid_amount','party','reference_no']
-            headings = ['Datum','Name','Betrag','Gezahlt an','Referenz.']
+            keys = ['posting_date','name','unallocated_amount','party','reference_no']
+            headings = ['Datum','Name','offener Betrag','Gezahlt an','Referenz.']
             comp = company.Company.get_company(settings['-company-'])
             pes = comp.unassigned_payment_entries()
             for pe in pes:
                 if pe['payment_type']=='Pay':
-                    pe['paid_amount'] = -pe['paid_amount']
+                    pe['unallocated_amount'] = -pe['unallocated_amount']
             title = "Unzugeordnete (An)Zahlungen"
             tbl = table.Table(pes,keys,headings,title,enable_events=True,display_row_numbers=True)
             ix = tbl.display()
@@ -346,7 +346,7 @@ def event_handler(event,window):
                 invs = comp.get_sales_invoices(True)
             if not invs:
                 continue
-            invs.sort(key=lambda inv: abs(inv.outstanding-abs(pe['paid_amount'])))
+            invs.sort(key=lambda inv: abs(inv.outstanding-abs(pe['unallocated_amount'])))
             inv_texts = list(map(lambda inv: utils.showlist([inv.name,inv.party,inv.reference,inv.outstanding]),invs))
             if len(inv_texts)<=1:
                 inv_texts.append("Nichts")
