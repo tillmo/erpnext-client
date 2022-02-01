@@ -452,7 +452,9 @@ class PurchaseInvoice(Invoice):
             return self
         suppliers = gui_api_wrapper(Api.api.get_list,"Supplier",
                                     limit_page_length=LIMIT)
-        supplier_names = [supp['name'] for supp in suppliers]+['neu']
+        supplier_names = [supp['name'] for supp in suppliers]
+        supplier_names.sort()
+        supplier_names+=['neu']
         def_supp = self.supplier if self.supplier in supplier_names else "neu"
         def_new_supp = "" if self.supplier in supplier_names else self.supplier
         layout = [  [sg.Text('Lieferant')],
@@ -474,6 +476,8 @@ class PurchaseInvoice(Invoice):
                               k='-vat-')],
                     [sg.Text('Brutto')],     
                     [sg.Input(default_text = str(amount), k='-gross-')],
+                    [sg.Text('Skonto')],     
+                    [sg.Input(k='-skonto-')],
                     [sg.Checkbox('Schon selbst bezahlt',
                                  default=paid_by_submitter, k='-paid-')],
                     [sg.Text('Kommentar')],     
@@ -502,6 +506,8 @@ class PurchaseInvoice(Invoice):
                 self.totals[self.default_vat] = \
                     float(values['-gross-'].replace(",","."))\
                     -self.vat[self.default_vat]
+            if '-skonto-' in values:
+                self.skonto = float(values['-skonto-'].replace(",","."))
             if '-paid-' in values and values['-paid-']:
                 self.paid_by_submitter = True
             if '-remarks-' in values:
@@ -624,6 +630,9 @@ class PurchaseInvoice(Invoice):
             'update_stock': 1 if self.update_stock else 0,
             'cost_center' : self.company.cost_center
         }
+        if self.skonto:
+             self.doc['apply_discount_on'] = 'Grand Total'
+             self.doc['discount_amount'] = self.skonto
         if self.shipping:
              self.doc['taxes'].append(\
                                       {'add_deduct_tax': 'Add',
@@ -683,6 +692,7 @@ class PurchaseInvoice(Invoice):
         self.is_duplicate = False
         self.e_items = []
         self.raw = False
+        self.skonto = 0
 
     def merge(self,inv):
         if not inv:
