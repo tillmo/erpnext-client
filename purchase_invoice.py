@@ -512,7 +512,7 @@ class PurchaseInvoice(Invoice):
                 self.totals[self.default_vat] = \
                     float(values['-gross-'].replace(",","."))\
                     -self.vat[self.default_vat]
-            if '-skonto-' in values:
+            if '-skonto-' in values and values['-skonto-']:
                 self.skonto = float(values['-skonto-'].replace(",","."))
             if '-paid-' in values and values['-paid-']:
                 self.paid_by_submitter = True
