@@ -91,6 +91,12 @@ def extract_no(lines):
 def extract_supplier(lines):
     return " ".join(lines[0][0:80].split())
 
+def decode_uft_8(bline):
+    try:
+        return bline.decode('utf_8')
+    except Exception:
+        return ""
+
 def pdf_to_text(file,raw=False):
     cmd = ["pdftotext","-nopgbrk"]
     if raw:
@@ -100,7 +106,7 @@ def pdf_to_text(file,raw=False):
     cmd += ["-enc","UTF-8"]
     cmd += [file,"-"]
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
-    return [bline.decode('utf_8') for bline in p.stdout]
+    return [decode_uft_8(bline) for bline in p.stdout]
 
 def ask_if_to_continue(err,msg=""):
     if err:
@@ -545,8 +551,8 @@ class PurchaseInvoice(Invoice):
     def parse_invoice(self,infile,account=None,paid_by_submitter=False,
                       is_test=False):
         self.extract_items = False
+        lines = pdf_to_text(infile)
         try:        
-            lines = pdf_to_text(infile)
             if lines:
                 head = lines[0][0:80]
                 if not head[0:10].split():
