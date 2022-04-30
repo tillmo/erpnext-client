@@ -466,6 +466,8 @@ def event_handler(event,window):
                 msg += "\n\nZugehörige Bank-Transaktion gefunden: {}\n".\
                          format(bt.description)
                 choices[0] = "Sofort buchen und zahlen"
+            else:
+                bt = None
             if bt or inv_doc['status'] == 'Draft':    
                 choice = easygui.buttonbox(msg,
                                            event[:-2],
