@@ -148,7 +148,7 @@ class Company(Doc):
         return gui_api_wrapper(\
                 Api.api.get_list,'PreRechnung',
                 filters={'eingepflegt':False,
-                         'typ':'Rechnung',
+                         'typ':['in',['Rechnung','Anzahlungsrechnung']],
                          'balkonmodule':balkon,
                          'company':self.name},
                 limit_page_length=LIMIT)
