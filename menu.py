@@ -62,7 +62,7 @@ def show_data():
         comp_name = settings['-company-']
         print("Bereich: "+comp_name)
         for bacc in bank.BankAccount.baccounts_by_company[comp_name]:
-            print("Konto:",bacc.name, end="")
+            print(bacc.name, end="")
             if bacc.doc['last_integration_date']:
                 print(", letzter Auszug:",
                       utils.show_date4(bacc.doc['last_integration_date']),
@@ -74,33 +74,27 @@ def show_data():
                       end="")
             print()
         comp = company.Company.get_company(comp_name)
-        server_info = "weiter unter Offene Dokumente oder im ERPNext-Webclient unter {}".format(settings['-server-'])
         if comp:
             num_bts = len(comp.open_bank_transactions())
             if num_bts:
-                print("{} offene Banktransaktionen (weiter unter Bearbeiten - Banktransaktionen)"\
+                print("{} offene Banktransaktionen"\
                       .format(num_bts))
             num_jes = len(comp.open_journal_entries())
             if num_jes:
-                print("{} offene Buchungssätze; {}/desk#List/Journal Entry/List?company={}".\
-                      format(num_jes,server_info,comp_name))
+                print("{} offene Buchungssätze".format(num_jes))
             num_pes = len(comp.unbooked_payment_entries())\
                       +len(comp.unassigned_payment_entries())
             if num_pes:
-                print("{} offene (An)Zahlungen; {}/desk#List/Payment Entry/List?company={}".\
-                      format(num_pes,server_info,comp_name))
+                print("{} offene (An)Zahlungen".format(num_pes))
             num_pres = len(comp.get_open_pre_invoices(True))+len(comp.get_open_pre_invoices(False))
             if num_pres:
-                print("{} offene Prerechnungen; {}/desk#List/PreRechnung/List?company={}".\
-                      format(num_pres,server_info,comp_name))
+                print("{} offene Prerechnungen".format(num_pres))
             num_pis = len(comp.get_purchase_invoices(True))
             if num_pis:
-                print("{} offene Einkaufsrechnungen; {}/desk#List/Purchase Invoice/List?company={}".\
-                      format(num_pis,server_info,comp_name))
+                print("{} offene Einkaufsrechnungen".format(num_pis))
             num_sis = len(comp.get_sales_invoices(True))
             if num_sis:
-                print("{} offene Verkaufsrechnungen; {}/desk#List/Sales Invoice/List?company={}".\
-                      format(num_sis,server_info,comp_name))
+                print("{} offene Verkaufsrechnungen".format(num_sis))
 
 # ------ Process menu choices ------ #
 def event_handler(event,window):
@@ -604,7 +598,7 @@ def menus():
     # ------ GUI Defintion ------ #
     layout = [
         [sg.Menu(menu_def, tearoff=False, pad=(200, 1))],
-        [sg.Output(size=(130, 30))],
+        [sg.Output(size=(120, 25))],
     ]
     company_name = settings['-company-']
     if not company_name:
@@ -615,6 +609,7 @@ def menus():
                        default_element_size=(12, 1),
                        default_button_element_size=(12, 1),
                        location=last_window_location,
+                       font=('Any 11'),
                        finalize=True)
 
     # ------ Loop & Process button menu choices ------ #
