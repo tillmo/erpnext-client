@@ -623,6 +623,7 @@ class PurchaseInvoice(Invoice):
             'company': self.company.name,
             'supplier': self.supplier,
             'title': self.supplier.split()[0]+" "+self.no,
+            'project': self.project,
             'bill_no': self.no,
             'posting_date' : self.date,
             'remarks' : self.remarks,
@@ -685,6 +686,7 @@ class PurchaseInvoice(Invoice):
         self.company_name = sg.UserSettings()['-company-']
         self.company = company.Company.get_company(self.company_name)
         self.remarks = None
+        self.project = None
         self.paid_by_submitter = False
         self.default_vat = self.company.default_vat
         self.vat_rates = list(self.company.taxes.keys())
@@ -731,7 +733,7 @@ class PurchaseInvoice(Invoice):
         pprint(list(map(lambda x: pprint(vars(x)),inv.items)))
 
     @classmethod
-    def read_and_transfer(cls,infile,update_stock,account=None,paid_by_submitter=False):
+    def read_and_transfer(cls,infile,update_stock,account=None,paid_by_submitter=False,project=None):
         one_more = True
         inv = None
         while one_more:
@@ -752,6 +754,7 @@ class PurchaseInvoice(Invoice):
                 if one_more:
                     infile = utils.get_file('Weitere Einkaufsrechnung als PDF')
         if inv and not inv.is_duplicate:
+            inv.project = project
             inv = inv.send_to_erpnext()
         if not inv:
             print("Keine Einkaufsrechnung angelegt")
