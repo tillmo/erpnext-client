@@ -406,6 +406,24 @@ class BankStatement:
         if blz and baccount_no:
             self.iban = utils.iban_de(blz,baccount_no)
 
+    def read_ethik(self,infile):
+        for row in utils.get_csv('utf-8',infile,replacenl=False):
+            if not row or len(row)<=1:
+                continue
+            date = utils.convert_date4(row[5])
+            if not date or len(row)<=12:
+                continue
+            be = BankStatementEntry(self)
+            be.posting_date = date
+            be.purpose = row[10]
+            be.partner = row[6]
+            be.partner_iban = row[7]
+            be.amount = utils.read_float(row[11])
+            be.cleanup()
+            self.entries.append(be)
+            bal_str = row[13]
+        self.ebal = utils.read_float(bal_str)
+
     @classmethod
     def get_baccount(cls,infile):
         blz = None
@@ -414,6 +432,8 @@ class BankStatement:
         for row in utils.get_csv('iso-8859-4',infile):
             if not row:
                 continue
+            if row[1][0:2]=='DE':
+                iban = row[1] 
             if row[0]=='BLZ:':
                 blz = int(row[1])
                 continue
@@ -439,7 +459,7 @@ class BankStatement:
             return None
         b = BankStatement(bacc)
         if bacc.blz()=='83094495':
-            b.read_sparda_ethik(infile,is_sparda=False)
+            b.read_ethik(infile)
         elif bacc.blz()=='25090500':
             b.read_sparda_ethik(infile,is_sparda=False) # new Sparda format
         elif bacc.blz()=='29050101':
