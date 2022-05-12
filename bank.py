@@ -407,12 +407,16 @@ class BankStatement:
             self.iban = utils.iban_de(blz,baccount_no)
 
     def read_ethik(self,infile):
+        ebal_str = ""
         for row in utils.get_csv('utf-8',infile,replacenl=False):
             if not row or len(row)<=1:
                 continue
             date = utils.convert_date4(row[5])
             if not date or len(row)<=12:
                 continue
+            # end balance is in the first row
+            if not ebal_str:
+                ebal_str = row[13]
             be = BankStatementEntry(self)
             be.posting_date = date
             be.purpose = row[10]
@@ -421,8 +425,9 @@ class BankStatement:
             be.amount = utils.read_float(row[11])
             be.cleanup()
             self.entries.append(be)
-            bal_str = row[13]
-        self.ebal = utils.read_float(bal_str)
+            sbal_str = row[13]
+        self.sbal = utils.read_float(sbal_str)
+        self.ebal = utils.read_float(ebal_str)
 
     @classmethod
     def get_baccount(cls,infile):
