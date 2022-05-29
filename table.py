@@ -30,13 +30,15 @@ def myLaterPages(canvas, doc):
     
 class Table:
     def __init__(self,entries,keys,headings,title,enable_events=False,max_col_width=60,
-                 display_row_numbers=False,filename=None,child=None,child_title=None):
+                 display_row_numbers=False,filename=None,child=None,child_title=None,just='left'):
         # table data, as list of dicts
         self.entries = entries
         # column headings for display
         self.headings = headings
         # dict keys for columns
         self.keys = keys
+        # justification
+        self.just = just
         self.title = title
         self.enable_events = enable_events
         self.max_col_width = max_col_width
@@ -110,7 +112,7 @@ class Table:
                    max_col_width=self.max_col_width,
                    auto_size_columns=len(self.data) > 0,
                    display_row_numbers=self.display_row_numbers,
-                   justification='left',
+                   justification=self.just,
                    num_rows=num_rows,
                    font=('Helvetica',12),
                    key='-TABLE-',

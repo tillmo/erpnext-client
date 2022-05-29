@@ -422,3 +422,22 @@ def opportunities(company_name,balkon=False):
                  # 'Statik', 'Artikelliste','Verschattung','Eigen']
     return table.Table(opps,columns,headings,'Chancen für '+company_name)
     
+def projects():
+    projects = []
+    for p in Api.api.get_list("Project",
+                    fields=["name","project_name","creation"],
+                    limit_page_length=LIMIT):
+        pname = p['name']
+        ptitle = p['project_name']
+        pdate = p['creation']
+        sis = Api.api.get_list('Sales Invoice',
+                    filters={'project':pname,'status': ['!=','Cancelled']},
+                    fields=['total'],limit_page_length=LIMIT)
+        pis = Api.api.get_list('Purchase Invoice',
+                    filters={'project':pname,'status': ['!=','Cancelled']},
+                    fields=['total'],limit_page_length=LIMIT)
+        ssum = sum([si['total'] for si in sis])
+        psum = sum([pi['total'] for pi in pis])
+        projects.append({'Datum':pdate,'Name':ptitle,'Einkauf':psum,'Verkauf':ssum,'Marge':ssum-psum})
+    columns = ['Name','Einkauf','Verkauf','Marge']
+    return table.Table(projects,columns,columns,'Projekte',just='right')
