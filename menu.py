@@ -20,6 +20,7 @@ import numpy as np
 from collections import defaultdict
 import subprocess
 import sys
+from datetime import datetime
 
 def initial_loads():
     if sg.UserSettings()['-setup-']:
@@ -227,6 +228,12 @@ def event_handler(event,window):
                            default=settings['-buchen-'])
         if c is not None:
             settings['-buchen-'] = c            
+    elif event == 'Jahr':
+        j = easygui.choicebox('Bitte Jahr für den Berichtszeitraum wählen, aktuell: {}'.format(settings['-year-']),
+                              'Kalenderjahr wählen',
+                               map(str,range(2020,datetime.today().year+1)))
+        if j is not None:
+            settings['-year-'] = int(j)            
     elif settings['-setup-']:
         print()
         print("Bitte erst ERPNext-Server einstellen (unter Einstellungen)")
@@ -588,7 +595,7 @@ def menus():
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
                 ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Prerechnungen','Prerechnungen Balkon','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen']],
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
-                ['Berichte', ['Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Projekte']], 
+                ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Projekte']], 
                 ['Bereich', company.Company.all()], 
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]

@@ -7,6 +7,7 @@ from datetime import datetime
 from datetime import date
 from anytree import Node, RenderTree, PostOrderIter
 from collections import defaultdict
+import PySimpleGUI as sg
 
 def format_float(n):
     if type(n)==str:
@@ -105,8 +106,12 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
         report_type = 'Profit and Loss Statement'
     title += " "+company_name    
     ## dates
-    start_date = date(datetime.today().year-1, 1, 1)
-    end_date = datetime.today()
+    year = sg.UserSettings()['-year-'] 
+    start_date = date(year, 1, 1)
+    if year == datetime.today().year:
+        end_date = datetime.today()
+    else:    
+        end_date = date(year, 12, 31)
     start_date_str = start_date.strftime('%Y-%m-%d')
     end_date_str = end_date.strftime('%Y-%m-%d')
     if not filename:
