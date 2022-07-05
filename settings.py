@@ -16,3 +16,15 @@ KORNKRAFT_ACCOUNTS = {19.0: '3402 - Kornkraft 19% Vorsteuer - Laden',
                 7.0: '3302 - Kornkraft 7% Vorsteuer - Laden'}
 SOMIKO_ACCOUNTS = {19.0: '4996 - Herstellungskosten - SoMiKo'}
 
+BALANCE_ACCOUNTS = \
+ {'Bremer SolidarStrom':
+   {
+    'Einlage': (['A. Eigenkapital - SoMiKo'],1),
+    'Lager':(['I. Vorräte - SoMiKo'],1),
+    'Bank':(['Bank - SoMiKo'],1),
+    'Anzahlungen Verkauf':(['1400 - Ausstände - SoMiKo'],1),
+    'Anzahlungen Einkauf':(['1600 - IV. Verbindlichkeiten aus Lieferungen und Leistungen - SoMiKo'],1),
+    'Summe Aktiva': (['I. Vorräte - SoMiKo','Bank - SoMiKo','1600 - IV. Verbindlichkeiten aus Lieferungen und Leistungen - SoMiKo'],1),
+    'Summe Passiva': (['A. Eigenkapital - SoMiKo','1400 - Ausstände - SoMiKo'],1),
+   }
+ }

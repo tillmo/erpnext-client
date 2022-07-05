@@ -8,6 +8,16 @@ from datetime import date
 from anytree import Node, RenderTree, PostOrderIter
 from collections import defaultdict
 import PySimpleGUI as sg
+import plotly.express as px
+
+def get_dates():
+    year = sg.UserSettings()['-year-'] 
+    start_date = date(year, 1, 1)
+    if year == datetime.today().year:
+        end_date = datetime.today()
+    else:    
+        end_date = date(year, 12, 31)
+    return(start_date,end_date)
 
 def format_float(n):
     if type(n)==str:
@@ -105,13 +115,7 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
     else:    
         report_type = 'Profit and Loss Statement'
     title += " "+company_name    
-    ## dates
-    year = sg.UserSettings()['-year-'] 
-    start_date = date(year, 1, 1)
-    if year == datetime.today().year:
-        end_date = datetime.today()
-    else:    
-        end_date = date(year, 12, 31)
+    start_date,end_date = get_dates()
     start_date_str = start_date.strftime('%Y-%m-%d')
     end_date_str = end_date.strftime('%Y-%m-%d')
     if not filename:
@@ -447,3 +451,35 @@ def projects():
         projects.append({'Datum':pdate,'Name':ptitle,'Status':p['status'],'Einkauf':psum,'Verkauf':ssum,'Marge':ssum-psum})
     columns = ['Name','Einkauf','Verkauf','Marge','Status']
     return table.Table(projects,columns,columns,'Projekte',just='right')
+
+def adapt(e,factor):
+    e['balance'] *= factor
+    return e
+
+def set_title(e,title):
+    e['Bilanzposten'] = title
+    return e
+
+def balance(company,accounts,factor,start_date_str,end_date_str):
+    r = Api.api.query_report(report_name="General ledger",filters={'company':company,'from_date' : start_date_str, 'to_date' : end_date_str,'report':"General ledger", 'account':accounts, 'group_by':'Group by Voucher (Consolidated)'})
+    r = r['result']
+    r[0]['posting_date'] = start_date_str
+    r[-1]['posting_date'] = end_date_str
+    r = [adapt(e,factor) for e in r if 'account' in e and 'posting_date' in e and e['account']!="'Total'"]
+    return r
+
+def balances(company,account_areas):
+    start_date,end_date = get_dates()
+    start_date_str = start_date.strftime('%Y-%m-%d')
+    end_date_str = end_date.strftime('%Y-%m-%d')
+    report = []
+    for title,entry in account_areas.items():
+        accs,factor = entry
+        r = balance(company,accs,factor,start_date_str,end_date_str)
+        r = [set_title(e,title) for e in r]
+        report += r
+    fig = px.line(report, x="posting_date", y="balance", title=company+' - wichtigste Bilanzposten', color='Bilanzposten',line_shape='hv')
+    fig.show()    
+
+
+    

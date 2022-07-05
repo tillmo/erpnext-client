@@ -21,15 +21,16 @@ from collections import defaultdict
 import subprocess
 import sys
 from datetime import datetime
+import settings
 
 def initial_loads():
     if sg.UserSettings()['-setup-']:
         return
     company.Company.init_companies()
     bank.BankAccount.init_baccounts()
-    settings = sg.UserSettings()
-    if not settings['-company-']:
-        settings['-company-'] = company.Company.all()[0]
+    user_settings = sg.UserSettings()
+    if not user_settings['-company-']:
+        user_settings['-company-'] = company.Company.all()[0]
     company.Company.current_load_data()
 
 def text_input(text,default_text =""):
@@ -58,9 +59,9 @@ def purchase_inv(update_stock):
     return False
 
 def show_data():
-    settings = sg.UserSettings()
-    if not settings['-setup-']: 
-        comp_name = settings['-company-']
+    user_settings = sg.UserSettings()
+    if not user_settings['-setup-']: 
+        comp_name = user_settings['-company-']
         print("Bereich: "+comp_name)
         for bacc in bank.BankAccount.baccounts_by_company[comp_name]:
             print(bacc.name, end="")
@@ -99,12 +100,12 @@ def show_data():
 
 # ------ Process menu choices ------ #
 def event_handler(event,window):
-    settings = sg.UserSettings()
+    user_settings = sg.UserSettings()
     show_company_data = False
     if event in (sg.WIN_CLOSED, 'Exit'):
         return "exit"
     if event in company.Company.all():
-        settings['-company-'] = event
+        user_settings['-company-'] = event
         company.Company.current_load_data()
         return "outer"
     #print(event, values)
@@ -161,25 +162,25 @@ def event_handler(event,window):
         print('Das alte Dokument bleibt aber als abgebrochenes Dokument im System.')
     elif event == 'ERPNext-Server':
         layout = [  [sg.Text('Adresse des ERPNext-Servers')],     
-                    [sg.Input(default_text = settings['-server-'])],
+                    [sg.Input(default_text = user_settings['-server-'])],
                     [sg.Text('API-Schlüssel für Server-API')],     
-                    [sg.Input(default_text = settings['-key-'])],
+                    [sg.Input(default_text = user_settings['-key-'])],
                     [sg.Text('API-Geheimnis für Server-API')],     
-                    [sg.Input(default_text = settings['-secret-'])],
+                    [sg.Input(default_text = user_settings['-secret-'])],
                     [sg.Button('Testen')] ]
         window1 = sg.Window("ERPNext-Server-Einstellungen", layout, finalize=True)
         window1.bring_to_front()
         event, values = window1.read()
         if values:
             if len(values)>0 and values[0]:
-                settings['-server-'] = values[0]
+                user_settings['-server-'] = values[0]
             if len(values)>1 and values[1]:
-                settings['-key-'] = values[1]
+                user_settings['-key-'] = values[1]
             if len(values)>2 and values[2]:
-                settings['-secret-'] = values[2]
+                user_settings['-secret-'] = values[2]
             window1.close()
-            if "http:" in settings['-server-']:
-                settings['-server-'] = settings['-server-'].replace('http','https')
+            if "http:" in user_settings['-server-']:
+                user_settings['-server-'] = user_settings['-server-'].replace('http','https')
             print()
             print("Teste API ...")
             result = api_wrapper(Api.initialize)
@@ -189,10 +190,10 @@ def event_handler(event,window):
                 elif result['exception']:  
                     print(result['exception'])
                 print("API-Test fehlgeschlagen!")
-                settings['-setup-'] = True
+                user_settings['-setup-'] = True
             else:    
                 print("API-Test erfolgreich!")
-                settings['-setup-'] = False
+                user_settings['-setup-'] = False
                 initial_loads()
                 window.close()
                 return "outer"
@@ -200,7 +201,7 @@ def event_handler(event,window):
         print()
         print("Aktualisiere dieses Programm...")
         tmp = tempfile.mktemp()
-        os.system("cd {}; git pull --rebase > {} 2>&1".format(settings['-folder-'],tmp))
+        os.system("cd {}; git pull --rebase > {} 2>&1".format(user_settings['-folder-'],tmp))
         f = open(tmp,'r')
         print(f.read())
         f.close()
@@ -208,11 +209,11 @@ def event_handler(event,window):
         print()
         print("Aktualisiere die Python-Umgebung...")
         python = sys.executable
-        requirements_file = os.path.join(settings['-folder-'], 'requirements.txt')
+        requirements_file = os.path.join(user_settings['-folder-'], 'requirements.txt')
         result = subprocess.run([python, '-m', 'pip', 'install', '-r', requirements_file],
                                 stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT,
-                                cwd=settings['-folder-'],
+                                cwd=user_settings['-folder-'],
                                 text=True)  # for automatic decoding of stdout/stderr
         print(result.stdout)
         print()
@@ -225,16 +226,16 @@ def event_handler(event,window):
         c = checkbox_input('Buchungseinstellungen',
                            'Ein Dokument muss gebucht werden, um für die Abrechnung wirksam zu werden.\nEin einmal gebuchtes Dokument bleibt für immer im System. Es kann nicht mehr bearbeitet werden. Das ist gesetzlich so vorgeschrieben.\nBei einer Einkaufsrechnung wird in jedem Fall gefragt, ob diese gebucht werden soll.',
                            'Alle Dokumente immer gleich einbuchen',
-                           default=settings['-buchen-'])
+                           default=user_settings['-buchen-'])
         if c is not None:
-            settings['-buchen-'] = c            
+            user_settings['-buchen-'] = c            
     elif event == 'Jahr':
-        j = easygui.choicebox('Bitte Jahr für den Berichtszeitraum wählen, aktuell: {}'.format(settings['-year-']),
+        j = easygui.choicebox('Bitte Jahr für den Berichtszeitraum wählen, aktuell: {}'.format(user_settings['-year-']),
                               'Kalenderjahr wählen',
                                map(str,range(2020,datetime.today().year+1)))
         if j is not None:
-            settings['-year-'] = int(j)            
-    elif settings['-setup-']:
+            user_settings['-year-'] = int(j)            
+    elif user_settings['-setup-']:
         print()
         print("Bitte erst ERPNext-Server einstellen (unter Einstellungen)")
         return "inner"
@@ -251,9 +252,9 @@ def event_handler(event,window):
             b = bank.BankStatement.process_file(filename)
             if b:
                 comp = b.baccount.company.name
-                if settings['-company-'] != comp:
+                if user_settings['-company-'] != comp:
                     print("Kontoauszug ist für "+comp)
-                settings['-company-'] = comp
+                user_settings['-company-'] = comp
                 show_company_data = True
                 print("{} Banktransaktionen eingelesen, davon {} neu".\
                       format(len(b.entries),len(b.transactions)))
@@ -266,7 +267,7 @@ def event_handler(event,window):
         if purchase_inv(True):
             show_company_data = True
     elif event == 'Banktransaktionen bearbeiten':
-        comp = company.Company.get_company(settings['-company-'])
+        comp = company.Company.get_company(user_settings['-company-'])
         if comp:
             comp.reconciliate_all()
             show_company_data = True
@@ -274,7 +275,7 @@ def event_handler(event,window):
         keys = ['posting_date','account','caccount','total_debit','user_remark']
         headings = ['Datum','Buchungskonto','Gegenkonto','Betrag','Bemerkung']
         while True:
-            comp = company.Company.get_company(settings['-company-'])
+            comp = company.Company.get_company(user_settings['-company-'])
             jes = comp.open_journal_entries()
             jes1 = []
             for j in jes:
@@ -303,7 +304,7 @@ def event_handler(event,window):
         while True:
             keys = ['posting_date','name','paid_amount','party','reference_no']
             headings = ['Datum','Name','Betrag','Gezahlt an','Referenz.']
-            comp = company.Company.get_company(settings['-company-'])
+            comp = company.Company.get_company(user_settings['-company-'])
             pes = comp.unbooked_payment_entries()
             for pe in pes:
                 if pe['payment_type']=='Pay':
@@ -329,7 +330,7 @@ def event_handler(event,window):
         while True:
             keys = ['posting_date','name','unallocated_amount','party','reference_no']
             headings = ['Datum','Name','offener Betrag','Gezahlt an','Referenz.']
-            comp = company.Company.get_company(settings['-company-'])
+            comp = company.Company.get_company(user_settings['-company-'])
             pes = comp.unassigned_payment_entries()
             for pe in pes:
                 if pe['payment_type']=='Pay':
@@ -361,7 +362,7 @@ def event_handler(event,window):
         while True:
             keys = ['datum','name','short_pdf','balkonmodule','selbst_bezahlt','vom_konto_überwiesen','typ']
             headings = ['Datum','Name','pdf','Balkon','selbst bez.','überwiesen','Typ']
-            comp = company.Company.get_company(settings['-company-'])
+            comp = company.Company.get_company(user_settings['-company-'])
             invs = comp.get_open_pre_invoices(event=='Prerechnungen Balkon')
             invs_f = [utils.format_dic(['balkonmodule','selbst_bezahlt',
                                         'vom_konto_überwiesen'],['pdf'],
@@ -401,7 +402,7 @@ def event_handler(event,window):
         while True:
             keys = ['posting_date']+amount_key+['bill_no','status','account','supplier','title']
             headings = ['Datum']+amount_head+['Rechungsnr.','Status','Buchungskonto','Lieferant','Titel']
-            comp = company.Company.get_company(settings['-company-'])
+            comp = company.Company.get_company(user_settings['-company-'])
             if event_words[-1] == 'Einkaufsrechnungen':
                 inv_type = 'Purchase Invoice'
             else:
@@ -502,7 +503,7 @@ def event_handler(event,window):
     elif event == 'Banktransaktionen':
         keys = ['date','amount','description']
         headings = ['Datum','Betrag','Bemerkung']
-        comp = company.Company.get_company(settings['-company-'])
+        comp = company.Company.get_company(user_settings['-company-'])
         while True:
             bts = comp.open_bank_transactions()
             for bt in bts:
@@ -542,11 +543,11 @@ def event_handler(event,window):
             ix = tbl.display()
             if ix is False:
                 break
-            comp = company.Company.get_company(settings['-company-'])
+            comp = company.Company.get_company(user_settings['-company-'])
             comp.reconciliate(bts[ix])
             show_company_data = True
     elif event in ['Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz']:
-        comp = settings['-company-']
+        comp = user_settings['-company-']
         if event=='Abrechnung':
             consolidated = True
             periodicity = 'Yearly'
@@ -575,6 +576,12 @@ def event_handler(event,window):
             tbl1 = report.general_ledger(comp,account)
             if tbl1:
                 tbl1.display()
+    elif event == 'Bilanz grafisch':
+        comp = user_settings['-company-']
+        if comp in settings.BALANCE_ACCOUNTS:
+            report.balances(comp,settings.BALANCE_ACCOUNTS[comp])
+        else:
+            easygui.msgbox("Für {} ist leider noch keine grafische Bilanz eingerichtet".format(comp))
     elif event in ['Projekte']:
         tbl = report.projects()
         tbl.display()
@@ -586,7 +593,7 @@ def event_handler(event,window):
     return "inner"
 
 def menus():
-    settings = sg.UserSettings()
+    user_settings = sg.UserSettings()
 
     sg.set_options(element_padding=(0, 0))
 
@@ -595,7 +602,7 @@ def menus():
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
                 ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Prerechnungen','Prerechnungen Balkon','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen']],
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
-                ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Projekte']], 
+                ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte']], 
                 ['Bereich', company.Company.all()], 
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
@@ -606,7 +613,7 @@ def menus():
         [sg.Menu(menu_def, tearoff=False, pad=(200, 1))],
         [sg.Output(size=(120, 25))],
     ]
-    company_name = settings['-company-']
+    company_name = user_settings['-company-']
     if not company_name:
         company_name = "... <Bitte erst Server-Einstellungen setzen>"
     last_window_location = tuple(sg.UserSettings().get('-last-window-location-', (None, None)))
