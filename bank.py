@@ -181,7 +181,7 @@ class BankTransaction(Doc):
                  'references' : references}
         p = gui_api_wrapper(Api.api.insert,entry)
         if p:
-            print("Zahlung {} erstelltt".format(p['name']))
+            print("Zahlung {} erstellt".format(p['name']))
             if sg.UserSettings()['-buchen-']:
                 gui_api_wrapper(Api.submit_doc,"Payment Entry",p['name'])
                 print("Zahlung {} gebucht".format(p['name']))

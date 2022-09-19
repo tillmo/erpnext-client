@@ -5,3 +5,4 @@ numpy
 reportlab
 anytree
 plotly
+pandas
