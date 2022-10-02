@@ -244,6 +244,7 @@ class PurchaseInvoice(Invoice):
         if self.update_stock:
             mypos = 0
             for item_lines in items[1:]:
+                #print("***",item_lines)
                 item_str = item_lines[0]
                 clutter = ['Einzelpreis','Krannich','IBAN','Rechnung','Übertrag']
                 s_item = SupplierItem(self)
@@ -265,7 +266,7 @@ class PurchaseInvoice(Invoice):
                     continue
                 mypos = pos
                 s_item.item_code = item_str.split()[1]
-                q=re.search("([0-9]+) *([A-Za-z]+)",item_str[80:99])
+                q=re.search("([0-9]+) *([A-Za-z]+)",item_str[73:99])
                 if not q:
                     continue
                 s_item.qty = int(q.group(1))
@@ -287,6 +288,7 @@ class PurchaseInvoice(Invoice):
                 s_item.rate = round(s_item.amount/s_item.qty,2)
                 rounding_error += s_item.amount-s_item.rate*s_item.qty
                 self.items.append(s_item)
+                #print("--->",s_item)
         vat_line = ""
         for i in range(-1,-len(items),-1):
             vat_lines = [line for line in items[i] if 'MwSt' in line]
@@ -671,6 +673,7 @@ class PurchaseInvoice(Invoice):
         return err
 
     def check_if_present(self):
+        #return False
         invs = gui_api_wrapper(Api.api.get_list,"Purchase Invoice",
                                {'bill_no': self.no, 'status': ['!=','Cancelled']})
         if invs:
