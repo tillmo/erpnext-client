@@ -439,6 +439,7 @@ def event_handler(event,window):
                             inv_doc['similarity'] = \
                                 utils.similar(bt.description.lower(),
                                               ref.lower())
+                            #print("Desc: ",bt.description.lower(),"\nRef: ",ref.lower(),"\nSimilarity",inv_doc['similarity'])
                             bt_dict[bt.name].append((i,inv_doc['similarity']))
                             inv_doc['bt'] = bt
                             inv_doc['btname'] = bt.name
