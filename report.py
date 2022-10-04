@@ -118,6 +118,7 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
     start_date,end_date = get_dates()
     start_date_str = start_date.strftime('%Y-%m-%d')
     end_date_str = end_date.strftime('%Y-%m-%d')
+    print(start_date_str,end_date_str)
     if not filename:
         filename = title.replace(" ","_")+\
                    "_"+start_date_str+".pdf"

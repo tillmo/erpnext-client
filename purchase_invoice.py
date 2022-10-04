@@ -379,6 +379,109 @@ class PurchaseInvoice(Invoice):
         self.compute_total()
         return self
 
+    @classmethod
+    def get_amount_heckert(cls,lines):
+        return sum(map(lambda line: utils.read_float(line[-12:-4]),lines))
+
+    def parse_heckert(self,lines):
+        items = []
+        item = []
+        preamble = True
+        self.date = None
+        self.no = None
+        for line in lines:
+            words = line.split()
+            if "Belegdatum" in line:
+                d = utils.convert_date4(words[-1])
+                if d:
+                    self.date = d
+                    print("Date",d)
+            if "Belegnummer / Document Number" in line:
+                self.no = words[-1]
+                print("No.",self.no)
+            if line[0].isdigit():
+                items.append(item)
+                item = [line]
+            else:
+                item.append(line)
+        items.append(item)
+        self.items = []
+        self.shipping = 0.0
+        rounding_error = 0
+        if self.update_stock:
+            mypos = 0
+            for item_lines in items[1:]:
+                item_str = item_lines[0]
+                print("str:",item_str)
+                clutter = ['Einzelpreis','Krannich','IBAN','Rechnung','Übertrag']
+                s_item = SupplierItem(self)
+                long_description_lines = \
+                    [l for l in item_lines[1:] \
+                       if utils.no_substr(clutter,l) and l.strip()]
+                s_item.description = " ".join(long_description_lines[0][0:82].split())
+                s_item.long_description = ""
+                for l in long_description_lines:
+                    if "Zwischensumme" in l:
+                        break
+                    s_item.long_description += l
+                pos = int(item_str[0:7].split()[0])
+                print("pos",pos)
+                if pos==28203:
+                    continue
+                if pos>1000:
+                    break
+                #if not (pos in [mypos,mypos+1,mypos+2]):
+                #    break
+                if "Vorkasse" in s_item.description:
+                    continue
+                mypos = pos
+                s_item.item_code = item_str.split()[1]
+                print("code",s_item.item_code)
+                q=re.search("([0-9]+) *([A-Za-z]+)",item_str[60:73])
+                print("q",q)
+                if not q:
+                    continue
+                s_item.qty = int(q.group(1))
+                s_item.qty_unit = q.group(2)
+                print("qty ",s_item.qty)
+                print("unit ",s_item.qty_unit)
+                print("str ",item_str[104:113])
+                price = utils.read_float(item_str[104:113].split()[0])
+                try:
+                    discount = utils.read_float(item_str[142:152].split()[0])
+                except Exception:
+                    discount = 0
+                s_item.amount = utils.read_float(item_str[146:156].split()[0])
+                print(s_item.amount)
+                if s_item.qty_unit=="ST":
+                    s_item.qty_unit=="Stk"
+                    try:
+                        r1 = re.search('[0-9]+ *[mM]', s_item.description)
+                        r2 = re.search('[0-9]+', r1.group(0))
+                        s_item.qty_unit = "Meter"
+                        s_item.qty = int(r2.group(0))
+                    except Exception:
+                        pass
+                s_item.rate = round(s_item.amount/s_item.qty,2)
+                rounding_error += s_item.amount-s_item.rate*s_item.qty
+                self.items.append(s_item)
+        vat_line = ""
+        for i in range(-1,-len(items),-1):
+            vat_lines = [line for line in items[i] if 'MwSt' in line]
+            if vat_lines:
+                vat_line = vat_lines[0]
+                if self.update_stock:
+                    self.shipping = PurchaseInvoice.get_amount_krannich\
+                        ([line for line in items[i]\
+                           if 'Insurance' in line or 'Freight' in line\
+                               or 'Neukundenrabatt' in line])
+                break
+        self.shipping += rounding_error
+        self.totals[self.default_vat] = utils.read_float(vat_line[146:155])
+        self.vat[self.default_vat] = PurchaseInvoice.get_amount_heckert([vat_line])
+        self.compute_total()
+        return self
+
     def parse_nkk(self,lines):
         self.date = None
         self.no = None
@@ -556,7 +659,7 @@ class PurchaseInvoice(Invoice):
         lines = pdf_to_text(infile)
         try:        
             if lines:
-                head = lines[0][0:80]
+                head = lines[0][0:140]
                 if not head[0:10].split():
                     for line in lines[0:10]:
                         if len(line)>2 and (line[-2]=='£' or line[-3]=='£'):
@@ -581,6 +684,7 @@ class PurchaseInvoice(Invoice):
             if self.update_stock:
                 raise e
             elif not is_test:
+                raise e
                 print(e)
                 print("Rückfall auf Standard-Rechnungsbehandlung")
         self.parser = "generic"
@@ -673,7 +777,7 @@ class PurchaseInvoice(Invoice):
         return err
 
     def check_if_present(self):
-        #return False
+        return False
         invs = gui_api_wrapper(Api.api.get_list,"Purchase Invoice",
                                {'bill_no': self.no, 'status': ['!=','Cancelled']})
         if invs:
@@ -687,7 +791,9 @@ class PurchaseInvoice(Invoice):
         # because there is no doc in ERPNext yet
         self.update_stock = update_stock
         self.company_name = sg.UserSettings()['-company-']
+        print("Company: ",self.company_name)
         self.company = company.Company.get_company(self.company_name)
+        print("Company: ",self.company.name)
         self.remarks = None
         self.project = None
         self.paid_by_submitter = False
@@ -896,6 +1002,10 @@ PurchaseInvoice.suppliers = \
      'pvXchange Trading GmbH' :
         {'parser' : PurchaseInvoice.parse_pvxchange,
          'raw' : True, 'multi' : False},
+     'Schlußrechnung' :
+        {'parser' : PurchaseInvoice.parse_heckert,
+         'raw' : False, 'multi' : False,
+         'supplier' : 'Heckert Solar GmbH'},
      'Rechnung' :
         {'parser' : PurchaseInvoice.parse_nkk,
          'raw' :  False, 'multi' : False,
