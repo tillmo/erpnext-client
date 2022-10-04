@@ -419,12 +419,13 @@ class PurchaseInvoice(Invoice):
                 #print(item_lines)
                 item_str = item_lines[0]
                 #print("str:",item_str)
-                pos = int(item_str.split()[0])
-                #print("pos",pos)
-                if pos==28203:
+                try:
+                    pos = int(item_str.split()[0])
+                except Exception:
                     continue
-                if pos>1000:
-                    break
+                #print("pos",pos)
+                if pos>=28100:
+                    continue
                 clutter = ['Rabatt','Übertrag']
                 s_item = SupplierItem(self)
                 long_description_lines = \
@@ -463,14 +464,12 @@ class PurchaseInvoice(Invoice):
                     price = price1
                 #print("price ",price)
                 discount_line = ""
-                discount_lines = [line for line in item_lines if 'Rabatt' in line]
-                if discount_lines:
-                    discount_line = discount_lines[0]
+                discount_lines = [line for line in item_lines if 'Rabatt' in line or 'Dieselzuschlag' in line]
+                discount = 0
+                for discount_line in discount_lines:
                     #print("***"+discount_line+"xxx")
                     #print(len(discount_line))
-                    discount = utils.read_float(discount_line[135:153].split()[0])
-                else:
-                    discount = 0
+                    discount += utils.read_float(discount_line[135:153].split()[0])
                 #print("discount ",discount)
                 #print("amount before discount ",utils.read_float(item_str[135:153].split()[0]))
                 s_item.amount = utils.read_float(item_str[135:153].split()[0]) + discount
