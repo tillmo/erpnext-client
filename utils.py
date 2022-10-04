@@ -61,7 +61,7 @@ def read_float(s,sign="H"):
     s1 = s.replace(".","").replace(",",".")
     if s1[-1]=='-':
         s1 = '-'+s1[:-1]
-    res = float(s1)
+    res = float(s1.split()[0])
     if sign=="S":
         res = -res
     return res
