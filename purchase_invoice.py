@@ -391,6 +391,7 @@ class PurchaseInvoice(Invoice):
         self.no = None
         for line in lines:
             words = line.split()
+            #print(words)
             if "Belegdatum" in line:
                 d = utils.convert_date4(words[-1])
                 if d:
@@ -399,20 +400,29 @@ class PurchaseInvoice(Invoice):
             if "Belegnummer / Document Number" in line:
                 self.no = words[-1]
                 print("No.",self.no)
-            if line[0].isdigit():
+            if words and words[0] and words[0][0].isdigit():
+                print(words)
                 items.append(item)
                 item = [line]
             else:
                 item.append(line)
         items.append(item)
+        #print(items)
         self.items = []
         self.shipping = 0.0
         rounding_error = 0
         if self.update_stock:
             mypos = 0
             for item_lines in items[1:]:
+                print(item_lines)
                 item_str = item_lines[0]
                 print("str:",item_str)
+                pos = int(item_str.split()[0])
+                print("pos",pos)
+                if pos==28203:
+                    continue
+                if pos>1000:
+                    break
                 clutter = ['Einzelpreis','Krannich','IBAN','Rechnung','Übertrag']
                 s_item = SupplierItem(self)
                 long_description_lines = \
@@ -424,12 +434,6 @@ class PurchaseInvoice(Invoice):
                     if "Zwischensumme" in l:
                         break
                     s_item.long_description += l
-                pos = int(item_str[0:7].split()[0])
-                print("pos",pos)
-                if pos==28203:
-                    continue
-                if pos>1000:
-                    break
                 #if not (pos in [mypos,mypos+1,mypos+2]):
                 #    break
                 if "Vorkasse" in s_item.description:
@@ -445,14 +449,26 @@ class PurchaseInvoice(Invoice):
                 s_item.qty_unit = q.group(2)
                 print("qty ",s_item.qty)
                 print("unit ",s_item.qty_unit)
-                print("str ",item_str[104:113])
-                price = utils.read_float(item_str[104:113].split()[0])
+                print("str ",item_str[98:113])
+                price = utils.read_float(item_str[98:113].split()[0])
                 try:
-                    discount = utils.read_float(item_str[142:152].split()[0])
+                    price1 = utils.read_float(item_lines[1][98:113].split()[0])
+                except Exception:
+                    price1 = 0
+                if price1 > price:
+                    price = price1
+                print("price ",price)
+                try:
+                    discount = 0 #utils.read_float(item_str[140:152].split()[0])
                 except Exception:
                     discount = 0
-                s_item.amount = utils.read_float(item_str[146:156].split()[0])
-                print(s_item.amount)
+                print("discount ",discount)
+                s_item.amount = utils.read_float(item_str[140:152].split()[0])
+                print("amount ",s_item.amount)
+                if s_item.description.split()[0]=="Transportkosten":
+                    self.shipping = s_item.amount
+                    print("shipping: ",self.shipping)
+                    continue
                 if s_item.qty_unit=="ST":
                     s_item.qty_unit=="Stk"
                     try:
@@ -470,15 +486,15 @@ class PurchaseInvoice(Invoice):
             vat_lines = [line for line in items[i] if 'MwSt' in line]
             if vat_lines:
                 vat_line = vat_lines[0]
-                if self.update_stock:
-                    self.shipping = PurchaseInvoice.get_amount_krannich\
-                        ([line for line in items[i]\
-                           if 'Insurance' in line or 'Freight' in line\
-                               or 'Neukundenrabatt' in line])
+                break
+        for i in range(-1,-len(items),-1):
+            total_lines = [line for line in items[i] if 'Zwischensumme' in line]
+            if total_lines:
+                total_line = total_lines[0]
                 break
         self.shipping += rounding_error
-        self.totals[self.default_vat] = utils.read_float(vat_line[146:155])
-        self.vat[self.default_vat] = PurchaseInvoice.get_amount_heckert([vat_line])
+        self.totals[self.default_vat] = utils.read_float(total_line[140:151])
+        self.vat[self.default_vat] = utils.read_float(vat_line[140:151]) # PurchaseInvoice.get_amount_heckert([vat_line])
         self.compute_total()
         return self
 
@@ -994,7 +1010,10 @@ class PurchaseInvoice(Invoice):
                 self.payment(bt)
         return self    
 
-            
+
+heckert_info = {'parser' : PurchaseInvoice.parse_heckert,
+         'raw' : False, 'multi' : False,
+         'supplier' : 'Heckert Solar GmbH'}
 PurchaseInvoice.suppliers = \
     {'Krannich Solar GmbH & Co KG' :
         {'parser' : PurchaseInvoice.parse_krannich,
@@ -1002,10 +1021,8 @@ PurchaseInvoice.suppliers = \
      'pvXchange Trading GmbH' :
         {'parser' : PurchaseInvoice.parse_pvxchange,
          'raw' : True, 'multi' : False},
-     'Schlußrechnung' :
-        {'parser' : PurchaseInvoice.parse_heckert,
-         'raw' : False, 'multi' : False,
-         'supplier' : 'Heckert Solar GmbH'},
+     'Schlußrechnung' : heckert_info,
+     'Vorausrechnung' : heckert_info,
      'Rechnung' :
         {'parser' : PurchaseInvoice.parse_nkk,
          'raw' :  False, 'multi' : False,
