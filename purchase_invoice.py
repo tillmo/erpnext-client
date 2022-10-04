@@ -468,12 +468,12 @@ class PurchaseInvoice(Invoice):
                     discount_line = discount_lines[0]
                     #print("***"+discount_line+"xxx")
                     #print(len(discount_line))
-                    discount = utils.read_float(discount_line[135:152].split()[0])
+                    discount = utils.read_float(discount_line[135:153].split()[0])
                 else:
                     discount = 0
                 #print("discount ",discount)
-                #print("amount before discount ",utils.read_float(item_str[135:152].split()[0]))
-                s_item.amount = utils.read_float(item_str[135:152].split()[0]) + discount
+                #print("amount before discount ",utils.read_float(item_str[135:153].split()[0]))
+                s_item.amount = utils.read_float(item_str[135:153].split()[0]) + discount
                 #print("amount with discount ",s_item.amount)
                 if s_item.description.split()[0]=="Transportkosten":
                     self.shipping = s_item.amount
@@ -496,8 +496,8 @@ class PurchaseInvoice(Invoice):
                 break
         #print("rounding_error ",rounding_error)
         self.shipping += rounding_error
-        self.totals[self.default_vat] = utils.read_float(total_line[135:151])
-        self.vat[self.default_vat] = utils.read_float(vat_line[135:151]) # PurchaseInvoice.get_amount_heckert([vat_line])
+        self.totals[self.default_vat] = utils.read_float(total_line[135:153])
+        self.vat[self.default_vat] = utils.read_float(vat_line[135:153]) # PurchaseInvoice.get_amount_heckert([vat_line])
         self.compute_total()
         return self
 
@@ -776,7 +776,7 @@ class PurchaseInvoice(Invoice):
 
     def check_total(self):
         err = ""
-        computed_total = self.shipping+sum([item.rate*item.qty for item in self.items for item in self.items])
+        computed_total = self.shipping+sum([item.rate*item.qty for item in self.items])
         if abs(self.total-computed_total) > 0.005 :
             err = "Abweichung! Summe in Rechnung: {0}, Summe der Posten: {1}".format(self.total,computed_total)
             err += "\nDies kann noch durch Preisanpassungen korrigiert werden.\n"
@@ -797,10 +797,20 @@ class PurchaseInvoice(Invoice):
         return err
 
     def check_if_present(self):
+        upload = None
         invs = gui_api_wrapper(Api.api.get_list,"Purchase Invoice",
                                {'bill_no': self.no, 'status': ['!=','Cancelled']})
+        if not invs and self.order_id:
+            invs = gui_api_wrapper(Api.api.get_list,"Purchase Invoice",
+                               {'order_id': self.order_id, 'status': ['!=','Cancelled']})
+            if invs:
+                # attach the present PDF to invoice with same order_id
+                upload = self.upload_pdfs(invs[0]['name'])
         if invs:
-            easygui.msgbox("Einkaufsrechnung {} ist schon als {} in ERPNext eingetragen worden".format(self.no,invs[0]['name']))
+            if upload:
+                upload = "Aktuelle Rechnung wurde dort angefügt."
+            easygui.msgbox("Einkaufsrechnung {} ist schon als {} in ERPNext eingetragen worden {}".format(self.no,invs[0]['name'],upload))
+                
             self.is_duplicate = True
             return True
         return False
@@ -957,6 +967,17 @@ class PurchaseInvoice(Invoice):
         lines = [line[0:70] for line in lines]
         return "\n".join(lines)
 
+    def upload_pdfs(self,inv_name=None):
+        print("Übertrage PDF der Rechnung")
+        if not inv_name:
+            inv_name = self.doc['name']
+        upload = None
+        for infile in self.infiles:
+            upload = gui_api_wrapper(Api.api.read_and_attach_file,
+                                     "Purchase Invoice",inv_name,
+                                     infile,True)
+        return upload    
+
     def send_to_erpnext(self):        
         print("Stelle ERPNext-Rechnung zusammen")
         self.create_doc()
@@ -969,12 +990,7 @@ class PurchaseInvoice(Invoice):
         super().__init__(self.doc,False)
         #print(self.doc)
         self.company.purchase_invoices[self.doc['supplier']].append(self.doc)
-        print("Übertrage PDF der Rechnung")
-        upload = None
-        for infile in self.infiles:
-            upload = gui_api_wrapper(Api.api.read_and_attach_file,
-                                     "Purchase Invoice",self.doc['name'],
-                                     infile,True)
+        upload = self.upload_pdfs()
         # currently, we can only link to the last PDF    
         self.doc['supplier_invoice'] = upload['file_url']
         self.update()
