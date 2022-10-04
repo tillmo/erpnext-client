@@ -449,6 +449,8 @@ class PurchaseInvoice(Invoice):
                     continue
                 s_item.qty = int(q.group(1))
                 s_item.qty_unit = q.group(2)
+                if s_item.qty_unit=="ST":
+                    s_item.qty_unit="Stk"
                 #print("qty ",s_item.qty)
                 #print("unit ",s_item.qty_unit)
                 #print("str ",item_str[98:113])
@@ -477,8 +479,6 @@ class PurchaseInvoice(Invoice):
                     self.shipping = s_item.amount
                     #print("shipping: ",self.shipping)
                     continue
-                if s_item.qty_unit=="ST":
-                    s_item.qty_unit=="Stk"
                 s_item.rate = round(s_item.amount/s_item.qty,2)
                 #print("item rate",s_item.rate)
                 rounding_error += s_item.amount-s_item.rate*s_item.qty
