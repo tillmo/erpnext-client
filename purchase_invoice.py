@@ -396,12 +396,14 @@ class PurchaseInvoice(Invoice):
                 d = utils.convert_date4(words[-1])
                 if d:
                     self.date = d
-                    print("Date",d)
+                    #print("Date",d)
+            if "Auftrag " in line:
+                self.order_id = line[120:].split()[0]
             if "Belegnummer / Document Number" in line:
                 self.no = words[-1]
-                print("No.",self.no)
+                #print("No.",self.no)
             if words and words[0] and words[0][0].isdigit():
-                print(words)
+                #print(words)
                 items.append(item)
                 item = [line]
             else:
@@ -414,16 +416,16 @@ class PurchaseInvoice(Invoice):
         if self.update_stock:
             mypos = 0
             for item_lines in items[1:]:
-                print(item_lines)
+                #print(item_lines)
                 item_str = item_lines[0]
-                print("str:",item_str)
+                #print("str:",item_str)
                 pos = int(item_str.split()[0])
-                print("pos",pos)
+                #print("pos",pos)
                 if pos==28203:
                     continue
                 if pos>1000:
                     break
-                clutter = ['Einzelpreis','Krannich','IBAN','Rechnung','Übertrag']
+                clutter = ['Rabatt','Übertrag']
                 s_item = SupplierItem(self)
                 long_description_lines = \
                     [l for l in item_lines[1:] \
@@ -440,16 +442,16 @@ class PurchaseInvoice(Invoice):
                     continue
                 mypos = pos
                 s_item.item_code = item_str.split()[1]
-                print("code",s_item.item_code)
+                #print("code",s_item.item_code)
                 q=re.search("([0-9]+) *([A-Za-z]+)",item_str[60:73])
-                print("q",q)
+                #print("q",q)
                 if not q:
                     continue
                 s_item.qty = int(q.group(1))
                 s_item.qty_unit = q.group(2)
-                print("qty ",s_item.qty)
-                print("unit ",s_item.qty_unit)
-                print("str ",item_str[98:113])
+                #print("qty ",s_item.qty)
+                #print("unit ",s_item.qty_unit)
+                #print("str ",item_str[98:113])
                 price = utils.read_float(item_str[98:113].split()[0])
                 try:
                     price1 = utils.read_float(item_lines[1][98:113].split()[0])
@@ -457,28 +459,28 @@ class PurchaseInvoice(Invoice):
                     price1 = 0
                 if price1 > price:
                     price = price1
-                print("price ",price)
-                try:
-                    discount = 0 #utils.read_float(item_str[140:152].split()[0])
-                except Exception:
+                #print("price ",price)
+                discount_line = ""
+                discount_lines = [line for line in item_lines if 'Rabatt' in line]
+                if discount_lines:
+                    discount_line = discount_lines[0]
+                    #print("***"+discount_line+"xxx")
+                    #print(len(discount_line))
+                    discount = utils.read_float(discount_line[135:152].split()[0])
+                else:
                     discount = 0
-                print("discount ",discount)
-                s_item.amount = utils.read_float(item_str[140:152].split()[0])
-                print("amount ",s_item.amount)
+                #print("discount ",discount)
+                #print("amount before discount ",utils.read_float(item_str[135:152].split()[0]))
+                s_item.amount = utils.read_float(item_str[135:152].split()[0]) + discount
+                #print("amount with discount ",s_item.amount)
                 if s_item.description.split()[0]=="Transportkosten":
                     self.shipping = s_item.amount
-                    print("shipping: ",self.shipping)
+                    #print("shipping: ",self.shipping)
                     continue
                 if s_item.qty_unit=="ST":
                     s_item.qty_unit=="Stk"
-                    try:
-                        r1 = re.search('[0-9]+ *[mM]', s_item.description)
-                        r2 = re.search('[0-9]+', r1.group(0))
-                        s_item.qty_unit = "Meter"
-                        s_item.qty = int(r2.group(0))
-                    except Exception:
-                        pass
                 s_item.rate = round(s_item.amount/s_item.qty,2)
+                #print("item rate",s_item.rate)
                 rounding_error += s_item.amount-s_item.rate*s_item.qty
                 self.items.append(s_item)
         vat_line = ""
@@ -492,9 +494,10 @@ class PurchaseInvoice(Invoice):
             if total_lines:
                 total_line = total_lines[0]
                 break
+        #print("rounding_error ",rounding_error)
         self.shipping += rounding_error
-        self.totals[self.default_vat] = utils.read_float(total_line[140:151])
-        self.vat[self.default_vat] = utils.read_float(vat_line[140:151]) # PurchaseInvoice.get_amount_heckert([vat_line])
+        self.totals[self.default_vat] = utils.read_float(total_line[135:151])
+        self.vat[self.default_vat] = utils.read_float(vat_line[135:151]) # PurchaseInvoice.get_amount_heckert([vat_line])
         self.compute_total()
         return self
 
@@ -747,6 +750,7 @@ class PurchaseInvoice(Invoice):
             'title': self.supplier.split()[0]+" "+self.no,
             'project': self.project,
             'bill_no': self.no,
+            'order_id' : self.order_id,
             'posting_date' : self.date,
             'remarks' : self.remarks,
             'paid_by_submitter' : self.paid_by_submitter,
@@ -772,7 +776,7 @@ class PurchaseInvoice(Invoice):
 
     def check_total(self):
         err = ""
-        computed_total = self.shipping+sum([item.amount for item in self.items])
+        computed_total = self.shipping+sum([item.rate*item.qty for item in self.items for item in self.items])
         if abs(self.total-computed_total) > 0.005 :
             err = "Abweichung! Summe in Rechnung: {0}, Summe der Posten: {1}".format(self.total,computed_total)
             err += "\nDies kann noch durch Preisanpassungen korrigiert werden.\n"
@@ -793,7 +797,6 @@ class PurchaseInvoice(Invoice):
         return err
 
     def check_if_present(self):
-        return False
         invs = gui_api_wrapper(Api.api.get_list,"Purchase Invoice",
                                {'bill_no': self.no, 'status': ['!=','Cancelled']})
         if invs:
