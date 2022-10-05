@@ -818,6 +818,7 @@ class PurchaseInvoice(Invoice):
         # do not call super().__init__ here,
         # because there is no doc in ERPNext yet
         self.update_stock = update_stock
+        self.order_id = None
         self.company_name = sg.UserSettings()['-company-']
         print("Company: ",self.company_name)
         self.company = company.Company.get_company(self.company_name)

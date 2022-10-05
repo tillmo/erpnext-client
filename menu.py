@@ -145,12 +145,12 @@ def event_handler(event,window):
         print('(Für andere Lieferanten bitte im ERPNext-Webclient manuell eine Rechnung anlegen. Die Liste der hier möglichen Lieferanten kann ggf. erweitert werden.)')
         print('Das Einlesen einer Rechnung geht hier wie folgt:')
         print('- Unter Einlesen - Einkaufsrechnung das PDF hochladen (bitte keinen Scan einer Rechnung und keine Auftragsbestätigung!)')
-        print('- oder unter Einlesen - Einkaufsrechnung Balkonmodule')
-        print('Bei Balkonmodul-Rechnungen wird das Lager aktualisiert, d.h.:')
+        print('- oder unter Einlesen - Einkaufsrechnung Lager')
+        print('Bei "einkaufsrechnung Lager" wird das Lager aktualisiert, d.h.:')
         print('- Für jeden Rechnungenartikel muss ein ERPNext-Artikel gefunden werden')
         print('- Es kann auch ein neuer ERPNext-Artikel angelegt werden, mit den Daten aus der Rechnung')
         print('- Ggf. muss der Preis angepasst werden')
-        print('Für alle Rechnungen (ob Balkonmodul oder nicht) wird schließlich die Einkaufsrechnungen in ERPNext hochgeladen.')
+        print('Für alle Rechnungen (ob mit Lager oder nicht) wird schließlich die Einkaufsrechnungen in ERPNext hochgeladen.')
         print('Dort muss sie noch geprüft und gebucht werden')
     elif event == 'Hilfe Buchen':
         print()
@@ -263,7 +263,7 @@ def event_handler(event,window):
     elif event == 'Einkaufsrechnung':
         if purchase_inv(False):
             show_company_data = True
-    elif event == 'Einkaufsrechnung Balkonmodule':
+    elif event == 'Einkaufsrechnung Lager':
         if purchase_inv(True):
             show_company_data = True
     elif event == 'Banktransaktionen bearbeiten':
@@ -358,13 +358,13 @@ def event_handler(event,window):
             if choice in inv_texts:
                 pass # todo: reconciliate payment and invoice
                 #bank.BankTransaction.submit_entry(pe['name'],is_journal=False)
-    elif event in ['Prerechnungen','Prerechnungen Balkon']:
+    elif event in ['Prerechnungen','Prerechnungen Lager']:
         while True:
-            keys = ['datum','name','short_pdf','balkonmodule','selbst_bezahlt','vom_konto_überwiesen','typ']
-            headings = ['Datum','Name','pdf','Balkon','selbst bez.','überwiesen','Typ']
+            keys = ['datum','name','short_pdf','lager','selbst_bezahlt','vom_konto_überwiesen','typ']
+            headings = ['Datum','Name','pdf','Lager','selbst bez.','überwiesen','Typ']
             comp = company.Company.get_company(user_settings['-company-'])
-            invs = comp.get_open_pre_invoices(event=='Prerechnungen Balkon')
-            invs_f = [utils.format_dic(['balkonmodule','selbst_bezahlt',
+            invs = comp.get_open_pre_invoices(event=='Prerechnungen Lager')
+            invs_f = [utils.format_dic(['lager','selbst_bezahlt',
                                         'vom_konto_überwiesen'],['pdf'],
                                         inv.copy())\
                       for inv in invs]
@@ -377,7 +377,7 @@ def event_handler(event,window):
             pdf = Api.api.get_file(inv['pdf'])
             f= utils.store_temp_file(pdf,".pdf")
             pinv = purchase_invoice.PurchaseInvoice.read_and_transfer\
-                    (f,inv['balkonmodule'],inv['buchungskonto'],
+                    (f,inv['lager'],inv['buchungskonto'],
                      inv['selbst_bezahlt'],inv['chance'])
             if pinv: # also for duplicates, update 'eingepflegt'
                 inv['eingepflegt'] = True
@@ -599,9 +599,9 @@ def menus():
     sg.set_options(element_padding=(0, 0))
 
     # ------ Menu Definition ------ #
-    menu_def = [['&Einlesen', ['&Kontoauszug', '&Einkaufsrechnung', '&Einkaufsrechnung Balkonmodule']],
+    menu_def = [['&Einlesen', ['&Kontoauszug', '&Einkaufsrechnung', '&Einkaufsrechnung Lager']],
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
-                ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Prerechnungen','Prerechnungen Balkon','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen']],
+                ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Prerechnungen','Prerechnungen Lager','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen']],
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte']], 
                 ['Bereich', company.Company.all()], 
