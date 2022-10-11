@@ -8,7 +8,7 @@ sudo apt install -y git python3-pip python3-tk libgtk-3-dev
 # install pdftotext (note that poppler-utils is super outdated)
 TMP=$(mktemp -d)
 pushd $TMP
-wget https://dl.xpdfreader.com/xpdf-tools-linux-4.03.tar.gz
+wget https://dl.xpdfreader.com/xpdf-tools-linux-4.04.tar.gz
 tar xzf *.gz
 sudo mv */bin64/pdftotext /usr/bin/
 popd
