@@ -1010,7 +1010,8 @@ class PurchaseInvoice(Invoice):
             bt = None
         else:
             bt = bank.BankTransaction.find_bank_transaction(self.company_name,
-                                                            -self.gross_total)
+                                                            -self.gross_total,
+                                                            self.no)
         if py:
             msg += "\n\nZugehörige Anzahlung gefunden: {}\n".\
                      format(py.name)

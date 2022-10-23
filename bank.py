@@ -302,7 +302,9 @@ class BankTransaction(Doc):
         print("{} {} gelöscht".format(doctype_name,doc_name))
 
     @classmethod
-    def find_bank_transaction(cls,comp_name,total,text=""):
+    def find_bank_transaction(cls,comp_name,total,bill_no=""):
+        if not bill_no:
+            return None
         key = 'deposit'
         if total<0:
             key = 'withdrawal'
@@ -311,19 +313,14 @@ class BankTransaction(Doc):
                           'Bank Transaction',
                           filters={'company':comp_name,
                                    key:total,
+                                   'description':['like','%'+bill_no+'%'],
                                    'status': 'Pending'})
         bts = [BankTransaction(bt) for bt in bts]
         l = len(bts)
-        if l==0:
-            return None
-        if l>1 and text:
-            bts1 = [(bt,utils.similar(bt.description,text)) \
-                    for bt in bts]
-            bts1.sort(key=lambda x: x[1],reverse=True)
-            bt = bts1[0][0]
+        if l==1:
+            return bts[0]
         else:
-            bt = bts[0]
-        return bt    
+            return None
 
 class BankStatementEntry:
     def __init__(self,bank_statement):
