@@ -577,7 +577,7 @@ class PurchaseInvoice(Invoice):
             if not is_test:
                 if self.check_if_present():
                     return self
-        if is_test:
+        if is_test or self.update_stock:
             return self
         suppliers = gui_api_wrapper(Api.api.get_list,"Supplier",
                                     limit_page_length=LIMIT)
@@ -796,6 +796,8 @@ class PurchaseInvoice(Invoice):
         return err
 
     def check_if_present(self):
+        if not self.no.strip():
+            return False
         upload = None
         invs = gui_api_wrapper(Api.api.get_list,"Purchase Invoice",
                                {'bill_no': self.no, 'status': ['!=','Cancelled']})
@@ -826,6 +828,7 @@ class PurchaseInvoice(Invoice):
         self.remarks = None
         self.project = None
         self.paid_by_submitter = False
+        self.total = 0
         self.default_vat = self.company.default_vat
         self.vat_rates = list(self.company.taxes.keys())
         self.vat = {}
@@ -979,6 +982,10 @@ class PurchaseInvoice(Invoice):
         return upload    
 
     def send_to_erpnext(self):        
+        # fallback on manual creation of invoice if necessary
+        if self.update_stock and self.parser == "generic":
+            easygui.msgbox("Bitte Rechnung und Artikel in ERPNext manuell eintragen. Künftig könnte dies ggf. automatisiert werden.")
+            return None
         print("Stelle ERPNext-Rechnung zusammen")
         self.create_doc()
         Api.create_supplier(self.supplier)
