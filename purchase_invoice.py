@@ -232,12 +232,12 @@ class PurchaseInvoice(Invoice):
         self.date = None
         self.no = None
         for line in items[0]:
-            if "Rechnung" in line:
+            if "echnung" in line:
                 self.no = line.split()[1]
                 self.date = utils.convert_date4(line.split()[2])
-            elif "Anzahlungsrechnung" in line:
-                print("Dies ist eine Anzahlungsrechnung")
-                return None
+            #elif "Anzahlungsrechnung" in line:
+            #    print("Dies ist eine Anzahlungsrechnung")
+            #    return None
         self.items = []
         self.shipping = 0
         rounding_error = 0
@@ -577,7 +577,7 @@ class PurchaseInvoice(Invoice):
             if not is_test:
                 if self.check_if_present():
                     return self
-        if is_test or self.update_stock:
+        if is_test:
             return self
         suppliers = gui_api_wrapper(Api.api.get_list,"Supplier",
                                     limit_page_length=LIMIT)
@@ -822,9 +822,9 @@ class PurchaseInvoice(Invoice):
         self.update_stock = update_stock
         self.order_id = None
         self.company_name = sg.UserSettings()['-company-']
-        print("Company: ",self.company_name)
+        #print("Company: ",self.company_name)
         self.company = company.Company.get_company(self.company_name)
-        print("Company: ",self.company.name)
+        #print("Company: ",self.company.name)
         self.remarks = None
         self.project = None
         self.paid_by_submitter = False
@@ -982,10 +982,6 @@ class PurchaseInvoice(Invoice):
         return upload    
 
     def send_to_erpnext(self):        
-        # fallback on manual creation of invoice if necessary
-        if self.update_stock and self.parser == "generic":
-            easygui.msgbox("Bitte Rechnung und Artikel in ERPNext manuell eintragen. Künftig könnte dies ggf. automatisiert werden.")
-            return None
         print("Stelle ERPNext-Rechnung zusammen")
         self.create_doc()
         Api.create_supplier(self.supplier)
@@ -1001,6 +997,10 @@ class PurchaseInvoice(Invoice):
         # currently, we can only link to the last PDF    
         self.doc['supplier_invoice'] = upload['file_url']
         self.update()
+        # fallback on manual creation of invoice if necessary
+        if self.update_stock and self.parser == "generic":
+            easygui.msgbox("Einkaufsrechnung {0} wurde als Entwurf an ERPNext übertragen. Bitte Artikel in ERPNext manuell eintragen. Künftig könnte dies ggf. automatisiert werden.".format(self.no))
+            return self
         choices = ["Sofort buchen","Später buchen"]
         msg = "Einkaufsrechnung {0} wurde als Entwurf an ERPNext übertragen:\n{1}\n\n".format(self.doc['title'],self.summary())
         title = "Rechnung {}".format(self.no)
