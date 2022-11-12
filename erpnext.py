@@ -113,12 +113,12 @@ if __name__ == '__main__':
             exit(1)
         b = bank.BankStatement.process_file(infile)
         if b:
-            b.baccount.company.reconciliate_all()
+            b.baccount.company.reconcile_all()
     elif args.b:
         menu.initial_loads()
         comp = company.Company.get_company(settings['-company-'])
         if comp:
-            comp.reconciliate_all()
+            comp.reconcile_all()
     elif args.i:
         Api.load_item_data()
         print(Api.item_code_translation)

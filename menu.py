@@ -269,7 +269,7 @@ def event_handler(event,window):
     elif event == 'Banktransaktionen bearbeiten':
         comp = company.Company.get_company(user_settings['-company-'])
         if comp:
-            comp.reconciliate_all()
+            comp.reconcile_all()
             show_company_data = True
     elif event == 'Buchungssätze':
         keys = ['posting_date','account','caccount','total_debit','user_remark']
@@ -356,7 +356,7 @@ def event_handler(event,window):
             msg = details+"\n\n"+title+"\n"
             choice = easygui.choicebox(msg, title, inv_texts)
             if choice in inv_texts:
-                pass # todo: reconciliate payment and invoice
+                pass # todo: reconcile payment and invoice
                 #bank.BankTransaction.submit_entry(pe['name'],is_journal=False)
     elif event in ['Prerechnungen','Prerechnungen Lager']:
         while True:
@@ -515,7 +515,7 @@ def event_handler(event,window):
             ix = tbl.display()
             if ix is False:
                 break
-            comp.reconciliate(bts[ix])
+            comp.reconcile(bts[ix])
             show_company_data = True
     elif event in bank.BankAccount.get_baccount_names():
         keys = ['date','open','amount','balance','description']
@@ -545,7 +545,7 @@ def event_handler(event,window):
             if ix is False:
                 break
             comp = company.Company.get_company(user_settings['-company-'])
-            comp.reconciliate(bts[ix])
+            comp.reconcile(bts[ix])
             show_company_data = True
     elif event in ['Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz']:
         comp = user_settings['-company-']

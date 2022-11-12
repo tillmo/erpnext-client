@@ -153,14 +153,14 @@ class Company(Doc):
                          'company':self.name},
                 limit_page_length=LIMIT)
 
-    def reconciliate(self,bt):
+    def reconcile(self,bt):
         Api.load_account_data()
         sinvs = self.get_sales_invoices(True)
         pinvs = self.get_purchase_invoices(True)
         bt = gui_api_wrapper(Api.api.get_doc,'Bank Transaction',bt['name'])
         bank.BankTransaction(bt).transfer(sinvs,pinvs)
 
-    def reconciliate_all(self):
+    def reconcile_all(self):
         Api.load_account_data()
         sinvs = self.get_sales_invoices(True)
         pinvs = self.get_purchase_invoices(True)
