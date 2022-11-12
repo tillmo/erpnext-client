@@ -292,6 +292,8 @@ class BankTransaction(Doc):
                                  bts[0]['name'])
             bt['payment_entries'] = list(filter(lambda pe: pe['payment_entry']!=doc_name,bt['payment_entries']))
             bt['status'] = 'Pending'
+            bt['unallocated_amount'] += bt['allocated_amount']
+            bt['allocated_amount'] = 0
             gui_api_wrapper(Api.api.update,bt)
             print("Banktransaktion {} angepasst".format(bt['name']))
         else:
