@@ -558,18 +558,22 @@ class PurchaseInvoice(Invoice):
 
     def parse_generic(self,lines,default_account=None,paid_by_submitter=False,
                       is_test=False):
+        self.parser = "generic"
+        self.extract_items = False
         amount = ""
         self.vat[self.default_vat] = ""
         self.totals[self.default_vat] = ""
         self.shipping = 0.0
         self.date = ""
         self.no = ""
-        self.supplier = ""
+        if not self.supplier:
+            self.supplier = "" 
         if lines:
             (amount,vat) = extract_amount_and_vat(lines,self.vat_rates)
             self.date = extract_date(lines)
             self.no = extract_no(lines)
-            self.supplier = extract_supplier(lines)
+            if not self.supplier:
+                self.supplier = extract_supplier(lines) 
         if lines and amount:    
             self.vat[self.default_vat] = vat
             self.totals[self.default_vat] = amount-self.vat[self.default_vat]
@@ -645,34 +649,33 @@ class PurchaseInvoice(Invoice):
             return None
         self.compute_total()
         account = None
-        if not self.update_stock:
-            accounts = self.company.leaf_accounts_for_credit
-            account_names = [acc['name'] for acc in accounts]
-            if default_account:
-                for acc in account_names:
-                    if default_account in acc:
-                        account = acc
+        accounts = self.company.leaf_accounts_for_credit
+        account_names = [acc['name'] for acc in accounts]
+        if default_account:
+            for acc in account_names:
+                if default_account in acc:
+                    account = acc
+        if not account:
+            pinvs = self.company.purchase_invoices[self.supplier]
+            paccs = [pi['expense_account'] \
+                     for pi in pinvs if 'expense_account' in pi]
+            paccs = list(set(paccs))
+            for acc in paccs:
+                try:
+                    account_names.remove(j)
+                except Exception:
+                    pass
+            account_names = paccs + account_names
+            title = 'Buchungskonto wählen'
+            msg = 'Bitte ein Buchungskonto wählen\n'
+            account = easygui.choicebox(msg, title, account_names)
             if not account:
-                pinvs = self.company.purchase_invoices[self.supplier]
-                paccs = [pi['expense_account'] \
-                         for pi in pinvs if 'expense_account' in pi]
-                paccs = list(set(paccs))
-                for acc in paccs:
-                    try:
-                        account_names.remove(j)
-                    except Exception:
-                        pass
-                account_names = paccs + account_names
-                title = 'Buchungskonto wählen'
-                msg = 'Bitte ein Buchungskonto wählen\n'
-                account = easygui.choicebox(msg, title, account_names)
-                if not account:
-                    return None
+                return None
         self.assign_default_e_items({self.default_vat:account})
         return self
     
     def parse_invoice(self,infile,account=None,paid_by_submitter=False,
-                      is_test=False):
+                      given_supplier=None,is_test=False):
         self.extract_items = False
         lines = pdf_to_text(infile)
         try:        
@@ -680,23 +683,26 @@ class PurchaseInvoice(Invoice):
                 head = lines[0][0:140]
                 if not head[0:10].split():
                     for line in lines[0:10]:
-                        if len(line)>2 and (line[-2]=='£' or line[-3]=='£'):
+                        if self.company.name != 'Bremer SolidarStrom' and len(line)>2 and (line[-2]=='£' or line[-3]=='£'):
                             head = "Kornkraft Naturkost GmbH"
                             break
                 for supplier,info in PurchaseInvoice.suppliers.items():
                     if supplier in head:
                         self.parser = supplier
+                        self.extract_items = self.update_stock
                         if info['raw']:
                             self.raw = True
                             lines = pdf_to_text(infile,True)
-                        if not info['parser'](self,lines):
-                            return None
                         if 'supplier' in info:
                             self.supplier = info['supplier'] 
                         else:    
                             self.supplier = supplier
+                        print("Verwende Rechnungsparser für ",self.supplier)
+                        if self.supplier!=given_supplier:
+                            print("abweichend von PreRechnung: ",given_supplier)
                         self.multi = info['multi']    
-                        self.extract_items = self.update_stock
+                        if not info['parser'](self,lines):
+                            return None
                         return self
         except Exception as e:
             if self.update_stock:
@@ -705,7 +711,8 @@ class PurchaseInvoice(Invoice):
                 raise e
                 print(e)
                 print("Rückfall auf Standard-Rechnungsbehandlung")
-        self.parser = "generic"
+        print("Verwende generischen Rechnungsparser")
+        self.supplier = given_supplier
         return self.parse_generic(lines,account,paid_by_submitter,is_test)
         
     def compute_total(self):
@@ -874,13 +881,13 @@ class PurchaseInvoice(Invoice):
         pprint(list(map(lambda x: pprint(vars(x)),inv.items)))
 
     @classmethod
-    def read_and_transfer(cls,infile,update_stock,account=None,paid_by_submitter=False,project=None):
+    def read_and_transfer(cls,infile,update_stock,account=None,paid_by_submitter=False,project=None,supplier=None):
         one_more = True
         inv = None
         while one_more:
             one_more = False
             inv_new = PurchaseInvoice(update_stock).\
-                        read_pdf(infile,account,paid_by_submitter)
+                        read_pdf(infile,account,paid_by_submitter,supplier)
             if (inv is None) and inv_new and inv_new.is_duplicate:
                 return inv_new
             if inv_new and not inv_new.is_duplicate:
@@ -901,9 +908,9 @@ class PurchaseInvoice(Invoice):
             print("Keine Einkaufsrechnung angelegt")
         return inv
 
-    def read_pdf(self,infile,account=None,paid_by_submitter=False):
+    def read_pdf(self,infile,account=None,paid_by_submitter=False,supplier=None):
         self.infiles = [infile]
-        if not self.parse_invoice(infile,account,paid_by_submitter):
+        if not self.parse_invoice(infile,account,paid_by_submitter,supplier):
             return None
         print("Prüfe auf doppelte Rechung")
         if self.check_if_present():
@@ -1050,6 +1057,10 @@ PurchaseInvoice.suppliers = \
          'raw' : True, 'multi' : False},
      'Schlußrechnung' : heckert_info,
      'Vorausrechnung' : heckert_info,
+     'SOLARWATT' : 
+        {'parser' : PurchaseInvoice.parse_generic,
+         'raw' :  False, 'multi' : False,
+         'supplier' : 'Solarwatt GmbH'},
      'Rechnung' :
         {'parser' : PurchaseInvoice.parse_nkk,
          'raw' :  False, 'multi' : False,

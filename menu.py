@@ -378,7 +378,7 @@ def event_handler(event,window):
             f= utils.store_temp_file(pdf,".pdf")
             pinv = purchase_invoice.PurchaseInvoice.read_and_transfer\
                     (f,inv['lager'],inv['buchungskonto'],
-                     inv['selbst_bezahlt'],inv['chance'])
+                     inv['selbst_bezahlt'],inv['chance'],inv['lieferant'])
             if pinv: # also for duplicates, update 'eingepflegt'
                 inv['eingepflegt'] = True
                 if not pinv.is_duplicate:
