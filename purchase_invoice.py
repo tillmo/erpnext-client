@@ -500,6 +500,111 @@ class PurchaseInvoice(Invoice):
         self.compute_total()
         return self
 
+    def parse_wagner(self,lines):
+        items = []
+        item = []
+        is_rechnung = False
+        preamble = True
+        self.date = None
+        self.no = None
+        for line in lines:
+            words = line.split()
+            #print(words)
+            if not self.date and "Datum" in line:
+                d = utils.convert_date_written_month(" ".join(words[-3:]))
+                if d:
+                    self.date = d
+                    #print("Date",d)
+            if "Auftragsnummer" in line:
+                self.order_id = words[-1]
+                #print("Auftragsnummer",self.order_id)
+            if not self.no and ("Vorkasserechnung" in line or "Rechnung" in line):
+                self.no = words[-1]
+                is_rechnung = "Rechnung" in line
+                #print("No.",self.no)
+            elif words and words[0] and words[0][0].isdigit():
+                #print("--->",words)
+                items.append(item)
+                item = [line]
+            else:
+                item.append(line)
+        items.append(item)
+        #print(items)
+        self.items = []
+        self.shipping = 0.0
+        rounding_error = 0
+        if self.update_stock:
+            mypos = 0
+            for item_lines in items[1:]:
+                #print(item_lines)
+                item_str = item_lines[0]
+                words = item_str.split()
+                #print(words)
+                #print("str:",item_str)
+                try:
+                    pos = int(words[0])
+                except Exception:
+                    continue
+                if pos>=28100:
+                    continue
+                #print("pos",pos)
+                clutter = ['Rabatt','Übertrag']
+                s_item = SupplierItem(self)
+                long_description_lines = \
+                    [l for l in item_lines[1:] \
+                       if utils.no_substr(clutter,l) and l.strip()]
+                s_item.description = " ".join(long_description_lines[0][0:82].split())
+                #print("description: ",s_item.description)
+                s_item.long_description = ""
+                for l in long_description_lines:
+                    if "Zwischensumme" in l:
+                        break
+                    s_item.long_description += l
+                #print("long_description: ",s_item.long_description)
+                mypos = pos
+                if is_rechnung:
+                    s_item.item_code = words[1]
+                else:    
+                    ind = words.index("Artikelnr.")
+                    s_item.item_code = words[ind+1]
+                #print("code",s_item.item_code)
+                ind = words.index("Stück")
+                s_item.qty = int(words[ind-1])
+                s_item.qty_unit="Stk"
+                #print("qty ",s_item.qty)
+                #print("unit ",s_item.qty_unit)
+                s_item.amount = utils.read_float(words[-1])
+                #print("price ",s_item.amount)
+                discount = 0
+                if "Fracht" in s_item.description or "Fracht" in words:
+                    self.shipping = s_item.amount
+                    #print("shipping: ",self.shipping)
+                    continue
+                s_item.rate = round(s_item.amount/s_item.qty,2)
+                #print("item rate",s_item.rate)
+                rounding_error += s_item.amount-s_item.rate*s_item.qty
+                self.items.append(s_item)
+        vat_line = ""
+        for i in range(len(items)):
+            vat_lines = [line for line in items[i] if 'MwSt' in line]
+            if vat_lines:
+                vat_line = vat_lines[0]
+                #print(vat_line)
+                break
+        for i in range(len(items)):
+            total_lines = [line for line in items[i] if 'Nettosumme' in line or 'Nettowarenwert' in line]
+            if total_lines:
+                total_line = total_lines[0]
+                break
+        #print("rounding_error ",rounding_error)
+        self.shipping += rounding_error
+        self.totals[self.default_vat] = utils.read_float(total_line.split()[-1])
+        self.vat[self.default_vat] = utils.read_float(vat_line.split()[-1])
+        #print("total ",self.totals[self.default_vat])
+        #print("vat ",self.vat[self.default_vat])
+        self.compute_total()
+        return self
+
     def parse_nkk(self,lines):
         self.date = None
         self.no = None
@@ -698,7 +803,7 @@ class PurchaseInvoice(Invoice):
                         else:    
                             self.supplier = supplier
                         print("Verwende Rechnungsparser für ",self.supplier)
-                        if self.supplier!=given_supplier:
+                        if given_supplier and self.supplier!=given_supplier:
                             print("abweichend von PreRechnung: ",given_supplier)
                         self.multi = info['multi']    
                         if not info['parser'](self,lines):
@@ -817,7 +922,7 @@ class PurchaseInvoice(Invoice):
         if invs:
             if upload:
                 upload = "Aktuelle Rechnung wurde dort angefügt."
-            easygui.msgbox("Einkaufsrechnung {} ist schon als {} in ERPNext eingetragen worden {}".format(self.no,invs[0]['name'],upload))
+            easygui.msgbox("Einkaufsrechnung {} ist schon als {} in ERPNext eingetragen worden. {}".format(self.no,invs[0]['name'],upload))
                 
             self.is_duplicate = True
             return True
@@ -1061,6 +1166,10 @@ PurchaseInvoice.suppliers = \
         {'parser' : PurchaseInvoice.parse_generic,
          'raw' :  False, 'multi' : False,
          'supplier' : 'Solarwatt GmbH'},
+     'Seite' :
+        {'parser' : PurchaseInvoice.parse_wagner,
+         'raw' :  False, 'multi' : False,
+         'supplier' : 'Wagner Solar'},
      'Rechnung' :
         {'parser' : PurchaseInvoice.parse_nkk,
          'raw' :  False, 'multi' : False,

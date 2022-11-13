@@ -10,6 +10,7 @@ import time
 import numpy as np
 import tempfile
 import os
+import locale
 
 def running_linux():
     return sys.platform.startswith('linux')
@@ -23,6 +24,14 @@ else:
 
 def similar(a, b):
     return SequenceMatcher(None, a, b).ratio()
+
+def convert_date_written_month(date):
+    try:
+        locale.setlocale(locale.LC_ALL, 'de_DE.utf8')
+        d = datetime.strptime(date, '%d. %B %Y')
+        return d.strftime('%Y-%m-%d')
+    except Exception:
+        return None
 
 def convert_date4(date):
     try:

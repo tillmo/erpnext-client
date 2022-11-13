@@ -360,8 +360,8 @@ def event_handler(event,window):
                 #bank.BankTransaction.submit_entry(pe['name'],is_journal=False)
     elif event in ['Prerechnungen','Prerechnungen Lager']:
         while True:
-            keys = ['datum','name','short_pdf','lager','selbst_bezahlt','vom_konto_überwiesen','typ']
-            headings = ['Datum','Name','pdf','Lager','selbst bez.','überwiesen','Typ']
+            keys = ['datum','name','lieferant','short_pdf','lager','selbst_bezahlt','vom_konto_überwiesen','typ']
+            headings = ['Datum','Name','Lieferant','pdf','Lager','selbst bez.','überwiesen','Typ']
             comp = company.Company.get_company(user_settings['-company-'])
             invs = comp.get_open_pre_invoices(event=='Prerechnungen Lager')
             invs_f = [utils.format_dic(['lager','selbst_bezahlt',
