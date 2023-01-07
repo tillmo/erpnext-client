@@ -59,6 +59,9 @@ def yesterday(date):
     d = d-timedelta(1)
     return d.strftime('%Y-%m-%d')
 
+def last_quarter(date):
+    d = date-timedelta(days=90)
+    return "{}-{:02d}".format(d.year,(d.month+2)//3) 
 
 def no_substr(l1,l2):
     for s in l1:

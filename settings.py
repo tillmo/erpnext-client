@@ -28,3 +28,14 @@ BALANCE_ACCOUNTS = \
     'Summe Passiva': (['A. Eigenkapital - SoMiKo','1400 - Ausstände - SoMiKo'],1),
    }
  }
+
+TAX_ACCOUNTS = \
+ {'Bremer SolidarStrom':
+  {'tax_pay_account' : '1780 - Umsatzsteuer-Vorauszahlung - SoMiKo',
+   'pre_tax_accounts' : ['1576 - Abziehbare VSt. 19% - SoMiKo'],
+   'tax_accounts' : ['1776 - Umsatzsteuer 19% - SoMiKo']},
+  'Laden':
+  {'tax_pay_account' : '1780 - Umsatzsteuer-Vorauszahlung - Laden',
+   'pre_tax_accounts' : ['1576 - Abziehbare VSt. 19% - Laden'],
+   'tax_accounts' : ['1776 - Umsatzsteuer 19% - Laden']}
+ }

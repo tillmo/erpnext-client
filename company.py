@@ -194,3 +194,8 @@ class Company(Doc):
                                         'docstatus':1,
                                         'unallocated_amount':['>',0]},
                                         limit_page_length=LIMIT)
+    def pre_tax_templates(self):
+        return gui_api_wrapper(Api.api.get_list,
+                                'Purchase Taxes and Charges Template',
+                                filters={'company':self.name},
+                                limit_page_length=LIMIT)

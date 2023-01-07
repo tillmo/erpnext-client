@@ -22,6 +22,7 @@ import subprocess
 import sys
 from datetime import datetime
 import settings
+import journal
 
 def initial_loads():
     if sg.UserSettings()['-setup-']:
@@ -583,6 +584,11 @@ def event_handler(event,window):
             report.balances(comp,settings.BALANCE_ACCOUNTS[comp])
         else:
             easygui.msgbox("Für {} ist leider noch keine grafische Bilanz eingerichtet".format(comp))
+    elif event == 'USt-Buchungen':
+        comp = user_settings['-company-']
+        q = utils.last_quarter(datetime.today())
+        print("Erstelle Buchungen für Umsatzsteuer "+q)
+        journal.create_tax_journal_entries(comp,q)
     elif event in ['Projekte']:
         tbl = report.projects()
         tbl.display()
@@ -605,6 +611,7 @@ def menus():
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte']], 
                 ['Bereich', company.Company.all()], 
+                ['Steuer', 'USt-Buchungen'], 
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
 

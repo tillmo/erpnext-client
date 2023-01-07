@@ -6,6 +6,7 @@ from api_wrapper import gui_api_wrapper
 import settings
 import PySimpleGUI as sg
 import company
+from journal import journal_entry
 import easygui
 from numpy import sign
 from collections import defaultdict
@@ -98,30 +99,10 @@ class BankTransaction(Doc):
             against_account = bt.baccount.e_account
         else:    
             against_account = cacc_or_bt
-        accounts = [{'account': self.baccount.e_account,
-                     'cost_center': self.company.cost_center,
-                     'debit': deposit,
-                     'debit_in_account_currency': deposit,
-                     'credit': withdrawal,
-                     'credit_in_account_currency': withdrawal },
-                    {'account': against_account,
-                     'cost_center': self.company.cost_center,
-                     'debit': withdrawal,
-                     'debit_in_account_currency': withdrawal,
-                     'credit': deposit,
-                     'credit_in_account_currency': deposit}]
-        entry = {'doctype' : 'Journal Entry',
-                 'title': self.description[0:140],
-                 'voucher_type': 'Journal Entry',
-                 'company': self.company_name,
-                 'finance_book' : self.company.default_finance_book,
-                 'posting_date': self.date,
-                 'user_remark': self.description,
-                 'accounts':accounts}
-        #print(entry)
-        j = gui_api_wrapper(Api.api.insert,entry)
+        j = journal_entry(self.company,self.baccount.e_account,against_account,
+                          deposit,withdrawal,self.description[0:140],
+                          self.description,self.date)
         #print(j)
-        print("Buchungssatz {} erstellt".format(j['name']))
         if j:
             j['account'] = against_account
             self.company.journal.append(j)
