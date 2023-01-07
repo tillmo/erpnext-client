@@ -518,7 +518,7 @@ class PurchaseInvoice(Invoice):
             if "Auftragsnummer" in line:
                 self.order_id = words[-1]
                 #print("Auftragsnummer",self.order_id)
-            if not self.no and ("Vorkasserechnung" in line or "Rechnung" in line):
+            if not self.no and ("Auftragsbestätigung" in line or "Vorkasserechnung" in line or "Rechnung" in line):
                 self.no = words[-1]
                 is_rechnung = "Rechnung" in line
                 #print("No.",self.no)
@@ -908,7 +908,7 @@ class PurchaseInvoice(Invoice):
         return err
 
     def check_if_present(self):
-        if not self.no.strip():
+        if not self.no or not self.no.strip():
             return False
         upload = None
         invs = gui_api_wrapper(Api.api.get_list,"Purchase Invoice",
