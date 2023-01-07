@@ -36,6 +36,9 @@ TAX_ACCOUNTS = \
    'tax_accounts' : ['1776 - Umsatzsteuer 19% - SoMiKo']},
   'Laden':
   {'tax_pay_account' : '1780 - Umsatzsteuer-Vorauszahlung - Laden',
-   'pre_tax_accounts' : ['1576 - Abziehbare VSt. 19% - Laden'],
-   'tax_accounts' : ['1776 - Umsatzsteuer 19% - Laden']}
+   'pre_tax_accounts' : ['1576 - Abziehbare VSt. 19% - Laden',
+                         '1571 - Abziehbare VSt. 7% - Laden'],
+   'tax_accounts' : ['1776 - Umsatzsteuer 19% - Laden',
+                     '1771 - Umsatzsteuer 7% - Laden']}
  }
+
