@@ -1,7 +1,8 @@
 TITLE = "ERPNext-Client für "
 
 from version import VERSION 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+from dateutil.relativedelta import relativedelta
 from difflib import SequenceMatcher
 import csv
 import codecs
@@ -62,6 +63,15 @@ def yesterday(date):
 def last_quarter(date):
     d = date-timedelta(days=90)
     return "{}-{:02d}".format(d.year,(d.month+2)//3) 
+
+def quarter_to_dates(quarter):
+    year,q = quarter.split("-")
+    d = date(int(year),int(q)*3-2,1)
+    start_date = d.strftime('%Y-%m-%d')
+    d += relativedelta(months=3) - relativedelta(days=1)
+    end_date = d.strftime('%Y-%m-%d')
+    return (start_date,end_date)
+
 
 def no_substr(l1,l2):
     for s in l1:
