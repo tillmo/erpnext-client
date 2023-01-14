@@ -7,6 +7,7 @@ import company
 import bank
 from invoice import Invoice
 import purchase_invoice
+import project
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper, api_wrapper_test, api_wrapper
 import table
@@ -595,8 +596,20 @@ def event_handler(event,window):
         print("Erstelle Buchungen für Umverteilung der Einnahmen "+q)
         journal.create_income_dist_journal_entries(comp,q)
     elif event in ['Projekte']:
-        tbl = report.projects()
-        tbl.display()
+        while True:
+            tbl = report.projects()
+            ix = tbl.display()
+            if ix is False:
+                break
+            pname = tbl.entries[ix]['Name']
+            ptitle = tbl.entries[ix]['Titel']
+            pstatus = tbl.entries[ix]['Status']
+            msg = "Projekt {} {} abschließen?".format(pname,ptitle)
+            if pstatus == 'Open':
+                choices = ["Abschließen","Nichts tun"]
+                choice = easygui.buttonbox(msg,msg,choices)
+                if choice == "Abschließen":
+                    project.complete_project(pname)
     if show_company_data:
         print()
         show_data()

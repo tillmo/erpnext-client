@@ -82,18 +82,24 @@ def create_income_dist_journal_entries(company_name,quarter):
     dist_accounts = INCOME_DIST_ACCOUNTS[company_name]
     expense_accs = dist_accounts['expense']
     income_accs = dist_accounts['income']
+    tax_accs = dist_accounts['tax']
     expenses = {tax: get_gl_total_acc(acc) for tax, acc in expense_accs.items()}
     total_expenses = sum(expenses.values())
     rel_expenses = {tax: exp/total_expenses for tax, exp in expenses.items()}
     base_title = 'Aufteilung nach Steuersätzen {}'.format(quarter)
     descr = "Relative Aufteilung nach Steuersätzen der Ausgaben\n"
     for tax, rel_exp in rel_expenses.items():
-      descr += "{}% USt: {:.2f}% Anteil\n".format(tax,rel_exp*100)
+      descr += "{}% USt: {:.4f}% Anteil\n".format(tax,rel_exp*100)
     print(descr)
     for accs in income_accs:
         unclear = -get_gl_total_acc(accs['unclear'])
         for tax, rel_exp in rel_expenses.items():
             if abs(unclear)>1e-06:
+                net_amount = round(rel_exp*unclear/(1+tax/100),2)
+                tax_amount = round(rel_exp*unclear-net_amount,2)
                 journal_entry(this_company,accs['unclear'],accs[tax],
-                              rel_exp*unclear,0,
+                              net_amount,0,
+                              base_title,descr,end_date)
+                journal_entry(this_company,accs['unclear'],tax_accs[tax],
+                              tax_amount,0,
                               base_title,descr,end_date)

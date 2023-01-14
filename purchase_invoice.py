@@ -13,6 +13,7 @@ import settings
 import doc
 import company
 import bank
+import stock
 from invoice import Invoice
 from collections import defaultdict
 import random
@@ -1109,6 +1110,8 @@ class PurchaseInvoice(Invoice):
         # currently, we can only link to the last PDF    
         self.doc['supplier_invoice'] = upload['file_url']
         self.update()
+        # enter purchased material separately into stock, if needed
+        stock.purchase_invoice_into_stock(doc['name'])
         # fallback on manual creation of invoice if necessary
         if self.update_stock and self.parser == "generic":
             easygui.msgbox("Einkaufsrechnung {0} wurde als Entwurf an ERPNext übertragen. Bitte Artikel in ERPNext manuell eintragen. Künftig könnte dies ggf. automatisiert werden.".format(self.no))

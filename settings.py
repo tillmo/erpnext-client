@@ -2,8 +2,12 @@
 DEFAULT_ITEM_CODE = "000.000.000"
 DEFAULT_SUPPLIER_GROUP = "Lieferant"
 WAREHOUSE = 'Wielandstr. 33 - SoMiKo'
+PROJECT_WAREHOUSE = 'Laufende Arbeit/-en - SoMiKo'
 STANDARD_PRICE_LIST = 'Standard-Vertrieb'
 STANDARD_ITEM_GROUP = 'Produkte'
+PROJECT_ITEM_GROUP = 'Material Solaranlagen'
+PROJECT_UNIT = "Stk"
+STOCK_PROJECT_TYPES =  ['Solaranlage']
 STANDARD_NAMING_SERIES_PINV = 'EK .YYYY.-'
 VAT_DESCRIPTION = 'Umsatzsteuer'
 DELIVERY_COST_ACCOUNT = '3800 - Bezugsnebenkosten - SoMiKo'
@@ -55,5 +59,7 @@ INCOME_DIST_ACCOUNTS = \
                   19 :'8303 - Bieterrunde Laden Ust.7% - Laden'}],
      'expense' : { 7 : '3300 - Wareneingang 7% Vorsteuer - Laden',
                    19 : '3400 - Wareneingang 19% Vorsteuer - Laden'},
+     'tax' : {7 : '1771 - Umsatzsteuer 7% - Laden',
+              19 : '1776 - Umsatzsteuer 19% - Laden'}
     }
  }
