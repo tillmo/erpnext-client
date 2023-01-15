@@ -10,7 +10,7 @@ def complete_project(pname):
     gui_api_wrapper(Api.api.update,doc)
     if is_stock(doc):
         # withdraw material from stock
-        stock.project_into_stock(pname,qty=0)
+        stock.project_into_stock(pname,False)
 
 def is_stock(doc):
     return 'project_type' in doc and doc['project_type'] in STOCK_PROJECT_TYPES
