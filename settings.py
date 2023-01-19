@@ -26,10 +26,10 @@ BALANCE_ACCOUNTS = \
     'Einlage': (['A. Eigenkapital - SoMiKo'],1),
     'Lager':(['I. Vorräte - SoMiKo'],1),
     'Bank':(['Bank - SoMiKo'],1),
-    'Anzahlungen Verkauf':(['1400 - Ausstände - SoMiKo'],1),
+    'Anzahlungen Verkauf':(['1400 - Forderungen aus Lieferungen und Leistungen - SoMiKo'],1),
     'Anzahlungen Einkauf':(['1600 - IV. Verbindlichkeiten aus Lieferungen und Leistungen - SoMiKo'],1),
     'Summe Aktiva': (['I. Vorräte - SoMiKo','Bank - SoMiKo','1600 - IV. Verbindlichkeiten aus Lieferungen und Leistungen - SoMiKo'],1),
-    'Summe Passiva': (['A. Eigenkapital - SoMiKo','1400 - Ausstände - SoMiKo'],1),
+    'Summe Passiva': (['A. Eigenkapital - SoMiKo','1400 - Forderungen aus Lieferungen und Leistungen - SoMiKo'],1),
    }
  }
 
