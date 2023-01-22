@@ -335,7 +335,7 @@ class BankStatement:
         self.sbal = None
         self.ebal = None
         
-    def read_sparkasse(self,infile):
+    def read_sparkasse_bremen(self,infile):
         first_row = True
         for row in utils.get_csv('iso-8859-4',infile):
             if not row:
@@ -353,40 +353,7 @@ class BankStatement:
             be.cleanup()
             self.entries.append(be)
 
-    def read_sparda_ethik(self,infile,is_sparda=True):
-        blz = None
-        baccount_no = None
-        r = 0 if is_sparda else 1
-        for row in utils.get_csv('iso-8859-4',infile,replacenl=is_sparda):
-            if not row or len(row)<=1:
-                continue
-            if row[0]=='BLZ:':
-                blz = int(row[1])
-                continue
-            if row[0]=='Konto:':
-                baccount_no = int(row[1])
-                continue
-            date = utils.convert_date4(row[1])
-            if not date or len(row)<=12+r:
-                continue
-            if row[9+r]=='Anfangssaldo':
-                self.sbal = utils.read_float(row[11+r],row[12+r])
-                continue
-            if row[9+r]=='Endsaldo':
-                self.ebal = utils.read_float(row[11+r],row[12+r])
-                continue
-            be = BankStatementEntry(self)
-            be.posting_date = date
-            be.purpose = row[8+r]
-            be.partner = row[3+r]
-            be.partner_iban = row[5+r]
-            be.amount = utils.read_float(row[11+r],row[12+r])
-            be.cleanup()
-            self.entries.append(be)
-        if blz and baccount_no:
-            self.iban = utils.iban_de(blz,baccount_no)
-
-    def read_ethik(self,infile):
+    def read_sparda_ethik(self,infile):
         ebal_str = ""
         for row in utils.get_csv('utf-8',infile,replacenl=False):
             if not row or len(row)<=1:
@@ -443,12 +410,12 @@ class BankStatement:
             easygui.msgbox("Konto unbekannt: IBAN {}".format(iban))
             return None
         b = BankStatement(bacc)
-        if bacc.blz()=='83094495':
-            b.read_ethik(infile)
-        elif bacc.blz()=='25090500':
-            b.read_sparda_ethik(infile,is_sparda=False) # new Sparda format
-        elif bacc.blz()=='29050101':
-            b.read_sparkasse(infile)
+        if bacc.blz()=='83094495': #  Ethikbank
+            b.read_sparda_ethik(infile)
+        elif bacc.blz()=='25090500': # Sparda 
+            b.read_sparda_ethik(infile) 
+        elif bacc.blz()=='29050101': #  Sparkasse Bremen
+            b.read_sparkasse_bremen(infile)
         else:
             easygui.msgbox("Keine Importmöglichkeit für BLZ {}".format(bacc.blz()))
             return None
