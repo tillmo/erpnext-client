@@ -388,6 +388,21 @@ def event_handler(event,window):
                 inv_doc = doc.Doc(doc=inv,doctype='PreRechnung')
                 inv_doc.update()
             os.remove(f)
+    elif event == 'Unzugeordnete (An)Zahlungen (Summen)':
+        keys = ['party','sum']
+        headings = ['Kund:in/Lieferant','Summe']
+        comp = company.Company.get_company(user_settings['-company-'])
+        pes = comp.unassigned_payment_entries()
+        sums = defaultdict(float)
+        for pe in pes:
+            if pe['payment_type']=='Pay':
+                pe['unallocated_amount'] = -pe['unallocated_amount']
+            sums[pe['party']] += pe['unallocated_amount']
+        sums = [{'party':p,'sum':s} for p,s in sums.items()]
+        sums.sort(key=lambda s:s['sum'])
+        title = "Unzugeordnete (An)Zahlungen (Summen)"
+        tbl = table.Table(sums,keys,headings,title,display_row_numbers=True)
+        tbl.display()
     elif event in ['offene Einkaufsrechnungen','offene Verkaufsrechnungen','Einkaufsrechnungen','Verkaufsrechnungen']:
         event_words = event.split(" ")
         open_invs = event_words[0]=='offene'
@@ -625,7 +640,7 @@ def menus():
     # ------ Menu Definition ------ #
     menu_def = [['&Einlesen', ['&Kontoauszug', '&Einkaufsrechnung', '&Einkaufsrechnung Lager']],
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
-                ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Prerechnungen','Prerechnungen Lager','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen']],
+                ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Unzugeordnete (An)Zahlungen (Summen)','Prerechnungen','Prerechnungen Lager','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen']],
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte']], 
                 ['Bereich', company.Company.all()], 
