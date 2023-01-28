@@ -33,6 +33,18 @@ BALANCE_ACCOUNTS = \
    }
  }
 
+PAYABLE_ACCOUNTS = \
+ {'Bremer SolidarStrom':
+  {'advance' : '1518 - Geleistete Anzahlungen, 19 % Vorsteuer - SoMiKo',
+   'post' : '1600 - IV. Verbindlichkeiten aus Lieferungen und Leistungen - SoMiKo'}
+ }
+
+RECEIVABLE_ACCOUNTS = \
+ {'Bremer SolidarStrom':
+  {'advance' : '1718 - Erhaltene, versteuerte Anzahlungen 19 % USt (Verbindlichkeiten) - SoMiKo',
+   'post' : '1400 - Forderungen aus Lieferungen und Leistungen - SoMiKo'}
+ }
+
 TAX_ACCOUNTS = \
  {'Bremer SolidarStrom':
   {'tax_pay_account' : '1780 - Umsatzsteuer-Vorauszahlung - SoMiKo',

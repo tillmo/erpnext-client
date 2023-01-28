@@ -2,11 +2,26 @@ import company
 import utils
 from api import Api
 from api_wrapper import gui_api_wrapper
-from settings import TAX_ACCOUNTS, INCOME_DIST_ACCOUNTS
+from settings import TAX_ACCOUNTS, INCOME_DIST_ACCOUNTS, PAYABLE_ACCOUNTS, \
+                     RECEIVABLE_ACCOUNTS
 from datetime import date, datetime, timedelta
 
-def journal_entry(company,account,against_account,debit,credit,title,remark,date):
-    accounts = [{'account': account,
+def add_party_acc(account_entry):
+    account = account_entry['account']
+    if isinstance(account, str):
+        return account_entry
+    else:
+        account_entry['party_type'] = account['party_type']
+        account_entry['party'] = account['party']
+        account_entry['account'] = account['account']
+        return account_entry
+
+def add_party(account_entries):
+    return [add_party_acc(account_entry) for account_entry in account_entries]
+
+def journal_entry(company,account,against_account,debit,credit,title,
+                  remark,date,cheque_no=None):
+    account_entries = [{'account': account,
          'cost_center': company.cost_center,
          'debit': debit,
          'debit_in_account_currency': debit,
@@ -18,6 +33,7 @@ def journal_entry(company,account,against_account,debit,credit,title,remark,date
          'debit_in_account_currency': credit,
          'credit': debit,
          'credit_in_account_currency': debit}]
+    account_entries = add_party(account_entries)
     entry = {'doctype' : 'Journal Entry',
              'title': title,
              'voucher_type': 'Journal Entry',
@@ -25,7 +41,60 @@ def journal_entry(company,account,against_account,debit,credit,title,remark,date
              'finance_book' : company.default_finance_book,
              'posting_date': date,
              'user_remark': remark,
-             'accounts':accounts}
+             'accounts':account_entries}
+    if cheque_no:
+        entry['cheque_no'] = cheque_no
+        entry['cheque_date'] = date
+    #print(entry)
+    j = gui_api_wrapper(Api.api.insert,entry)
+    print("Buchungssatz {} erstellt".format(j['name']))
+    return j
+
+def journal_entry3(company,account,against_account1,against_account2,amount1,amount2,title,remark,date,cheque_no=None):
+    if amount1 < 0:
+        debit = 0
+        credit = -amount1-amount2
+        debit1 = -amount1
+        credit1 = 0
+        debit2 = -amount2
+        credit2 = 0
+    else:
+        debit = amount1+amount2
+        credit = 0
+        debit1 = 0
+        credit1 = amount1
+        debit2 = 0
+        credit2 = amount2
+    account_entries = [{'account': account,
+         'cost_center': company.cost_center,
+         'debit': debit,
+         'debit_in_account_currency': debit,
+         'credit': credit,
+         'credit_in_account_currency': credit},
+        {'account': against_account1,
+         'cost_center': company.cost_center,
+         'debit': debit1,
+         'debit_in_account_currency': debit1,
+         'credit': credit1,
+         'credit_in_account_currency': credit1},
+        {'account': against_account2,
+         'cost_center': company.cost_center,
+         'debit': debit2,
+         'debit_in_account_currency': debit2,
+         'credit': credit2,
+         'credit_in_account_currency': credit2}]
+    account_entries = add_party(account_entries)
+    entry = {'doctype' : 'Journal Entry',
+             'title': title,
+             'voucher_type': 'Journal Entry',
+             'company': company.name,
+             'finance_book' : company.default_finance_book,
+             'posting_date': date,
+             'user_remark': remark,
+             'accounts':account_entries}
+    if cheque_no:
+        entry['cheque_no'] = cheque_no
+        entry['cheque_date'] = date
     #print(entry)
     j = gui_api_wrapper(Api.api.insert,entry)
     print("Buchungssatz {} erstellt".format(j['name']))
@@ -103,3 +172,58 @@ def create_income_dist_journal_entries(company_name,quarter):
                 journal_entry(this_company,accs['unclear'],tax_accs[tax],
                               tax_amount,0,
                               base_title,descr,end_date)
+
+def create_advance_payment_journal_entry(payment_entry,tax_rate,revert=False):
+    print("Erstelle Umbuchungssatz für {}".format(payment_entry))
+    pe = Api.api.get_doc('Payment Entry',payment_entry)
+    amount = pe['paid_amount']
+    company_name = pe['company']
+    this_company = company.Company.companies_by_name[company_name]
+    party_type = pe['party_type']
+    party = pe['party']
+    tax_amount = round(amount/100.0*tax_rate,2)
+    net_amount = amount - tax_amount
+    if pe['payment_type'] == 'Receive':
+        tax_ind = 'tax_accounts'
+        accs = RECEIVABLE_ACCOUNTS
+        book_from = 'Forderung'
+        book_to = 'Verbindlichkeit'
+    else:
+        tax_ind = 'pre_tax_accounts'
+        accs = PAYABLE_ACCOUNTS
+        book_from = 'Verbindlichkeit'
+        book_to = 'Forderung'
+        net_amount = -net_amount
+        tax_amount = -tax_amount
+    tax_account = TAX_ACCOUNTS[company_name][tax_ind][0]
+                                           #fixme: choose the right one
+    payable_advance = accs[company_name]['advance']
+    payable_post = accs[company_name]['post']
+    if revert:
+        net_amount = -net_amount
+        tax_amount = -tax_amount
+        title = "Rückbuchung Anzahlung {}".format(payment_entry)
+        remark = "Rückbuchung der Anzahlung {} von {} und Steuern auf {}.".format(payment_entry,book_to,book_from)
+        try:
+            inv = pe['references'][0]['reference_name']
+            doctype = pe['references'][0]['reference_doctype']
+            inv = Api.api.get_doc(doctype,inv)
+            date = inv['posting_date']
+        except Exception:
+            print("Keine zugehörige Rechnung für Zahlung {} gefunden".format(payment_entry))
+            return
+    else:
+        date = pe['posting_date']
+        title = "Umbuchung Anzahlung {}".format(payment_entry)
+        remark = "Umbuchung der Anzahlung {} von negativer {} auf {} und Steuern. Muss später bei Zahlung der Rechnung wieder zurückgebucht werden.".format(payment_entry,book_from,book_to)
+    account1 = {'account':payable_post,'party_type':party_type,'party':party}
+    account2 = {'account':payable_advance,'party_type':party_type,'party':party}
+    jes = Api.api.get_list('Journal Entry',
+                           filters={'cheque_no':payment_entry,
+                                    'cheque_date':date})
+    if jes:
+        print("Buchungssatz {} existiert schon".format(jes[0]['name']))
+    else:
+        journal_entry3(this_company,account1,account2,tax_account,
+                       net_amount,tax_amount,title,remark,date,
+                       payment_entry)
