@@ -16,7 +16,7 @@ def invoice_for_payment(payment_entry):
     except Exception:
         return None
 
-def add_party_acc(account_entry):
+def add_party_acc(account_entry,ref_je):
     account = account_entry['account']
     if isinstance(account, str):
         return account_entry
@@ -24,10 +24,14 @@ def add_party_acc(account_entry):
         account_entry['party_type'] = account['party_type']
         account_entry['party'] = account['party']
         account_entry['account'] = account['account']
+        if ref_je and account_entry['debit']:
+            account_entry['reference_type'] = 'Journal Entry' 
+            account_entry['reference_name'] = ref_je
+            account_entry['is_advance'] = 'Yes'
         return account_entry
 
-def add_party(account_entries):
-    return [add_party_acc(account_entry) for account_entry in account_entries]
+def add_party(account_entries,ref_je):
+    return [add_party_acc(account_entry,ref_je) for account_entry in account_entries]
 
 def journal_entry(company,account,against_account,debit,credit,title,
                   remark,date,cheque_no=None):
@@ -60,7 +64,7 @@ def journal_entry(company,account,against_account,debit,credit,title,
     print("Buchungssatz {} erstellt".format(j['name']))
     return j
 
-def journal_entry3(company,account,against_account1,against_account2,amount1,amount2,title,remark,date,cheque_no=None):
+def journal_entry3(company,account,against_account1,against_account2,amount1,amount2,title,remark,date,cheque_no=None,ref_je=None):
     if amount1 < 0:
         debit = 0
         credit = -amount1-amount2
@@ -93,7 +97,7 @@ def journal_entry3(company,account,against_account1,against_account2,amount1,amo
          'debit_in_account_currency': debit2,
          'credit': credit2,
          'credit_in_account_currency': credit2}]
-    account_entries = add_party(account_entries)
+    account_entries = add_party(account_entries,ref_je)
     entry = {'doctype' : 'Journal Entry',
              'title': title,
              'voucher_type': 'Journal Entry',
@@ -187,7 +191,6 @@ def create_advance_payment_journal_entry(payment_entry,tax_rate,revert=False):
     print("Erstelle {}buchungssatz für {}".format("Rück" if revert else "Um",
                                                   payment_entry))
     pe = Api.api.get_doc('Payment Entry',payment_entry)
-    print(pe)
     amount = pe['paid_amount']
     company_name = pe['company']
     this_company = company.Company.companies_by_name[company_name]
@@ -220,23 +223,32 @@ def create_advance_payment_journal_entry(payment_entry,tax_rate,revert=False):
         if not inv:
             print("Keine zugehörige Rechnung für Zahlung {} gefunden".format(payment_entry))
             return
-        else:
-            date = inv['posting_date']
+        date = inv['posting_date']
+        jes = Api.api.get_list('Journal Entry',
+                               filters={'cheque_no':payment_entry,
+                                        'cheque_date':pe['posting_date'],
+                                        'docstatus': ['!=',2]})
+        if not jes:
+            print("Keine zugehörige Umbuchung für Zahlung {} gefunden".format(payment_entry))
+            return
+        ref_je = jes[0]['name']
     else:
         date = pe['posting_date']
         title = "Umbuchung Anzahlung {}".format(payment_entry)
         remark = "Umbuchung der Anzahlung {} von negativer {} auf {} und Steuern. Muss später bei Zahlung der Rechnung wieder zurückgebucht werden.".format(payment_entry,book_from,book_to)
+        ref_je = None
     account1 = {'account':payable_post,'party_type':party_type,'party':party}
     account2 = {'account':payable_advance,'party_type':party_type,'party':party}
     jes = Api.api.get_list('Journal Entry',
                            filters={'cheque_no':payment_entry,
-                                    'cheque_date':date})
+                                    'cheque_date':date,
+                                    'docstatus': ['!=',2]})
     if jes:
         print("Buchungssatz {} existiert schon".format(jes[0]['name']))
     else:
         journal_entry3(this_company,account1,account2,tax_account,
                        net_amount,tax_amount,title,remark,date,
-                       payment_entry)
+                       payment_entry,ref_je)
 
 def create_advance_payment_journal_entries(company_name,year):
     start_date = str(year)+"-01-01"
