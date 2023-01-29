@@ -1,10 +1,20 @@
 import company
 import utils
-from api import Api
+from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
 from settings import TAX_ACCOUNTS, INCOME_DIST_ACCOUNTS, PAYABLE_ACCOUNTS, \
                      RECEIVABLE_ACCOUNTS
 from datetime import date, datetime, timedelta
+
+def invoice_for_payment(payment_entry):
+    pe = Api.api.get_doc('Payment Entry',payment_entry)
+    try:
+        inv = pe['references'][0]['reference_name']
+        doctype = pe['references'][0]['reference_doctype']
+        inv = Api.api.get_doc(doctype,inv)
+        return inv
+    except Exception:
+        return None
 
 def add_party_acc(account_entry):
     account = account_entry['account']
@@ -174,8 +184,10 @@ def create_income_dist_journal_entries(company_name,quarter):
                               base_title,descr,end_date)
 
 def create_advance_payment_journal_entry(payment_entry,tax_rate,revert=False):
-    print("Erstelle Umbuchungssatz für {}".format(payment_entry))
+    print("Erstelle {}buchungssatz für {}".format("Rück" if revert else "Um",
+                                                  payment_entry))
     pe = Api.api.get_doc('Payment Entry',payment_entry)
+    print(pe)
     amount = pe['paid_amount']
     company_name = pe['company']
     this_company = company.Company.companies_by_name[company_name]
@@ -204,14 +216,12 @@ def create_advance_payment_journal_entry(payment_entry,tax_rate,revert=False):
         tax_amount = -tax_amount
         title = "Rückbuchung Anzahlung {}".format(payment_entry)
         remark = "Rückbuchung der Anzahlung {} von {} und Steuern auf {}.".format(payment_entry,book_to,book_from)
-        try:
-            inv = pe['references'][0]['reference_name']
-            doctype = pe['references'][0]['reference_doctype']
-            inv = Api.api.get_doc(doctype,inv)
-            date = inv['posting_date']
-        except Exception:
+        inv = invoice_for_payment(payment_entry)
+        if not inv:
             print("Keine zugehörige Rechnung für Zahlung {} gefunden".format(payment_entry))
             return
+        else:
+            date = inv['posting_date']
     else:
         date = pe['posting_date']
         title = "Umbuchung Anzahlung {}".format(payment_entry)
@@ -227,3 +237,20 @@ def create_advance_payment_journal_entry(payment_entry,tax_rate,revert=False):
         journal_entry3(this_company,account1,account2,tax_account,
                        net_amount,tax_amount,title,remark,date,
                        payment_entry)
+
+def create_advance_payment_journal_entries(company_name,year):
+    start_date = str(year)+"-01-01"
+    end_date = str(year)+"-12-31"
+    pes = Api.api.get_list('Payment Entry',
+                           filters={'company':company_name,
+                                    'docstatus': 1,
+                                    'posting_date':['>=',start_date],
+                                    'posting_date':['<=',end_date]},
+                           limit_page_length=LIMIT)
+    for pe in pes:
+        inv = invoice_for_payment(pe['name'])
+        if not inv:
+            create_advance_payment_journal_entry(pe['name'],19) #fixme
+        elif int(inv['posting_date'][0:4]) > year:
+            create_advance_payment_journal_entry(pe['name'],19) #fixme
+            create_advance_payment_journal_entry(pe['name'],19,True) #fixme
