@@ -16,7 +16,7 @@ def invoice_for_payment(payment_entry):
     except Exception:
         return None
 
-def add_party_acc(account_entry,ref_je):
+def add_party_acc(account_entry,ref_je=None):
     account = account_entry['account']
     if isinstance(account, str):
         return account_entry
@@ -30,7 +30,7 @@ def add_party_acc(account_entry,ref_je):
             account_entry['is_advance'] = 'Yes'
         return account_entry
 
-def add_party(account_entries,ref_je):
+def add_party(account_entries,ref_je=None):
     return [add_party_acc(account_entry,ref_je) for account_entry in account_entries]
 
 def journal_entry(company,account,against_account,debit,credit,title,
