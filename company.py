@@ -144,12 +144,12 @@ class Company(Doc):
     def get_invoices(self,open_invs):
         return self.get_invoices_of_type('Purchase Invoice',open_invs) + \
                self.get_invoices_of_type('Sales Invoice',open_invs)
-    def get_open_pre_invoices(self,lager):
+    def get_open_pre_invoices(self,advance):
+        typ = 'Anzahlungsrechnung' if advance else 'Rechnung'
         return gui_api_wrapper(\
                 Api.api.get_list,'PreRechnung',
                 filters={'eingepflegt':False,
-                         'typ':['in',['Rechnung','Anzahlungsrechnung']],
-                         'lager':lager,
+                         'typ':typ,
                          'company':self.name},
                 limit_page_length=LIMIT)
 

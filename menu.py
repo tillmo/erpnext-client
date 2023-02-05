@@ -360,12 +360,12 @@ def event_handler(event,window):
             if choice in inv_texts:
                 pass # todo: reconcile payment and invoice
                 #bank.BankTransaction.submit_entry(pe['name'],is_journal=False)
-    elif event in ['Prerechnungen','Prerechnungen Lager']:
+    elif event in ['Prerechnungen','Prerechnungen Anzahlung']:
         while True:
             keys = ['datum','name','lieferant','short_pdf','lager','selbst_bezahlt','vom_konto_überwiesen','typ']
             headings = ['Datum','Name','Lieferant','pdf','Lager','selbst bez.','überwiesen','Typ']
             comp = company.Company.get_company(user_settings['-company-'])
-            invs = comp.get_open_pre_invoices(event=='Prerechnungen Lager')
+            invs = comp.get_open_pre_invoices(event=='Prerechnungen Anzahlung')
             invs_f = [utils.format_dic(['lager','selbst_bezahlt',
                                         'vom_konto_überwiesen'],['pdf'],
                                         inv.copy())\
@@ -641,7 +641,7 @@ def menus():
     # ------ Menu Definition ------ #
     menu_def = [['&Einlesen', ['&Kontoauszug', '&Einkaufsrechnung', '&Einkaufsrechnung Lager']],
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
-                ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Unzugeordnete (An)Zahlungen (Summen)','Prerechnungen','Prerechnungen Lager','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen']],
+                ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Unzugeordnete (An)Zahlungen (Summen)','Prerechnungen','Prerechnungen Anzahlung','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen']],
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte']], 
                 ['Bereich', company.Company.all()], 
