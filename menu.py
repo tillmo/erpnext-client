@@ -370,6 +370,7 @@ def event_handler(event,window):
                                         'vom_konto_überwiesen'],['pdf'],
                                         inv.copy())\
                       for inv in invs]
+            invs_f.sort(key=lambda x:x['datum'],reverse=True)
             tbl = table.Table(invs_f,keys,headings,event,
                             enable_events=True,display_row_numbers=True)
             ix = tbl.display()

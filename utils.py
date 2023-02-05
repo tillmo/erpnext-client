@@ -164,6 +164,9 @@ def format_dic(bool_fields,path_fields,dic):
                 dic[field] = " "
     for field in path_fields:
         dic["short_"+field] = dic[field].split("/")[-1]
+    for k in dic.keys():
+        if type(dic[k])==str and len(dic[k])>35:
+            dic[k]=dic[k][:35]
     return dic
 
 def store_temp_file(data,ext):
