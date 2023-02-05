@@ -24,9 +24,10 @@ def add_party_acc(account_entry,ref_je=None):
         account_entry['party_type'] = account['party_type']
         account_entry['party'] = account['party']
         account_entry['account'] = account['account']
-        if ref_je and account_entry['debit']:
+        if ref_je and ((ref_je[1]=='Pay' and account_entry['debit']) \
+                       or (ref_je[1]=='Receive' and account_entry['credit'])):
             account_entry['reference_type'] = 'Journal Entry' 
-            account_entry['reference_name'] = ref_je
+            account_entry['reference_name'] = ref_je[0]
             account_entry['is_advance'] = 'Yes'
         return account_entry
 
@@ -231,7 +232,7 @@ def create_advance_payment_journal_entry(payment_entry,tax_rate,revert=False):
         if not jes:
             print("Keine zugehörige Umbuchung für Zahlung {} gefunden".format(payment_entry))
             return
-        ref_je = jes[0]['name']
+        ref_je = (jes[0]['name'],pe['payment_type'])
     else:
         date = pe['posting_date']
         title = "Umbuchung Anzahlung {}".format(payment_entry)
@@ -260,9 +261,12 @@ def create_advance_payment_journal_entries(company_name,year):
                                     'posting_date':['<=',end_date]},
                            limit_page_length=LIMIT)
     for pe in pes:
-        inv = invoice_for_payment(pe['name'])
-        if not inv:
-            create_advance_payment_journal_entry(pe['name'],19) #fixme
-        elif int(inv['posting_date'][0:4]) > year:
-            create_advance_payment_journal_entry(pe['name'],19) #fixme
-            create_advance_payment_journal_entry(pe['name'],19,True) #fixme
+        try:
+            inv = invoice_for_payment(pe['name'])
+            if not inv:
+                create_advance_payment_journal_entry(pe['name'],19) #fixme
+            elif int(inv['posting_date'][0:4]) > year:
+                create_advance_payment_journal_entry(pe['name'],19) #fixme
+                create_advance_payment_journal_entry(pe['name'],19,True) #fixme
+        except:
+            pass
