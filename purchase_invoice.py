@@ -287,8 +287,11 @@ class PurchaseInvoice(Invoice):
                     continue
                 s_item.qty = int(q.group(1))
                 s_item.qty_unit = q.group(2)
-                #print(item_str)
-                price = utils.read_float(item_str[130:142].split()[0])
+                print(item_str)
+                try:
+                    price = utils.read_float(item_str[130:142].split()[0])
+                except:    
+                    price = utils.read_float(item_str[93:142].split()[0])
                 try:
                     discount = utils.read_float(item_str[142:152].split()[0])
                 except Exception:
