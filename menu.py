@@ -24,6 +24,7 @@ import sys
 from datetime import datetime
 import settings
 import journal
+import prerechnung
 
 def initial_loads():
     if sg.UserSettings()['-setup-']:
@@ -615,6 +616,8 @@ def event_handler(event,window):
         comp = user_settings['-company-']
         q = utils.last_quarter(datetime.today())
         journal.vat_declaration(comp,q)
+    elif event == 'Prerechnungen vorprozessieren':
+        prerechnung.process(user_settings['-company-'])
     elif event in ['Projekte']:
         while True:
             tbl = report.projects()
@@ -645,7 +648,7 @@ def menus():
     # ------ Menu Definition ------ #
     menu_def = [['&Einlesen', ['&Kontoauszug', '&Einkaufsrechnung', '&Einkaufsrechnung Lager']],
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
-                ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Unzugeordnete (An)Zahlungen (Summen)','Prerechnungen','Prerechnungen Anzahlung','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen']],
+                ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Unzugeordnete (An)Zahlungen (Summen)','Prerechnungen','Prerechnungen Anzahlung','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen','Prerechnungen vorprozessieren']],
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte']], 
                 ['Bereich', company.Company.all()], 
