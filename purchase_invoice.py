@@ -220,6 +220,15 @@ class PurchaseInvoice(Invoice):
     def get_amount_krannich(cls,lines):
         return sum(map(lambda line: utils.read_float(line[-9:-1]),lines))
     
+    def extract_order_id(self,str,line):
+        if str in line:
+            try:
+                lsplit = line.split()
+                i = lsplit.index(str.split()[-1])
+                self.order_id = lsplit[i+1]
+            except:
+                pass
+
     def parse_krannich(self,lines):
         items = []
         item = []
@@ -236,6 +245,8 @@ class PurchaseInvoice(Invoice):
             if "echnung" in line:
                 self.no = line.split()[1]
                 self.date = utils.convert_date4(line.split()[2])
+            for s in ["Auftragsbestätigung","Order confirmation","Vorkasse zu AB"]:
+                self.extract_order_id(s,line)
             #elif "Anzahlungsrechnung" in line:
             #    print("Dies ist eine Anzahlungsrechnung")
             #    return None
@@ -252,13 +263,17 @@ class PurchaseInvoice(Invoice):
                 long_description_lines = \
                     [l for l in item_lines[1:] \
                        if utils.no_substr(clutter,l) and l.strip()]
-                s_item.description = " ".join(long_description_lines[0][0:82].split())
+                if long_description_lines:
+                    s_item.description = " ".join(long_description_lines[0][0:82].split())
                 s_item.long_description = ""
                 for l in long_description_lines:
                     if "Zwischensumme" in l:
                         break
                     s_item.long_description += l
-                pos = int(item_str[0:7].split()[0])
+                try:    
+                    pos = int(item_str[0:7].split()[0])
+                except:
+                    continue
                 if pos>1000:
                     break
                 #if not (pos in [mypos,mypos+1,mypos+2]):
@@ -272,6 +287,7 @@ class PurchaseInvoice(Invoice):
                     continue
                 s_item.qty = int(q.group(1))
                 s_item.qty_unit = q.group(2)
+                #print(item_str)
                 price = utils.read_float(item_str[130:142].split()[0])
                 try:
                     discount = utils.read_float(item_str[142:152].split()[0])
@@ -286,12 +302,13 @@ class PurchaseInvoice(Invoice):
                         s_item.qty = int(r2.group(0))
                     except Exception:
                         pass
-                s_item.rate = round(s_item.amount/s_item.qty,2)
-                rounding_error += s_item.amount-s_item.rate*s_item.qty
-                self.items.append(s_item)
-                #print("--->",s_item)
+                if s_item.qty:
+                    s_item.rate = round(s_item.amount/s_item.qty,2)
+                    rounding_error += s_item.amount-s_item.rate*s_item.qty
+                    self.items.append(s_item)
+                    #print("--->",s_item)
         vat_line = ""
-        for i in range(-1,-len(items),-1):
+        for i in range(-1,-len(items)-1,-1):
             vat_lines = [line for line in items[i] if 'MwSt' in line]
             if vat_lines:
                 vat_line = vat_lines[0]
@@ -301,6 +318,18 @@ class PurchaseInvoice(Invoice):
                            if 'Insurance' in line or 'Freight' in line\
                                or 'Neukundenrabatt' in line])
                 break
+        for i in range(-1,-len(items)-1,-1):
+            gross_lines = [line for line in items[i] if 'Endsumme' in line]
+            if gross_lines:
+                self.gross_total = utils.read_float(gross_lines[0].split()[-1])
+                break
+        if not self.order_id:
+            for i in range(-1,-len(items)-1,-1):
+                order_id_lines = [line for line in items[i] if 'Vorkasse zu AB' in line or 'Vorkasse zur AB' in line]
+                if order_id_lines:
+                    self.extract_order_id("Vorkasse zu AB",order_id_lines[0])
+                    self.extract_order_id("Vorkasse zur AB",order_id_lines[0])
+                    break
         self.shipping += rounding_error
         self.totals[self.default_vat] = utils.read_float(vat_line[146:162])
         self.vat[self.default_vat] = PurchaseInvoice.get_amount_krannich([vat_line])
@@ -811,10 +840,11 @@ class PurchaseInvoice(Invoice):
                             return None
                         return self
         except Exception as e:
+            #print(e)
             if self.update_stock:
                 raise e
             elif not is_test:
-                raise e
+                #raise e
                 print(e)
                 print("Rückfall auf Standard-Rechnungsbehandlung")
         print("Verwende generischen Rechnungsparser")
@@ -942,6 +972,7 @@ class PurchaseInvoice(Invoice):
         self.project = None
         self.paid_by_submitter = False
         self.total = 0
+        self.gross_total = 0
         self.default_vat = self.company.default_vat
         self.vat_rates = list(self.company.taxes.keys())
         self.vat = {}
