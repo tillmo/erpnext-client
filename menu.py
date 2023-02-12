@@ -618,6 +618,13 @@ def event_handler(event,window):
         journal.vat_declaration(comp,q)
     elif event == 'Prerechnungen vorprozessieren':
         prerechnung.process(user_settings['-company-'])
+    elif event == 'zu bezahlende Prerechnungen':
+        prs = prerechnung.to_pay(user_settings['-company-'])
+        keys = ['datum','name','lieferant','zu_zahlen_am','betrag','summe','typ']
+        headings = ['Datum','Name','Lieferant','Frist','Betrag','Summe','Typ']
+        title = 'Zu bezahlende Prerechnungen'
+        tbl = table.Table(prs,keys,headings,title,display_row_numbers=True)
+        tbl.display()
     elif event in ['Projekte']:
         while True:
             tbl = report.projects()
@@ -650,7 +657,7 @@ def menus():
                 ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
                 ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Unzugeordnete (An)Zahlungen (Summen)','Prerechnungen','Prerechnungen Anzahlung','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen','Prerechnungen vorprozessieren']],
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
-                ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte']], 
+                ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte','zu bezahlende Prerechnungen']], 
                 ['Bereich', company.Company.all()], 
                 ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen']], 
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Update']], 

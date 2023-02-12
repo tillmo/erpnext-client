@@ -35,3 +35,16 @@ def process(company_name):
         pr['doctype'] = 'PreRechnung'       
         Api.api.update(pr)
     print("Prerechnungen vorprozessiert")
+
+def to_pay(company_name):
+    prs = Api.api.get_list("PreRechnung",filters={'company':company_name,
+                                                  'vom_konto_überwiesen':False,
+                                                  'zu_zahlen_am':['>','01-01-1980']},
+                           limit_page_length=LIMIT)
+    prs.sort(key=lambda pr : pr['zu_zahlen_am'])
+    sum = 0.0
+    for pr in prs:
+        sum += pr['betrag']
+        pr['summe'] = sum
+    return prs
+    
