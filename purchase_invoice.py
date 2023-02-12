@@ -821,7 +821,10 @@ class PurchaseInvoice(Invoice):
                         if self.company.name != 'Bremer SolidarStrom' and len(line)>2 and (line[-2]=='£' or line[-3]=='£'):
                             head = "Kornkraft Naturkost GmbH"
                             break
-                for supplier,info in PurchaseInvoice.suppliers.items():
+                supps = dict(PurchaseInvoice.suppliers)
+                if self.company.name != 'Laden':
+                    del supps['Rechnung']
+                for supplier,info in supps.items():
                     if supplier in head:
                         self.parser = supplier
                         self.extract_items = self.update_stock
