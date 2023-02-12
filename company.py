@@ -199,3 +199,16 @@ class Company(Doc):
                                 'Purchase Taxes and Charges Template',
                                 filters={'company':self.name},
                                 limit_page_length=LIMIT)
+    def descendants(self):
+        children = Api.api.get_list("Company",
+                                    filters={'parent_company':self.name},
+                                    limit_page_length=LIMIT)
+        descendants = [self]
+        for c in children:
+            descendants += Company.companies_by_name[c['name']].descendants()
+        return descendants
+    
+    @classmethod    
+    def descendants_by_name(cls, company_name):
+        descendants = Company.companies_by_name[company_name].descendants()
+        return list(map(lambda c:c.name,descendants))
