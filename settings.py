@@ -1,7 +1,8 @@
 
 DEFAULT_ITEM_CODE = "000.000.000"
+MATERIAL_ITEM_CODE = '000.100.301'
 DEFAULT_SUPPLIER_GROUP = "Lieferant"
-WAREHOUSE = 'Wielandstr. 33 - SoMiKo'
+WAREHOUSE = 'Lagerräume - SoMiKo'
 PROJECT_WAREHOUSE = 'Laufende Arbeit/-en - SoMiKo'
 STANDARD_PRICE_LIST = 'Standard-Vertrieb'
 STANDARD_ITEM_GROUP = 'Produkte'
