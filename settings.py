@@ -55,7 +55,12 @@ TAX_ACCOUNTS = \
    'pre_tax_accounts' : ['1576 - Abziehbare VSt. 19% - Laden',
                          '1571 - Abziehbare VSt. 7% - Laden'],
    'tax_accounts' : ['1776 - Umsatzsteuer 19% - Laden',
-                     '1771 - Umsatzsteuer 7% - Laden']}
+                     '1771 - Umsatzsteuer 7% - Laden']},
+  'Soli e.V.':
+  {'tax_pay_account' : None,
+   'pre_tax_accounts' : [],
+   'tax_accounts' : []
+  }
  }
 
 INCOME_DIST_ACCOUNTS = \
@@ -74,4 +79,20 @@ INCOME_DIST_ACCOUNTS = \
      'tax' : {7 : '1771 - Umsatzsteuer 7% - Laden',
               19 : '1776 - Umsatzsteuer 19% - Laden'}
     }
+ }
+
+INCOME_ACCOUNTS = \
+ {'Laden':
+    {7 : ['8301 - Ladenkasse Ust.7% - Laden',
+          '8402 - Café an Laden Ust.19% - Laden',
+          '8302 - Café an Laden Ust.7% - Laden'],
+     19: ['8401 - Ladenkasse Ust.19% - Laden',
+          '8403 - Bieterrunde Laden Ust.19% - Laden', 
+          '8303 - Bieterrunde Laden Ust.7% - Laden']},
+  'Bremer SolidarStrom':
+    {19: ['8401 - Selbstbauanlagen - SoMiKo',
+          '8402 - Selbstbausets - SoMiKo',
+          '8403 - Balkonmodule - SoMiKo',
+          '8404 - Neukund*innen Ökostrom - SoMiKo']},
+  'Soli e.V.': {}
  }

@@ -3,8 +3,9 @@ import utils
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
 from settings import TAX_ACCOUNTS, INCOME_DIST_ACCOUNTS, PAYABLE_ACCOUNTS, \
-                     RECEIVABLE_ACCOUNTS
+                     RECEIVABLE_ACCOUNTS, INCOME_ACCOUNTS
 from datetime import date, datetime, timedelta
+from collections import defaultdict
 
 def invoice_for_payment(payment_entry):
     pe = Api.api.get_doc('Payment Entry',payment_entry)
@@ -115,9 +116,9 @@ def journal_entry3(company,account,against_account1,against_account2,amount1,amo
     print("Buchungssatz {} erstellt".format(j['name']))
     return j
 
-def get_gl(company_name,start_date,end_date,account):
+def get_gl(company_name,start_date,end_date,accounts):
     filters={'company' : company_name,
-             'account' : [account],
+             'account' : accounts,
              'from_date' : start_date,
              'to_date' : end_date,
              'group_by':'Group by Voucher (Consolidated)'}
@@ -126,8 +127,8 @@ def get_gl(company_name,start_date,end_date,account):
                              filters=filters)
     return report['result']
 
-def get_gl_total(company_name,start_date,end_date,account):
-    gl = get_gl(company_name,start_date,end_date,account)
+def get_gl_total(company_name,start_date,end_date,accounts):
+    gl = get_gl(company_name,start_date,end_date,accounts)
     total = [gle for gle in gl if gle['account'] == "'Total'"]
     return total[0]['balance']
 
@@ -141,14 +142,14 @@ def create_tax_journal_entries(company_name,quarter):
     tax_pay_account = tax_accounts['tax_pay_account']
     start_date,end_date = utils.quarter_to_dates(quarter)
     for pre_tax_account in tax_accounts['pre_tax_accounts']:
-        pre_tax = get_gl_total(company_name,start_date,end_date,pre_tax_account)
+        pre_tax = get_gl_total(company_name,start_date,end_date,[pre_tax_account])
         if abs(pre_tax)>1e-06:
             journal_entry(this_company,tax_pay_account,pre_tax_account,
                           pre_tax,0,base_title+" Vorsteuer","",end_date)
         else:
             print("Keine Vorsteuer zu buchen")
     for tax_account in tax_accounts['tax_accounts']:
-        tax = -get_gl_total(company_name,start_date,end_date,tax_account)
+        tax = -get_gl_total(company_name,start_date,end_date,[tax_account])
         if abs(tax)>1e-06:
             journal_entry(this_company,tax_account,tax_pay_account,tax,0,
                           base_title+" Verkaufssteuer","",end_date)
@@ -162,7 +163,7 @@ def create_income_dist_journal_entries(company_name,quarter):
     this_company = company.Company.companies_by_name[company_name]
     start_date,end_date = utils.quarter_to_dates(quarter)
     def get_gl_total_acc(account):
-        return get_gl_total(company_name,start_date,end_date,account)
+        return get_gl_total(company_name,start_date,end_date,[account])
     dist_accounts = INCOME_DIST_ACCOUNTS[company_name]
     expense_accs = dist_accounts['expense']
     income_accs = dist_accounts['income']
@@ -270,3 +271,25 @@ def create_advance_payment_journal_entries(company_name,year):
                 create_advance_payment_journal_entry(pe['name'],19,True) #fixme
         except:
             pass
+
+def income(company_name,start_date,end_date):
+    income = {}
+    for vat, accounts in INCOME_ACCOUNTS[company_name].items():
+        income[vat] = -get_gl_total(company_name,start_date,end_date,accounts)
+    return income
+
+def pretax(company_name,start_date,end_date):
+    accounts = TAX_ACCOUNTS[company_name]['pre_tax_accounts']
+    return get_gl_total(company_name,start_date,end_date,accounts)
+
+def vat_declaration(company_name,start_date,end_date):
+    cs = company.Company.descendants_by_name(company_name)
+    incomes = { c : income(c,start_date,end_date) for c in cs }
+    print(incomes)
+    sums = defaultdict(lambda: 0.0)
+    for c,d in incomes.items():
+        for k,v in d.items():
+            sums[k] += v
+    print(sums)
+    for c in cs:
+        print(c,pretax(c,start_date,end_date))
