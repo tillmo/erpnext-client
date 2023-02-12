@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from settings import WAREHOUSE, STANDARD_PRICE_LIST, STANDARD_ITEM_GROUP, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, DELIVERY_COST_DESCRIPTION, NKK_ACCOUNTS, KORNKRAFT_ACCOUNTS, SOMIKO_ACCOUNTS
+from settings import WAREHOUSE, STANDARD_PRICE_LIST, STANDARD_ITEM_GROUP, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, DELIVERY_COST_DESCRIPTION, NKK_ACCOUNTS, KORNKRAFT_ACCOUNTS, SOMIKO_ACCOUNTS, MATERIAL_ITEM_CODE, STOCK_ITEM_GROUPS
 
 import utils
 import PySimpleGUI as sg
@@ -206,7 +206,11 @@ class SupplierItem:
     def process_item(self,supplier,date):
         e_item = self.search_item(supplier)
         if e_item:
-            self.add_item_price(e_item,self.rate,self.qty_unit,date)
+            if e_item['item_group'] in STOCK_ITEM_GROUPS:
+                self.add_item_price(e_item,self.rate,self.qty_unit,date)
+            else:
+                e_item['item_code'] = MATERIAL_ITEM_CODE
+                self.qty = self.qty*self.rate/100.0
             return {'item_code' : e_item['item_code'],
                     'qty' : self.qty,
                     'rate' : self.rate,
@@ -287,7 +291,7 @@ class PurchaseInvoice(Invoice):
                     continue
                 s_item.qty = int(q.group(1))
                 s_item.qty_unit = q.group(2)
-                print(item_str)
+                #print(item_str)
                 try:
                     price = utils.read_float(item_str[130:142].split()[0])
                 except:    

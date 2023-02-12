@@ -58,10 +58,10 @@ def project_into_stock(pname,ingoing=True):
 
 def purchase_invoice_into_stock(pinv_name,ingoing=True):
     pinv = Api.api.get_doc("Purchase Invoice",pinv_name)
-    pname = pinv['project']
-    if not pname:
+    if (not 'project' in pinv) or (not pinv['project']):
         print("Keine Projekt-Lagerhaltung, da kein Projekt für Einkaufsrechnung {} gefunden".format(pinv_name))
         return
+    pname = pinv['project']
     proj = Api.api.get_doc("Project",pname)
     if not project.is_stock(proj):
         print("Keine Projekt-Lagerhaltung für Projekt {}".format(pname))
