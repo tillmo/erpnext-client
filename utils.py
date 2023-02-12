@@ -12,6 +12,7 @@ import numpy as np
 import tempfile
 import os
 import locale
+from collections import defaultdict
 
 def running_linux():
     return sys.platform.startswith('linux')
@@ -182,3 +183,20 @@ def get_current_location(window):
 
     # return invalid location because an inaccurate location is more annoying than no location
     return (None, None)
+
+def sum_dict(dic):
+    sums = defaultdict(lambda: 0.0)
+    for c,d in dic.items():
+        for k,v in d.items():
+            sums[k] += v
+    return sums        
+
+def print_dict(dic):
+    for x,y in dic.items():
+        print("{} : {:.2f}".format(x,y))
+
+def print_dict2(dic):
+    for x in dic:
+        print (x)
+        for y in dic[x]:
+            print("{} : {:.2f}".format(y,dic[x][y]))

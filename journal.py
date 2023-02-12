@@ -5,7 +5,6 @@ from api_wrapper import gui_api_wrapper
 from settings import TAX_ACCOUNTS, INCOME_DIST_ACCOUNTS, PAYABLE_ACCOUNTS, \
                      RECEIVABLE_ACCOUNTS, INCOME_ACCOUNTS
 from datetime import date, datetime, timedelta
-from collections import defaultdict
 
 def invoice_for_payment(payment_entry):
     pe = Api.api.get_doc('Payment Entry',payment_entry)
@@ -282,14 +281,15 @@ def pretax(company_name,start_date,end_date):
     accounts = TAX_ACCOUNTS[company_name]['pre_tax_accounts']
     return get_gl_total(company_name,start_date,end_date,accounts)
 
-def vat_declaration(company_name,start_date,end_date):
+def vat_declaration(company_name,quarter):
+    start_date,end_date = utils.quarter_to_dates(quarter)
     cs = company.Company.descendants_by_name(company_name)
     incomes = { c : income(c,start_date,end_date) for c in cs }
-    print(incomes)
-    sums = defaultdict(lambda: 0.0)
-    for c,d in incomes.items():
-        for k,v in d.items():
-            sums[k] += v
-    print(sums)
-    for c in cs:
-        print(c,pretax(c,start_date,end_date))
+    incomes['Summe'] = utils.sum_dict(incomes)
+    print("Umsätze")
+    utils.print_dict2(incomes)
+    pretaxes = { c : pretax(c,start_date,end_date) for c in cs }
+    pretaxes['Summe'] = sum(pretaxes.values())
+    print("\nVorsteuer")
+    utils.print_dict(pretaxes)
+    

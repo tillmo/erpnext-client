@@ -611,6 +611,10 @@ def event_handler(event,window):
         q = utils.last_quarter(datetime.today())
         print("Erstelle Buchungen für Umverteilung der Einnahmen "+q)
         journal.create_income_dist_journal_entries(comp,q)
+    elif event == 'USt-Voranmeldung':
+        comp = user_settings['-company-']
+        q = utils.last_quarter(datetime.today())
+        journal.vat_declaration(comp,q)
     elif event in ['Projekte']:
         while True:
             tbl = report.projects()
@@ -645,7 +649,7 @@ def menus():
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte']], 
                 ['Bereich', company.Company.all()], 
-                ['Steuer', ['USt-Buchungen' , 'Einnahmen nach Steuersätzen umverteilen']], 
+                ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen']], 
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
 
