@@ -371,6 +371,7 @@ def event_handler(event,window):
                                         'vom_konto_überwiesen'],['pdf'],
                                         inv.copy())\
                       for inv in invs]
+            invs.sort(key=lambda x:x['datum'],reverse=True)
             invs_f.sort(key=lambda x:x['datum'],reverse=True)
             tbl = table.Table(invs_f,keys,headings,event,
                             enable_events=True,display_row_numbers=True)
@@ -379,6 +380,7 @@ def event_handler(event,window):
                 break
             inv = invs[ix]
             pdf = Api.api.get_file(inv['pdf'])
+            print("Lese ein {} {}:".format(inv['name'],inv['pdf']))
             f= utils.store_temp_file(pdf,".pdf")
             pinv = purchase_invoice.PurchaseInvoice.read_and_transfer\
                     (f,inv['lager'],inv['buchungskonto'],

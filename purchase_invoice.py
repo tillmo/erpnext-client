@@ -813,7 +813,7 @@ class PurchaseInvoice(Invoice):
                       given_supplier=None,is_test=False):
         self.extract_items = False
         lines = pdf_to_text(infile)
-        try:        
+        try:
             if lines:
                 head = lines[0][0:140]
                 if not head[0:10].split():
