@@ -778,13 +778,13 @@ class PurchaseInvoice(Invoice):
                     self.date = date
             if '-vat-' in values:
                 self.vat[self.default_vat] = \
-                    float(values['-vat-'].replace(",","."))
+                    utils.read_float(values['-vat-'])
             if '-gross-' in values:
                 self.totals[self.default_vat] = \
-                    float(values['-gross-'].replace(",","."))\
+                    utils.read_float(values['-gross-'])\
                     -self.vat[self.default_vat]
             if '-skonto-' in values and values['-skonto-']:
-                self.skonto = float(values['-skonto-'].replace(",","."))
+                self.skonto = utils.read_float(values['-skonto-'])
             if '-paid-' in values and values['-paid-']:
                 self.paid_by_submitter = True
             if '-remarks-' in values:
