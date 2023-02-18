@@ -640,12 +640,20 @@ def event_handler(event,window):
             pname = tbl.entries[ix]['Name']
             ptitle = tbl.entries[ix]['Titel']
             pstatus = tbl.entries[ix]['Status']
-            msg = "Projekt {} {} abschließen?".format(pname,ptitle)
+            msg = "Projekt {} {}".format(pname,ptitle)
             if pstatus == 'Open':
-                choices = ["Abschließen","Nichts tun"]
+                choices = ["Abschließen","Verkaufte Artikel anzeigen","Nichts tun"]
                 choice = easygui.buttonbox(msg,msg,choices)
                 if choice == "Abschließen":
                     project.complete_project(pname)
+                if choice == "Verkaufte Artikel anzeigen":
+                    items = report.sold_items(pname)
+                    items.sort(key=lambda x:x['item_name'])
+                    keys = ['item_code','item_name','qty']
+                    headings = ['Artikelnr.','Artikel','Anzahl']
+                    title = 'Zu bezahlende Prerechnungen'
+                    tbl_p = table.Table(items,keys,headings,title,display_row_numbers=True)
+                    tbl_p.display()
     if show_company_data:
         print()
         show_data()

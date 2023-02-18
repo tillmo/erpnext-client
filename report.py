@@ -484,4 +484,21 @@ def balances(company,account_areas):
     fig.show()    
 
 
-    
+def sold_items(project):
+    items = defaultdict(float)
+    sinvs = Api.api.get_list("Sales Invoice",
+                             filters={'project' : project,
+                                      'status': ['!=','Cancelled']},
+                             limit_page_length=LIMIT)
+    for sinv in sinvs:
+        inv = Api.api.get_doc("Sales Invoice",sinv['name'])
+        for item in inv['items']:
+            items[item['item_code']] += int(item['qty'])
+    full_items = []
+    for item_code,qty in items.items():
+        # needed because item_name can have changed
+        full_item = Api.api.get_doc("Item",item_code)
+        full_items.append({'item_name':full_item['item_name'],
+                           'item_code':full_item['item_code'],
+                           'qty':qty})
+    return full_items
