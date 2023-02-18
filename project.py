@@ -1,7 +1,7 @@
 import stock
 from api import Api
 from api_wrapper import gui_api_wrapper
-from settings import STOCK_PROJECT_TYPES
+from settings import LUMP_SUM_STOCK_PROJECT_TYPES
 
 def complete_project(pname):
     # close project
@@ -13,7 +13,7 @@ def complete_project(pname):
         stock.project_into_stock(pname,False)
 
 def is_stock(doc):
-    return 'project_type' in doc and doc['project_type'] in STOCK_PROJECT_TYPES
+    return 'project_type' in doc and doc['project_type'] in LUMP_SUM_STOCK_PROJECT_TYPES
 
 
 

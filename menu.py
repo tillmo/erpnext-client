@@ -382,8 +382,10 @@ def event_handler(event,window):
             pdf = Api.api.get_file(inv['pdf'])
             print("Lese ein {} {}:".format(inv['name'],inv['pdf']))
             f= utils.store_temp_file(pdf,".pdf")
+            update_stock = 'chance' in inv and \
+                           inv['chance'] in STOCK_PROJECT_TYPES
             pinv = purchase_invoice.PurchaseInvoice.read_and_transfer\
-                    (f,inv['lager'],inv['buchungskonto'],
+                    (f,update_stock,inv['buchungskonto'],
                      inv['selbst_bezahlt'],inv['chance'],inv['lieferant'])
             if pinv: # also for duplicates, update 'eingepflegt'
                 inv['eingepflegt'] = True
