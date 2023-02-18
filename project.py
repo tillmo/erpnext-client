@@ -15,5 +15,10 @@ def complete_project(pname):
 def is_stock(doc):
     return 'project_type' in doc and doc['project_type'] in LUMP_SUM_STOCK_PROJECT_TYPES
 
+def project_type(pname):
+    doc = Api.api.get_doc("Project",pname)
+    return doc['project_type']
+
+
 
 

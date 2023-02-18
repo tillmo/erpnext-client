@@ -338,6 +338,7 @@ def event_handler(event,window):
             for pe in pes:
                 if pe['payment_type']=='Pay':
                     pe['unallocated_amount'] = -pe['unallocated_amount']
+            pes.sort(key=lambda x:x['posting_date'],reverse=True)        
             title = "Unzugeordnete (An)Zahlungen"
             tbl = table.Table(pes,keys,headings,title,enable_events=True,display_row_numbers=True)
             ix = tbl.display()
@@ -383,7 +384,8 @@ def event_handler(event,window):
             print("Lese ein {} {}:".format(inv['name'],inv['pdf']))
             f= utils.store_temp_file(pdf,".pdf")
             update_stock = 'chance' in inv and \
-                           inv['chance'] in STOCK_PROJECT_TYPES
+                           project.project_type(inv['chance']) \
+                              in settings.STOCK_PROJECT_TYPES
             pinv = purchase_invoice.PurchaseInvoice.read_and_transfer\
                     (f,update_stock,inv['buchungskonto'],
                      inv['selbst_bezahlt'],inv['chance'],inv['lieferant'])
