@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from settings import WAREHOUSE, STANDARD_PRICE_LIST, STANDARD_ITEM_GROUP, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, DELIVERY_COST_DESCRIPTION, NKK_ACCOUNTS, KORNKRAFT_ACCOUNTS, SOMIKO_ACCOUNTS, MATERIAL_ITEM_CODE, STOCK_ITEM_GROUPS
+from settings import WAREHOUSE, STANDARD_PRICE_LIST, STANDARD_ITEM_GROUP, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, DELIVERY_COST_DESCRIPTION, NKK_ACCOUNTS, KORNKRAFT_ACCOUNTS, SOMIKO_ACCOUNTS, MATERIAL_ITEM_CODE, STOCK_ITEM_GROUPS, MATERIAL_ITEM_VALUE
 
 import utils
 import PySimpleGUI as sg
@@ -209,8 +209,10 @@ class SupplierItem:
             if e_item['item_group'] in STOCK_ITEM_GROUPS:
                 self.add_item_price(e_item,self.rate,self.qty_unit,date)
             else:
+                # convert into lump-sum MATERIAL_ITEMs
                 e_item['item_code'] = MATERIAL_ITEM_CODE
-                self.qty = self.qty*self.rate/100.0
+                self.qty = self.qty*self.rate/MATERIAL_ITEM_VALUE
+                self.rate = MATERIAL_ITEM_VALUE
             return {'item_code' : e_item['item_code'],
                     'qty' : self.qty,
                     'rate' : self.rate,
