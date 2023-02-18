@@ -269,7 +269,6 @@ class PurchaseInvoice(Invoice):
             mypos = 0
             for item_lines in items[1:]:
                 #print("***",item_lines)
-                print("A")
                 item_str = item_lines[0]
                 clutter = ['Einzelpreis','Krannich','IBAN','Rechnung','Übertrag']
                 s_item = SupplierItem(self)
@@ -279,10 +278,8 @@ class PurchaseInvoice(Invoice):
                 if long_description_lines:
                     s_item.description = " ".join(long_description_lines[0][0:82].split())
                 s_item.long_description = ""
-                print("B")
                 for l in long_description_lines:
                     if "Zwischensumme" in l:
-                        print("Z")
                         break
                     s_item.long_description += l
                 try:    
@@ -290,12 +287,10 @@ class PurchaseInvoice(Invoice):
                 except Exception as e:
                     print(e)
                     continue
-                print("C",pos)
                 if pos>1000:
                     break
                 #if not (pos in [mypos,mypos+1,mypos+2]):
                 #    break
-                print("D")
                 if "Vorkasse" in s_item.description:
                     continue
                 mypos = pos
@@ -305,8 +300,7 @@ class PurchaseInvoice(Invoice):
                     continue
                 s_item.qty = int(q.group(1))
                 s_item.qty_unit = q.group(2)
-                print("E")
-                print(item_str)
+                #print(item_str)
                 try:
                     price = utils.read_float(item_str[130:142].split()[0])
                 except:    
@@ -329,7 +323,6 @@ class PurchaseInvoice(Invoice):
                     rounding_error += s_item.amount-s_item.rate*s_item.qty
                     self.items.append(s_item)
                     #print("--->",s_item)
-                print("F")
         vat_line = ""
         for i in range(-1,-len(items)-1,-1):
             vat_lines = [line for line in items[i] if 'MwSt' in line]
