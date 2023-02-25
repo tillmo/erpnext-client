@@ -654,7 +654,7 @@ def event_handler(event,window):
                     items.sort(key=lambda x:x['item_name'])
                     keys = ['item_code','item_name','qty']
                     headings = ['Artikelnr.','Artikel','Anzahl']
-                    title = 'Zu bezahlende Prerechnungen'
+                    title = 'Verkaufte Artikel'
                     tbl_p = table.Table(items,keys,headings,title,display_row_numbers=True)
                     tbl_p.display()
     if show_company_data:
