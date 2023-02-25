@@ -81,10 +81,17 @@ def no_substr(l1,l2):
     return True    
 
 def read_float(s,sign="H"):
-    s1 = s.replace(".","").replace(",",".")
-    if s1[-1]=='-':
-        s1 = '-'+s1[:-1]
-    res = float(s1.split()[0])
+    try:
+        english = len(s.split()[0].split('.')[-1])==2
+    except:
+        english = False
+    if english:
+        s = s.replace(",","")
+    else:    
+        s = s.replace(".","").replace(",",".")
+    if s[-1]=='-':
+        s = '-'+s[:-1]
+    res = float(s.split()[0])
     if sign=="S":
         res = -res
     return res

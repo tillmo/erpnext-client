@@ -22,7 +22,8 @@ def process_inv(pr):
                             paid_by_submitter=pr['selbst_bezahlt'],
                             given_supplier=pr['lieferant'],
                             is_test=True)
-    except:
+    except Exception as e:
+        print(e)
         pass
     try:
         vat = sum(map(int,inv.vat.values()))

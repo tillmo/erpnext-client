@@ -141,6 +141,8 @@ class SupplierItem:
         msg = "Artikel in Rechnung:\n{0}\n\n".format(self.long_description)
         msg += "Bitte passenden Artikel in ERPNext auswählen:"
         choice = easygui.choicebox(msg, title, texts)
+        if choice == None:
+            return None
         if choice:
             choice = texts.index(choice)
         if choice:
@@ -164,6 +166,8 @@ class SupplierItem:
             groups = [g['name'] for g in groups]
             groups.sort()
             group = easygui.choicebox(msg, title, groups)
+            if group == None:
+                return None
             msg += "\nArtikelgruppe: "+group
             title = "Neuen Artikel in ERPNext eintragen"
             msg += "\n\nDiesen Artikel eintragen?"
@@ -323,6 +327,7 @@ class PurchaseInvoice(Invoice):
                     rounding_error += s_item.amount-s_item.rate*s_item.qty
                     self.items.append(s_item)
                     #print("--->",s_item)
+                #print(item_str,"--->",s_item)
         vat_line = ""
         for i in range(-1,-len(items)-1,-1):
             vat_lines = [line for line in items[i] if 'MwSt' in line]
@@ -949,7 +954,7 @@ class PurchaseInvoice(Invoice):
         for item in self.e_items:
             items[item['item_code']].append(item) # group items by item_code
         for key in items.keys():
-            if len(items[key]) > 1:  #if there is more than one item in a group
+            if key!=MATERIAL_ITEM_CODE and len(items[key]) > 1:  #if there is more than one item in a group
                 err += "Ein Artikel ist mehrfach in der Rechnung vorhanden:\n"
                 err += "\n".join(map(str,items[key]))
                 err += "\nVielleicht ist die Zuordnung falsch und dies sollten zwei verschiedene Artikel sein?"
