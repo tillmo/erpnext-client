@@ -258,7 +258,7 @@ class PurchaseInvoice(Invoice):
         self.date = None
         self.no = None
         for line in items[0]:
-            if "echnung" in line:
+            if (not self.date) and "echnung" in line:
                 self.no = line.split()[1]
                 self.date = utils.convert_date4(line.split()[2])
             for s in ["Auftragsbestätigung","Order confirmation","Vorkasse zu AB"]:

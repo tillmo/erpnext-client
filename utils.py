@@ -40,7 +40,11 @@ def convert_date4(date):
         d = datetime.strptime(date, '%d.%m.%Y')
         return d.strftime('%Y-%m-%d')
     except Exception:
-        return None
+        try:
+            d = datetime.strptime(date, '%m/%d/%Y')
+            return d.strftime('%Y-%m-%d')
+        except Exception:
+            return None
 
 def convert_date2(date):
     try:

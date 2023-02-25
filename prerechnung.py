@@ -37,7 +37,7 @@ def process_inv(pr):
     if inv.order_id:
         pr['auftragsnr'] = inv.order_id
     pr['processed'] = True
-    pr['doctype'] = 'PreRechnung'       
+    pr['doctype'] = 'PreRechnung'
     Api.api.update(pr)
 
 
