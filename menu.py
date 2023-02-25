@@ -629,8 +629,8 @@ def event_handler(event,window):
         prerechnung.process(user_settings['-company-'])
     elif event == 'zu bezahlende Prerechnungen':
         prs = prerechnung.to_pay(user_settings['-company-'])
-        keys = ['datum','name','lieferant','zu_zahlen_am','betrag','summe','kommentar','typ']
-        headings = ['Datum','Name','Lieferant','Frist','Betrag','Summe','Kommentar','Typ']
+        keys = ['zu_zahlen_am','name','lieferant','auftragsnr','betrag','summe','typ','datum','kommentar']
+        headings = ['Frist','Name','Lieferant','Auftragsnr.','Betrag','Summe','Typ','Datum','Kommentar']
         title = 'Zu bezahlende Prerechnungen'
         tbl = table.Table(prs,keys,headings,title,display_row_numbers=True)
         tbl.display()
