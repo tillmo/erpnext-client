@@ -364,8 +364,8 @@ def event_handler(event,window):
                 #bank.BankTransaction.submit_entry(pe['name'],is_journal=False)
     elif event in ['Prerechnungen','Prerechnungen Anzahlung']:
         while True:
-            keys = ['datum','name','lieferant','short_pdf','lager','selbst_bezahlt','vom_konto_überwiesen','typ']
-            headings = ['Datum','Name','Lieferant','pdf','Lager','selbst bez.','überwiesen','Typ']
+            keys = ['datum','name','chance','lieferant','short_pdf','lager','selbst_bezahlt','vom_konto_überwiesen','typ']
+            headings = ['Datum','Name','Projekt','Lieferant','pdf','Lager','selbst bez.','überwiesen','Typ']
             comp = company.Company.get_company(user_settings['-company-'])
             invs = comp.get_open_pre_invoices(event=='Prerechnungen Anzahlung')
             invs_f = [utils.format_dic(['lager','selbst_bezahlt',
@@ -383,7 +383,7 @@ def event_handler(event,window):
             pdf = Api.api.get_file(inv['pdf'])
             print("Lese ein {} {}:".format(inv['name'],inv['pdf']))
             f= utils.store_temp_file(pdf,".pdf")
-            update_stock = 'chance' in inv and \
+            update_stock = 'chance' in inv and inv['chance'] and \
                            project.project_type(inv['chance']) \
                               in settings.STOCK_PROJECT_TYPES
             pinv = purchase_invoice.PurchaseInvoice.read_and_transfer\
@@ -391,8 +391,7 @@ def event_handler(event,window):
                      inv['selbst_bezahlt'],inv['chance'],inv['lieferant'])
             if pinv: # also for duplicates, update 'eingepflegt'
                 inv['eingepflegt'] = True
-                if not pinv.is_duplicate:
-                    inv['purchase_invoice'] = pinv.doc['name']
+                inv['purchase_invoice'] = pinv.doc['name']
                 inv_doc = doc.Doc(doc=inv,doctype='PreRechnung')
                 inv_doc.update()
             os.remove(f)
@@ -424,14 +423,18 @@ def event_handler(event,window):
             add_heads = []
             amount_key = ['grand_total']
             amount_head = ['Betrag']
+        if event_words[-1] == 'Einkaufsrechnungen':
+            inv_type = 'Purchase Invoice'
+            inv_key = 'supplier'
+            inv_heading = 'Lieferant'
+        else:
+            inv_type = 'Sales Invoice'
+            inv_key = 'customer'
+            inv_heading = 'Kunde'
         while True:
-            keys = ['posting_date']+amount_key+['bill_no','status','account','supplier','title']
-            headings = ['Datum']+amount_head+['Rechungsnr.','Status','Buchungskonto','Lieferant','Titel']
+            keys = ['posting_date']+amount_key+['bill_no','status',inv_key]
+            headings = ['Datum']+amount_head+['Rechungsnr.','Status',inv_heading]
             comp = company.Company.get_company(user_settings['-company-'])
-            if event_words[-1] == 'Einkaufsrechnungen':
-                inv_type = 'Purchase Invoice'
-            else:
-                inv_type = 'Sales Invoice'
             invs = comp.get_invoices_of_type(inv_type,open_invs)
             inv_docs = []
             bt_dict = defaultdict(list)

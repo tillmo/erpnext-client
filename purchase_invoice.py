@@ -501,9 +501,9 @@ class PurchaseInvoice(Invoice):
                 #print("qty ",s_item.qty)
                 #print("unit ",s_item.qty_unit)
                 #print("str ",item_str[98:113])
-                price = utils.read_float(item_str[98:113].split()[0])
+                price = utils.read_float(item_str[98:114].split()[0])
                 try:
-                    price1 = utils.read_float(item_lines[1][98:113].split()[0])
+                    price1 = utils.read_float(item_lines[1][98:114].split()[0])
                 except Exception:
                     price1 = 0
                 if price1 > price:
@@ -975,6 +975,7 @@ class PurchaseInvoice(Invoice):
             easygui.msgbox("Einkaufsrechnung {} ist schon als {} in ERPNext eingetragen worden. {}".format(self.no,invs[0]['name'],upload))
                 
             self.is_duplicate = True
+            self.doc = invs[0]
             return True
         return False
 
@@ -1172,7 +1173,7 @@ class PurchaseInvoice(Invoice):
         filters={'company':self.company_name,
                  'party':self.supplier,
                  'docstatus':1,
-                 'paid_amount':self.gross_total}
+                 'unallocated_amount':self.gross_total}
         py = gui_api_wrapper(Api.api.get_list,
                              "Payment Entry",
                              filters=filters,
@@ -1215,6 +1216,7 @@ PurchaseInvoice.suppliers = \
          'raw' : True, 'multi' : False},
      'Schlußrechnung' : heckert_info,
      'Vorausrechnung' : heckert_info,
+     'Teilrechnung' : heckert_info,
      'SOLARWATT' : 
         {'parser' : PurchaseInvoice.parse_generic,
          'raw' :  False, 'multi' : False,
