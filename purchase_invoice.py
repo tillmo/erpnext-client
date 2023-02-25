@@ -276,6 +276,7 @@ class PurchaseInvoice(Invoice):
                 item_str = item_lines[0]
                 clutter = ['Einzelpreis','Krannich','IBAN','Rechnung','Übertrag']
                 s_item = SupplierItem(self)
+                s_item.description = ""
                 long_description_lines = \
                     [l for l in item_lines[1:] \
                        if utils.no_substr(clutter,l) and l.strip()]
