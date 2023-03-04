@@ -11,7 +11,7 @@ LIMIT = 100000 # limit_page_length
 
 class Api(object):
     api = None
-    items_by_code = []
+    items_by_code = {}
     item_code_translation = []
     accounts_by_company = {}
     @classmethod

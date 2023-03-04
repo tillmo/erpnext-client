@@ -1,10 +1,12 @@
 import company
+import sales_invoice
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
 import table
 import utils
-from datetime import datetime
-from datetime import date
+from datetime import datetime, date
+from dateutil import rrule
+from dateutil.relativedelta import relativedelta
 from anytree import Node, RenderTree, PostOrderIter
 from collections import defaultdict
 import PySimpleGUI as sg
@@ -13,7 +15,7 @@ import plotly.express as px
 def get_dates():
     year = sg.UserSettings()['-year-'] 
     start_date = date(year, 1, 1)
-    if year == datetime.today().year:
+    if year == datetime.today().year or year == datetime.today().year-1:
         end_date = datetime.today()
     else:    
         end_date = date(year, 12, 31)
@@ -475,30 +477,51 @@ def balances(company,account_areas):
     start_date_str = start_date.strftime('%Y-%m-%d')
     end_date_str = end_date.strftime('%Y-%m-%d')
     report = []
+    print("Stelle Bilanz zusammen",end='')
     for title,entry in account_areas.items():
         accs,factor = entry
         r = balance(company,accs,factor,start_date_str,end_date_str)
         r = [set_title(e,title) for e in r]
         report += r
+        print('.',end='')
     fig = px.line(report, x="posting_date", y="balance", title=company+' - wichtigste Bilanzposten', color='Bilanzposten',line_shape='hv')
     fig.show()    
 
-
 def sold_items(project):
-    items = defaultdict(float)
     sinvs = Api.api.get_list("Sales Invoice",
                              filters={'project' : project,
                                       'status': ['!=','Cancelled']},
                              limit_page_length=LIMIT)
-    for sinv in sinvs:
-        inv = Api.api.get_doc("Sales Invoice",sinv['name'])
-        for item in inv['items']:
-            items[item['item_code']] += int(item['qty'])
-    full_items = []
-    for item_code,qty in items.items():
-        # needed because item_name can have changed
-        full_item = Api.api.get_doc("Item",item_code)
-        full_items.append({'item_name':full_item['item_name'],
-                           'item_code':full_item['item_code'],
-                           'qty':qty})
-    return full_items
+    return sales_invoice.get_items(sinvs)
+
+def balkonmodule_month(company,start_date_str,end_date_str):
+    sinvs = Api.api.get_list("Sales Invoice",
+                                filters={'company':company,
+                                        'balkonmodul' : True,
+                                        'posting_date': ['Between',[start_date_str,end_date_str]],
+                                        'status': ['!=','Cancelled']},
+                                limit_page_length=LIMIT)
+    items = sales_invoice.get_items(sinvs)
+    aggr_items = defaultdict(float)
+    for item in items:
+        if 'Balkon-Anlage' in item['item_name']:
+            aggr_items['Balkonmodule'] += (2 if '2x' in item['item_name'] else 1) * item['qty']
+        for name in ['Grundkosten','Soli-Preis']:
+            if name == item['item_name']:
+                aggr_items[name] += item['qty']
+    return aggr_items
+            
+def balkonmodule(company):
+    start_date,end_date = get_dates()
+    print("Lese Balkonmodulverkäufe ein")
+    report = []
+    # iterate over months
+    for dt in rrule.rrule(rrule.MONTHLY, dtstart=start_date, until=end_date):
+        start_date_str = dt.strftime('%Y-%m-%d')
+        end_date_str = (dt+relativedelta(months=1)-relativedelta(days=1)).strftime('%Y-%m-%d')
+        for item,qty in balkonmodule_month(company,start_date_str,end_date_str).items():
+            report.append({'Datum':start_date_str,'Wert':item,'value':qty})
+        print('.',end="")
+#        print(start_date_str,end_date_str,aggr_items)
+    fig = px.line(report, x="Datum", y="value", title=company+' - Balkonmodulverkauf', color='Wert',line_shape='spline')
+    fig.show()    
