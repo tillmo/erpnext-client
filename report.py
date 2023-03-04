@@ -484,7 +484,7 @@ def balances(company,account_areas):
         r = [set_title(e,title) for e in r]
         report += r
         print('.',end='')
-    fig = px.line(report, x="posting_date", y="balance", title=company+' - wichtigste Bilanzposten', color='Bilanzposten',line_shape='hv')
+    fig = px.line(report, x="posting_date", y="balance", title=company+' - wichtigste Bilanzposten', color='Bilanzposten',line_shape='linear')
     fig.show()    
 
 def sold_items(project):
@@ -504,7 +504,7 @@ def balkonmodule_month(company,start_date_str,end_date_str):
     items = sales_invoice.get_items(sinvs)
     aggr_items = defaultdict(float)
     for item in items:
-        if 'Balkon-Anlage' in item['item_name']:
+        if 'Balkon-Anlage' in item['item_name'] or 'Balkon Paket' in item['item_name']:
             aggr_items['Balkonmodule'] += (2 if '2x' in item['item_name'] else 1) * item['qty']
         for name in ['Grundkosten','Soli-Preis']:
             if name == item['item_name']:
@@ -520,8 +520,8 @@ def balkonmodule(company):
         start_date_str = dt.strftime('%Y-%m-%d')
         end_date_str = (dt+relativedelta(months=1)-relativedelta(days=1)).strftime('%Y-%m-%d')
         for item,qty in balkonmodule_month(company,start_date_str,end_date_str).items():
-            report.append({'Datum':start_date_str,'Wert':item,'value':qty})
+            report.append({'Datum':start_date_str,'Wert':item,'Anzahl':qty})
         print('.',end="")
 #        print(start_date_str,end_date_str,aggr_items)
-    fig = px.line(report, x="Datum", y="value", title=company+' - Balkonmodulverkauf', color='Wert',line_shape='spline')
+    fig = px.line(report, x="Datum", y="Anzahl", title=company+' - Balkonmodulverkauf', color='Wert',line_shape='spline')
     fig.show()    
