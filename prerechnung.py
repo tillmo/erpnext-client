@@ -60,10 +60,18 @@ def extract_invoice_info(pdf_file_content) -> dict:
     # Get the entities from the document
     entities = []
     for entity in document.entities:
+        props = []
+        for prop in entity.properties:
+            props.append({
+                "value": prop.normalized_value.text or prop.text_anchor.content or prop.mention_text,
+                "type": prop.type_,
+                "confidence": prop.confidence,
+            })
         entities.append(
             {
-                "content": entity.text_anchor.content,
+                "value": entity.normalized_value.text or entity.text_anchor.content or entity.mention_text,
                 "type": entity.type_,
+                "properties": props,
                 "confidence": entity.confidence,
             }
         )
