@@ -31,7 +31,7 @@ def arg_parser():
                         help='API key')
     parser.add_argument('--secret', dest='secret', type=str,
                         help='API secrect')
-    parser.add_argument('---invoice-processor', dest='invoice_processor', type=str,
+    parser.add_argument('--invoice-processor', dest='invoice_processor', type=str,
                         help='Google invoice processor id')
     parser.add_argument('--google-json', dest='google_credentials', type=str,
                         help='Google API credentials')
