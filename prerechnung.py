@@ -1,6 +1,8 @@
 import json
 import os
+import PySimpleGUI as sg
 
+import purchase_invoice
 from api import Api, LIMIT
 
 from google.cloud import documentai_v1beta3 as documentai
@@ -19,8 +21,8 @@ def process(company_name):
 
 
 def extract_invoice_info(pdf_file_content) -> dict:
-    project_id = "quantum-idiom-379621"
-    processor_id = "b9f742465e96697"
+    project_id = sg.UserSettings()['-google-credentials-']['project_id']
+    processor_id = sg.UserSettings()['-invoice-processor-']
     location = "eu"
     mime_type = "application/pdf"
 
@@ -49,10 +51,6 @@ def extract_invoice_info(pdf_file_content) -> dict:
 
     # Get all of the document text as one big string
     document = result.document
-
-    # For a full list of Document object attributes, please reference this page:
-    # https://googleapis.dev/python/documentai/latest/_modules/google/cloud/documentai_v1beta3/types/document.html#Document
-    document_pages = document.pages
 
     # Read the text recognition output from the processor
     text = document.text
@@ -83,7 +81,32 @@ def process_inv(pr):
     print(pr['name'])
     pdf = pr['pdf']
     contents = Api.api.get_file(pdf)
-    pr['json'] = json.dumps(extract_invoice_info(contents))
+    if sg.UserSettings().get('-google-credentials-'):
+        pr['json'] = json.dumps(extract_invoice_info(contents))
+    else:
+        inv = purchase_invoice.PurchaseInvoice(pr['lager'])
+        tmpfile = "/tmp/r.pdf"
+        with open(tmpfile, "wb") as f:
+            f.write(contents)
+        try:
+            inv.parse_invoice(tmpfile, account=pr['buchungskonto'],
+                              paid_by_submitter=pr['selbst_bezahlt'],
+                              given_supplier=pr['lieferant'],
+                              is_test=True)
+        except Exception as e:
+            print(e)
+            pass
+        try:
+            vat = sum(map(int, inv.vat.values()))
+        except:
+            vat = 0
+        if not inv.gross_total:
+            inv.gross_total = inv.total + vat
+        print("{} {} {}".format(pr['name'], inv.gross_total, inv.order_id))
+        if inv.gross_total:
+            pr['betrag'] = inv.gross_total
+        if inv.order_id:
+            pr['auftragsnr'] = inv.order_id
     pr['processed'] = True
     pr['doctype'] = 'PreRechnung'
     Api.api.update(pr)
