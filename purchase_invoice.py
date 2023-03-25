@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 
-from settings import WAREHOUSE, STANDARD_PRICE_LIST, STANDARD_ITEM_GROUP, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, DELIVERY_COST_DESCRIPTION, NKK_ACCOUNTS, KORNKRAFT_ACCOUNTS, SOMIKO_ACCOUNTS, MATERIAL_ITEM_CODE, STOCK_ITEM_GROUPS, MATERIAL_ITEM_VALUE
+from settings import STANDARD_PRICE_LIST, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, DELIVERY_COST_DESCRIPTION, NKK_ACCOUNTS, KORNKRAFT_ACCOUNTS, SOMIKO_ACCOUNTS, MATERIAL_ITEM_CODE, STOCK_ITEM_GROUPS, MATERIAL_ITEM_VALUE
 
 import utils
 import PySimpleGUI as sg
@@ -18,13 +18,14 @@ from invoice import Invoice
 from collections import defaultdict
 import random
 import string
-import csv
 from pprint import pprint
+
 
 # extract amounts of form xxx,xx from string
 def extract_amounts(s):
     amounts = re.findall(r"([0-9]+,[0-9][0-9])",s)
     return list(map(lambda s: float(s.replace(",",".")),amounts))
+
 
 # try to extract gross amount and vat from an invoice
 def extract_amount_and_vat(lines,vat_rates):
@@ -47,6 +48,7 @@ def extract_amount_and_vat(lines,vat_rates):
                         return(amount,vat)
     return (max(amounts),0)
 
+
 def extract_date(lines):
     for line in lines:
         for word in line.split():
@@ -54,6 +56,7 @@ def extract_date(lines):
             if d:
                 return d
     return None
+
 
 def extract_no(lines):
     nos = []
@@ -89,14 +92,17 @@ def extract_no(lines):
     nos.sort(key=lambda s: len(s),reverse=True)
     return nos[0].strip()
 
+
 def extract_supplier(lines):
     return " ".join(lines[0][0:80].split())
+
 
 def decode_uft_8(bline):
     try:
         return bline.decode('utf_8')
     except Exception:
         return ""
+
 
 def pdf_to_text(file,raw=False):
     cmd = ["pdftotext","-nopgbrk"]
@@ -109,11 +115,13 @@ def pdf_to_text(file,raw=False):
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
     return [decode_uft_8(bline) for bline in p.stdout]
 
+
 def ask_if_to_continue(err,msg=""):
     if err:
         title = "Warnung"
         return easygui.ccbox(err+msg, title) # show a Continue/Cancel dialog
     return True    
+
 
 class SupplierItem:
     def __init__(self,inv):
@@ -229,9 +237,11 @@ class SupplierItem:
                     'desc' : self.description}
         else:
             return None
-        
+
+
 class PurchaseInvoice(Invoice):
     suppliers = {}
+
     @classmethod
     def get_amount_krannich(cls,lines):
         return sum(map(lambda line: utils.read_float(line[-9:-1]),lines))
@@ -830,9 +840,8 @@ class PurchaseInvoice(Invoice):
                 return None
         self.assign_default_e_items({self.default_vat:account})
         return self
-    
-    def parse_invoice(self,infile,account=None,paid_by_submitter=False,
-                      given_supplier=None,is_test=False):
+
+    def parse_invoice(self, infile, account=None, paid_by_submitter=False, given_supplier=None, is_test=False):
         self.extract_items = False
         lines = pdf_to_text(infile)
         try:
@@ -854,14 +863,14 @@ class PurchaseInvoice(Invoice):
                             self.raw = True
                             lines = pdf_to_text(infile,True)
                         if 'supplier' in info:
-                            self.supplier = info['supplier'] 
-                        else:    
+                            self.supplier = info['supplier']
+                        else:
                             self.supplier = supplier
                         print("Verwende Rechnungsparser für ",self.supplier)
                         if given_supplier and self.supplier!=given_supplier:
                             print("abweichend von PreRechnung: ",given_supplier)
-                        self.multi = info['multi']    
-                        if not info['parser'](self,lines):
+                        self.multi = info['multi']
+                        if not info['parser'](self, lines):
                             return None
                         return self
         except Exception as e:
@@ -875,7 +884,188 @@ class PurchaseInvoice(Invoice):
         print("Verwende generischen Rechnungsparser")
         self.supplier = given_supplier
         return self.parse_generic(lines,account,paid_by_submitter,is_test)
-        
+
+    def parse_google_output(self, invoice_json):
+        self.date = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'invoice_date'][0]
+        self.order_id = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'invoice_id'][0]
+        self.gross_total = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'total_amount'][0]
+        self.no = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'invoice_id'][0]
+        self.items = []
+        self.shipping = 0
+        rounding_error = 0
+        if self.update_stock:
+            line_items = [el.get('properties') for el in invoice_json['entities'] if el.get('type') == 'line_item']
+            for line_item in line_items:
+                s_item = SupplierItem(self)
+                for prop in line_item:
+                    if prop['type'] == 'line_item/description':
+                        s_item.description = prop['value']
+                    elif prop['type'] == 'line_item/product_code':
+                        s_item.item_code = prop['value']
+                    elif prop['type'] == 'line_item/quantity' and s_item.qty is None:
+                        s_item.qty = int(prop['value'])
+                    elif prop['type'] == 'line_item/unit' and s_item.qty_unit is None:
+                        s_item.qty_unit = prop['value']
+                    elif prop['type'] == 'line_item/amount':
+                        s_item.amount = float(prop['value'])
+                if s_item.description and "Vorkasse" in s_item.description:
+                    continue
+                if s_item.qty_unit and s_item.qty_unit == "Rol":
+                    try:
+                        r1 = re.search('[0-9]+ *[mM]', s_item.description)
+                        r2 = re.search('[0-9]+', r1.group(0))
+                        s_item.qty_unit = "Meter"
+                        s_item.qty = int(r2.group(0))
+                    except Exception:
+                        pass
+                if s_item.qty:
+                    s_item.rate = round(s_item.amount / s_item.qty, 2)
+                    rounding_error += s_item.amount - s_item.rate * s_item.qty
+                    self.items.append(s_item)
+        self.shipping += rounding_error
+        self.totals[self.default_vat] = float(
+            [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'net_amount'][0])
+        self.vat[self.default_vat] = float(
+            [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'total_tax_amount'][0])
+        self.compute_total()
+        return self
+
+    def parse_generic_json(self, invoice_json, default_account=None, paid_by_submitter=False, is_test=False):
+        amount = ""
+        self.parser = "generic"
+        self.extract_items = False
+        self.shipping = 0.0
+        self.date = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'invoice_date'][0]
+        self.order_id = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'invoice_id'][0]
+        self.gross_total = float([el.get('value') for el in invoice_json['entities'] if el.get('type') == 'total_amount'][0])
+        self.no = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'invoice_id'][0]
+        self.vat[self.default_vat] = float(
+            [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'total_tax_amount'][0])
+        self.totals[self.default_vat] = float(
+            [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'net_amount'][0])
+
+        if not is_test:
+            if self.check_if_present():
+                return self
+        else:
+            return self
+
+        suppliers = gui_api_wrapper(Api.api.get_list,"Supplier", limit_page_length=LIMIT)
+        supplier_names = [supp['name'] for supp in suppliers]
+        supplier_names.sort()
+        supplier_names += ['neu']
+        def_supp = self.supplier if self.supplier in supplier_names else "neu"
+        def_new_supp = "" if self.supplier in supplier_names else self.supplier
+        layout = [
+            [sg.Text('Lieferant')],
+            [sg.OptionMenu(values=supplier_names, k='-supplier-',
+                           default_value=def_supp)],
+            [sg.Text('ggf. neuer Lieferant')],
+            [sg.Input(default_text = def_new_supp,
+                      k='-supplier-name-')],
+            [sg.Text('Rechnungsnr.')],
+            [sg.Input(default_text=self.no, k='-no-')],
+            [sg.Text('Datum')],
+            [sg.Input(key='-date-',
+                      default_text=utils.show_date4(self.date)),
+             sg.CalendarButton('Kalender', target='-date-',
+                               format = '%d.%m.%Y',
+                               begin_at_sunday_plus=1)],
+            [sg.Text('MWSt')],
+            [sg.Input(default_text=str(self.vat[self.default_vat]),
+                      k='-vat-')],
+            [sg.Text('Brutto')],
+            [sg.Input(default_text=str(amount), k='-gross-')],
+            [sg.Text('Skonto')],
+            [sg.Input(k='-skonto-')],
+            [sg.Checkbox('Schon selbst bezahlt',
+                         default=paid_by_submitter, k='-paid-')],
+            [sg.Text('Kommentar')],
+            [sg.Input(k='-remarks-')],
+            [sg.Button('Speichern')]
+        ]
+        window1 = sg.Window("Einkaufsrechnung", layout, finalize=True)
+        window1.bring_to_front()
+        event, values = window1.read()
+        window1.close()
+        if values:
+            if '-supplier-' in values:
+                self.supplier = values['-supplier-']
+                if self.supplier == 'neu' and '-supplier-name-' in values:
+                    self.supplier = values['-supplier-name-']
+            if '-no-' in values:
+                self.no = values['-no-']
+            if '-date-' in values:
+                date = utils.convert_date4(values['-date-'])
+                if date:
+                    self.date = date
+            if '-vat-' in values:
+                self.vat[self.default_vat] = utils.read_float(values['-vat-'])
+            if '-gross-' in values:
+                self.totals[self.default_vat] = utils.read_float(values['-gross-']) - self.vat[self.default_vat]
+            if '-skonto-' in values and values['-skonto-']:
+                self.skonto = utils.read_float(values['-skonto-'])
+            if '-paid-' in values and values['-paid-']:
+                self.paid_by_submitter = True
+            if '-remarks-' in values:
+                self.remarks = values['-remarks-']
+        else:
+            return None
+        self.compute_total()
+        account = None
+        accounts = self.company.leaf_accounts_for_credit
+        account_names = [acc['name'] for acc in accounts]
+        if default_account:
+            for acc in account_names:
+                if default_account in acc:
+                    account = acc
+        if not account:
+            pinvs = self.company.purchase_invoices[self.supplier]
+            paccs = [pi['expense_account'] for pi in pinvs if 'expense_account' in pi]
+            paccs = list(set(paccs))
+            for acc in paccs:
+                try:
+                    account_names.remove(acc)
+                except Exception:
+                    pass
+            account_names = paccs + account_names
+            title = 'Buchungskonto wählen'
+            msg = 'Bitte ein Buchungskonto wählen\n'
+            account = easygui.choicebox(msg, title, account_names)
+            if not account:
+                return None
+        self.assign_default_e_items({self.default_vat: account})
+        return self
+
+    def parse_invoice_json(self, invoice_json, account=None, paid_by_submitter=False, given_supplier=None, is_test=False):
+        self.extract_items = self.update_stock
+        supps = dict(PurchaseInvoice.suppliers)
+        if self.company.name != 'Laden':
+            del supps['Rechnung']
+        try:
+            self.supplier = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'supplier_name'][0]
+            for supplier, info in supps.items():
+                if supplier in self.supplier or self.supplier in supplier:
+                    self.parser = supplier
+                    if info['raw']:
+                        self.raw = True
+                    print("Verwende Rechnungsparser für ", self.supplier)
+                    if given_supplier and self.supplier != given_supplier:
+                        print("abweichend von PreRechnung: ", given_supplier)
+                    self.multi = info['multi']
+                    if not self.parse_google_output(invoice_json):
+                        return None
+                    return self
+        except Exception as e:
+            if self.update_stock:
+                raise e
+            elif not is_test:
+                print(e)
+                print("Rückfall auf Standard-Rechnungsbehandlung")
+        print("Verwende generischen Rechnungsparser")
+        self.supplier = given_supplier
+        return self.parse_generic_json(invoice_json, account, paid_by_submitter, is_test)
+
     def compute_total(self):
         self.total = sum([t for v,t in self.totals.items()])
         self.total_vat = sum([t for v,t in self.vat.items()])
@@ -934,8 +1124,7 @@ class PurchaseInvoice(Invoice):
              self.doc['apply_discount_on'] = 'Grand Total'
              self.doc['discount_amount'] = self.skonto
         if self.shipping:
-             self.doc['taxes'].append(\
-                                      {'add_deduct_tax': 'Add',
+             self.doc['taxes'].append({'add_deduct_tax': 'Add',
                                        'charge_type': 'Actual',
                                        'account_head': DELIVERY_COST_ACCOUNT,
                                        'description': DELIVERY_COST_DESCRIPTION,
@@ -943,8 +1132,8 @@ class PurchaseInvoice(Invoice):
 
     def check_total(self):
         err = ""
-        computed_total = self.shipping+sum([item.rate*item.qty for item in self.items])
-        if abs(self.total-computed_total) > 0.005 :
+        computed_total = self.shipping + sum([item.rate*item.qty for item in self.items])
+        if abs(self.total-computed_total) > 0.005:
             err = "Abweichung! Summe in Rechnung: {0}, Summe der Posten: {1}".format(self.total,computed_total)
             err += "\nDies kann noch durch Preisanpassungen korrigiert werden.\n"
         return err   
@@ -970,7 +1159,7 @@ class PurchaseInvoice(Invoice):
         invs = gui_api_wrapper(Api.api.get_list,"Purchase Invoice",
                                {'bill_no': self.no, 'status': ['!=','Cancelled']})
         if not invs and self.order_id:
-            invs = gui_api_wrapper(Api.api.get_list,"Purchase Invoice",
+            invs = gui_api_wrapper(Api.api.get_list, "Purchase Invoice",
                                {'order_id': self.order_id, 'status': ['!=','Cancelled']})
             if invs:
                 # attach the present PDF to invoice with same order_id
@@ -985,7 +1174,7 @@ class PurchaseInvoice(Invoice):
             return True
         return False
 
-    def __init__(self,update_stock=False):
+    def __init__(self, update_stock=False):
         # do not call super().__init__ here,
         # because there is no doc in ERPNext yet
         self.update_stock = update_stock
@@ -1036,34 +1225,31 @@ class PurchaseInvoice(Invoice):
         # because self.totals and self.vat are not merged
 
 
-    # for testing    
+    # for testing
     @classmethod
     def parse_and_dump(cls,infile,update_stock,account=None,paid_by_submitter=False):
-        inv = purchase_invoice.PurchaseInvoice(update_stock).parse_invoice(infile,account,paid_by_submitter)
+        inv = PurchaseInvoice(update_stock).parse_invoice(infile,account,paid_by_submitter)
         pprint(vars(inv))
         pprint(list(map(lambda x: pprint(vars(x)),inv.items)))
 
     @classmethod
-    def read_and_transfer(cls,infile,update_stock,account=None,paid_by_submitter=False,project=None,supplier=None):
+    def read_and_transfer(cls, invoice_json, update_stock, account=None, paid_by_submitter=False, project=None, supplier=None):
         one_more = True
         inv = None
         while one_more:
             one_more = False
-            inv_new = PurchaseInvoice(update_stock).\
-                        read_pdf(infile,account,paid_by_submitter,supplier)
+            inv_new = PurchaseInvoice(update_stock).read_pdf(invoice_json, account, paid_by_submitter, supplier)
             if (inv is None) and inv_new and inv_new.is_duplicate:
                 return inv_new
             if inv_new and not inv_new.is_duplicate:
                 inv_new.merge(inv)
                 inv = inv_new
-                if inv.total<0:
+                if inv.total < 0:
                     one_more = True
                     easygui.msgbox('Negativer Gesamtbetrag. Eine weitere Rechnung muss eingelesen werden.')
                 elif inv.multi:
                     title = "Mit einer weiteren Rechnung verschmelzen?"
-                    one_more = easygui.buttonbox(title, title,["Ja","Nein"])=="Ja"
-                if one_more:
-                    infile = utils.get_file('Weitere Einkaufsrechnung als PDF')
+                    one_more = easygui.buttonbox(title, title, ["Ja", "Nein"]) == "Ja"
         if inv and not inv.is_duplicate:
             inv.project = project
             inv = inv.send_to_erpnext()
@@ -1071,9 +1257,8 @@ class PurchaseInvoice(Invoice):
             print("Keine Einkaufsrechnung angelegt")
         return inv
 
-    def read_pdf(self,infile,account=None,paid_by_submitter=False,supplier=None):
-        self.infiles = [infile]
-        if not self.parse_invoice(infile,account,paid_by_submitter,supplier):
+    def read_pdf(self, invoice_json, account=None, paid_by_submitter=False, supplier=None):
+        if not self.parse_invoice_json(invoice_json, account, paid_by_submitter, supplier):
             return None
         print("Prüfe auf doppelte Rechung")
         if self.check_if_present():
@@ -1082,9 +1267,7 @@ class PurchaseInvoice(Invoice):
             Api.load_item_data()
             print("Hole Lagerdaten")
             yesterd = utils.yesterday(self.date)
-            self.e_items = list(map(lambda item: \
-                item.process_item(self.supplier,yesterd),
-                self.items))
+            self.e_items = list(map(lambda item: item.process_item(self.supplier, yesterd), self.items))
             if None in self.e_items:
                 print("Nicht alle Artikel wurden eingetragen.\n Deshalb kann keine Einkaufsrechnung in ERPNext erstellt werden.")
                 return None
@@ -1238,5 +1421,3 @@ PurchaseInvoice.suppliers = \
      'Kornkraft Naturkost GmbH' :
         {'parser' : PurchaseInvoice.parse_kornkraft,
          'raw' : False, 'multi' : True}}
-
-
