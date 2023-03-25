@@ -1044,18 +1044,9 @@ class PurchaseInvoice(Invoice):
             del supps['Rechnung']
         try:
             self.supplier = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'supplier_name'][0]
-            for supplier, info in supps.items():
-                if supplier in self.supplier or self.supplier in supplier:
-                    self.parser = supplier
-                    if info['raw']:
-                        self.raw = True
-                    print("Verwende Rechnungsparser für ", self.supplier)
-                    if given_supplier and self.supplier != given_supplier:
-                        print("abweichend von PreRechnung: ", given_supplier)
-                    self.multi = info['multi']
-                    if not self.parse_google_output(invoice_json):
-                        return None
-                    return self
+            if not self.parse_google_output(invoice_json):
+                return None
+            return self
         except Exception as e:
             if self.update_stock:
                 raise e
