@@ -936,7 +936,7 @@ class PurchaseInvoice(Invoice):
         self.extract_items = False
         self.shipping = 0.0
         self.date = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'invoice_date'][0]
-        self.order_id = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'invoice_id'][0]
+        self.order_id = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'purchase_order'][0]
         self.gross_total = float([el.get('value') for el in invoice_json['entities'] if el.get('type') == 'total_amount'][0])
         self.no = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'invoice_id'][0]
         self.vat[self.default_vat] = float(
