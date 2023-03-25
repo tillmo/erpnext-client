@@ -887,7 +887,7 @@ class PurchaseInvoice(Invoice):
 
     def parse_google_output(self, invoice_json):
         self.date = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'invoice_date'][0]
-        self.order_id = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'invoice_id'][0]
+        self.order_id = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'purchase_order'][0]
         self.gross_total = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'total_amount'][0]
         self.no = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'invoice_id'][0]
         self.items = []
