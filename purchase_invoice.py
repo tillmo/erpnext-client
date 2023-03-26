@@ -1043,9 +1043,6 @@ class PurchaseInvoice(Invoice):
 
     def parse_invoice_json(self, invoice_json, account=None, paid_by_submitter=False, given_supplier=None, is_test=False):
         self.extract_items = self.update_stock
-        supps = dict(PurchaseInvoice.suppliers)
-        if self.company.name != 'Laden':
-            del supps['Rechnung']
         try:
             self.supplier = [el.get('value') for el in invoice_json['entities'] if el.get('type') == 'supplier_name'][0]
             if not self.parse_google_output(invoice_json):
