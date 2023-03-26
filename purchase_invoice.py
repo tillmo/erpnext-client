@@ -127,7 +127,7 @@ def ask_if_to_continue(err, msg=""):
 
 def get_element_with_high_confidence(invoice_json, element_type):
     elements = [el for el in invoice_json['entities'] if el.get('type') == element_type]
-    sorted_list = sorted(elements, key=lambda k: -k['confidence'])
+    sorted_list = sorted(elements, key=lambda k: -float(k['confidence']))
     return sorted_list[0]['value'] if len(sorted_list) > 0 else None
 
 
