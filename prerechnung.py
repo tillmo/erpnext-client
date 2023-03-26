@@ -7,6 +7,7 @@ import doc
 import settings
 import purchase_invoice
 from api import Api, LIMIT
+import json
 
 from google.cloud import documentai_v1beta3 as documentai
 from google.api_core.client_options import ClientOptions
@@ -131,7 +132,9 @@ def to_pay(company_name):
 def read_and_transfer(inv):
     print("Lese ein {} {}:".format(inv['name'],inv['pdf']))
     f = None
-    json = inv.get('json')
+    json_str = inv.get('json')
+    if json_str:
+        json_object = json.loads(json_str)
     if not f:
         pdf = Api.api.get_file(inv['pdf'])
         f = utils.store_temp_file(pdf,".pdf")
@@ -139,7 +142,7 @@ def read_and_transfer(inv):
                    project.project_type(inv['chance']) \
                       in settings.STOCK_PROJECT_TYPES
     pinv = purchase_invoice.PurchaseInvoice.read_and_transfer\
-                (json,f,update_stock,inv['buchungskonto'],
+                (json_object,f,update_stock,inv['buchungskonto'],
                  inv['selbst_bezahlt'],inv['chance'],inv['lieferant'])        
     if pinv: # also for duplicates, update 'eingepflegt'
         inv['eingepflegt'] = True
