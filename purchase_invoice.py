@@ -841,7 +841,11 @@ class PurchaseInvoice(Invoice):
         self.assign_default_e_items({self.default_vat:account})
         return self
 
-    def parse_invoice(self, infile, account=None, paid_by_submitter=False, given_supplier=None, is_test=False):
+    def parse_invoice(self, invoice_json, infile, account=None, paid_by_submitter=False, given_supplier=None, is_test=False):
+        if invoice_json:
+            print("Nutze Google invoice parser")
+            return self.parse_invoice_json(invoice_json, account, paid_by_submitter, given_supplier, is_test)
+        print("Nutze internen Parser")
         self.extract_items = False
         lines = pdf_to_text(infile)
         try:
@@ -1224,12 +1228,12 @@ class PurchaseInvoice(Invoice):
         pprint(list(map(lambda x: pprint(vars(x)),inv.items)))
 
     @classmethod
-    def read_and_transfer(cls, invoice_json, update_stock, account=None, paid_by_submitter=False, project=None, supplier=None):
+    def read_and_transfer(cls, invoice_json, infile, update_stock, account=None, paid_by_submitter=False, project=None, supplier=None):
         one_more = True
         inv = None
         while one_more:
             one_more = False
-            inv_new = PurchaseInvoice(update_stock).read_pdf(invoice_json, account, paid_by_submitter, supplier)
+            inv_new = PurchaseInvoice(update_stock).read_pdf(invoice_json, infile, account, paid_by_submitter, supplier)
             if (inv is None) and inv_new and inv_new.is_duplicate:
                 return inv_new
             if inv_new and not inv_new.is_duplicate:
@@ -1248,8 +1252,8 @@ class PurchaseInvoice(Invoice):
             print("Keine Einkaufsrechnung angelegt")
         return inv
 
-    def read_pdf(self, invoice_json, account=None, paid_by_submitter=False, supplier=None):
-        if not self.parse_invoice_json(invoice_json, account, paid_by_submitter, supplier):
+    def read_pdf(self, invoice_json, infile, account=None, paid_by_submitter=False, supplier=None):
+        if not self.parse_invoice(invoice_json, infile, account, paid_by_submitter, supplier):
             return None
         print("Prüfe auf doppelte Rechung")
         if self.check_if_present():

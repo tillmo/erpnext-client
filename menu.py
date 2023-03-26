@@ -399,21 +399,7 @@ def event_handler(event,window):
             if ix is False:
                 break
             inv = invs[ix]
-            pdf = Api.api.get_file(inv['pdf'])
-            print("Lese ein {} {}:".format(inv['name'],inv['pdf']))
-            f= utils.store_temp_file(pdf,".pdf")
-            update_stock = 'chance' in inv and inv['chance'] and \
-                           project.project_type(inv['chance']) \
-                              in settings.STOCK_PROJECT_TYPES
-            pinv = purchase_invoice.PurchaseInvoice.read_and_transfer\
-                    (f,update_stock,inv['buchungskonto'],
-                     inv['selbst_bezahlt'],inv['chance'],inv['lieferant'])
-            if pinv: # also for duplicates, update 'eingepflegt'
-                inv['eingepflegt'] = True
-                inv['purchase_invoice'] = pinv.doc['name']
-                inv_doc = doc.Doc(doc=inv,doctype='PreRechnung')
-                inv_doc.update()
-            os.remove(f)
+            prerechnung.read_and_transfer(inv)
     elif event == 'Unzugeordnete (An)Zahlungen (Summen)':
         keys = ['party','sum']
         headings = ['Kund:in/Lieferant','Summe']
