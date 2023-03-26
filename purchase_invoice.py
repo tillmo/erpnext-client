@@ -128,15 +128,20 @@ def ask_if_to_continue(err, msg=""):
 def get_element_with_high_confidence(invoice_json, element_type):
     elements = [el for el in invoice_json['entities'] if el.get('type') == element_type]
     sorted_list = sorted(elements, key=lambda k: -float(k['confidence']))
-    return sorted_list[0]['value'] if len(sorted_list) > 0 else None
+    best_elem = sorted_list[0]['value'] if len(sorted_list) > 0 else None
+    if type(best_elem)==str:
+        best_elem = best_elem.strip()
+    return best_elem
 
 
 class SupplierItem:
     def __init__(self, inv):
         self.purchase_invoice = inv
         self.description = None
+        self.long_description = None
         self.qty = None
         self.qty_unit = None
+        self.item_code = None
 
     def search_item(self, supplier):
         if self.item_code:
@@ -854,10 +859,10 @@ class PurchaseInvoice(Invoice):
         return self
 
     def parse_invoice(self, invoice_json, infile, account=None, paid_by_submitter=False, given_supplier=None,
-                      is_test=False):
+                      is_test=False, check_dup = True):
         if invoice_json:
             print("Nutze Google invoice parser")
-            return self.parse_invoice_json(invoice_json, account, paid_by_submitter, given_supplier, is_test)
+            return self.parse_invoice_json(invoice_json, account, paid_by_submitter, given_supplier, is_test, check_dup)
         print("Nutze internen Parser")
         self.extract_items = False
         lines = pdf_to_text(infile)
@@ -904,12 +909,12 @@ class PurchaseInvoice(Invoice):
         return self.parse_generic(lines, account, paid_by_submitter, is_test)
 
     def parse_invoice_json(self, invoice_json, default_account=None, paid_by_submitter=False, given_supplier=None,
-                           is_test=False):
+                           is_test=False, check_dup = True):
         rounding_error = 0
         self.shipping = 0
         self.items = []
         self.extract_items = self.update_stock
-        self.supplier = get_element_with_high_confidence(invoice_json, 'supplier_name')
+        self.supplier = given_supplier or get_element_with_high_confidence(invoice_json, 'supplier_name')
         self.date = get_element_with_high_confidence(invoice_json, 'invoice_date')
         self.order_id = get_element_with_high_confidence(invoice_json, 'purchase_order')
         self.gross_total = get_element_with_high_confidence(invoice_json, 'total_amount')
@@ -918,12 +923,14 @@ class PurchaseInvoice(Invoice):
             self.totals[self.default_vat] = float(get_element_with_high_confidence(invoice_json, 'net_amount'))
             self.vat[self.default_vat] = float(get_element_with_high_confidence(invoice_json, 'total_tax_amount'))
             if self.update_stock:
-                line_items = [el.get('properties') for el in invoice_json['entities'] if el.get('type') == 'line_item']
+                line_items = [el for el in invoice_json['entities'] if el.get('type') == 'line_item']
                 for line_item in line_items:
+                    # print(line_item)
                     s_item = SupplierItem(self)
-                    for prop in line_item:
+                    for prop in line_item.get('properties'):
                         if prop['type'] == 'line_item/description':
                             s_item.description = prop['value']
+                            s_item.long_description = prop['value']
                         elif prop['type'] == 'line_item/product_code':
                             s_item.item_code = prop['value']
                         elif prop['type'] == 'line_item/quantity' and s_item.qty is None:
@@ -933,6 +940,11 @@ class PurchaseInvoice(Invoice):
                         elif prop['type'] == 'line_item/amount':
                             s_item.amount = float(prop['value'])
                     if s_item.description and "Vorkasse" in s_item.description:
+                        continue
+                    if s_item.description and \
+                       ("Fracht" in s_item.description \
+                        or "Transportkosten" in s_item.description):
+                        self.shipping = s_item.amount
                         continue
                     if s_item.qty_unit and s_item.qty_unit == "Rol":
                         try:
@@ -946,6 +958,9 @@ class PurchaseInvoice(Invoice):
                         s_item.rate = round(s_item.amount / s_item.qty, 2)
                         rounding_error += s_item.amount - s_item.rate * s_item.qty
                         self.items.append(s_item)
+                    elif s_item.description:
+                        print("Keine Mengenangabe gefunden für",
+                              s_item.description)
             self.shipping += rounding_error
             self.compute_total()
         except Exception as e:
@@ -956,12 +971,11 @@ class PurchaseInvoice(Invoice):
                 print("Rückfall auf Standard-Rechnungsbehandlung")
 
         if self.supplier and self.date and self.no and self.vat[self.default_vat] and self.gross_total:
+            self.compute_total()
             return self
 
-        print("Verwende generischen Rechnungsparser")
-        self.supplier = given_supplier
-        self.extract_items = False
-        if is_test or self.check_if_present():
+        if is_test or self.check_if_present(check_dup):
+            self.compute_total()
             return self
 
         suppliers = gui_api_wrapper(Api.api.get_list, "Supplier", limit_page_length=LIMIT)
@@ -1137,8 +1151,8 @@ class PurchaseInvoice(Invoice):
             err += "\n\nTrotzdem Rechnung erstellen?"
         return err
 
-    def check_if_present(self):
-        if not self.no or not self.no.strip():
+    def check_if_present(self, check_dup = True):
+        if not check_dup or not self.no or not self.no.strip():
             return False
         upload = None
         invs = gui_api_wrapper(Api.api.get_list, "Purchase Invoice",
@@ -1189,6 +1203,7 @@ class PurchaseInvoice(Invoice):
         self.e_items = []
         self.raw = False
         self.skonto = 0
+        self.parser = None
 
     def merge(self, inv):
         if not inv:
@@ -1223,12 +1238,12 @@ class PurchaseInvoice(Invoice):
 
     @classmethod
     def read_and_transfer(cls, invoice_json, infile, update_stock, account=None, paid_by_submitter=False, project=None,
-                          supplier=None):
+                          supplier=None, check_dup = True):
         one_more = True
         inv = None
         while one_more:
             one_more = False
-            inv_new = PurchaseInvoice(update_stock).read_pdf(invoice_json, infile, account, paid_by_submitter, supplier)
+            inv_new = PurchaseInvoice(update_stock).read_pdf(invoice_json, infile, account, paid_by_submitter, supplier, check_dup=check_dup)
             if (inv is None) and inv_new and inv_new.is_duplicate:
                 return inv_new
             if inv_new and not inv_new.is_duplicate:
@@ -1240,18 +1255,21 @@ class PurchaseInvoice(Invoice):
                 elif inv.multi:
                     title = "Mit einer weiteren Rechnung verschmelzen?"
                     one_more = easygui.buttonbox(title, title, ["Ja", "Nein"]) == "Ja"
+                if one_more:
+                    infile = utils.get_file('Weitere Einkaufsrechnung als PDF')
         if inv and not inv.is_duplicate:
             inv.project = project
-            inv = inv.send_to_erpnext()
+            inv = inv.send_to_erpnext(not check_dup)
         if not inv:
             print("Keine Einkaufsrechnung angelegt")
         return inv
 
-    def read_pdf(self, invoice_json, infile, account=None, paid_by_submitter=False, supplier=None):
-        if not self.parse_invoice(invoice_json, infile, account, paid_by_submitter, supplier):
+    def read_pdf(self, invoice_json, infile, account=None, paid_by_submitter=False, supplier=None, check_dup=True):
+        self.infiles = [infile]
+        if not self.parse_invoice(invoice_json, infile, account, paid_by_submitter, supplier, check_dup=check_dup):
             return None
         print("Prüfe auf doppelte Rechung")
-        if self.check_if_present():
+        if self.check_if_present(check_dup):
             return self
         if self.extract_items:
             Api.load_item_data()
@@ -1325,7 +1343,7 @@ class PurchaseInvoice(Invoice):
                                      infile, True)
         return upload
 
-    def send_to_erpnext(self):
+    def send_to_erpnext(self,silent=False):
         print("Stelle ERPNext-Rechnung zusammen")
         self.create_doc()
         Api.create_supplier(self.supplier)
@@ -1348,6 +1366,8 @@ class PurchaseInvoice(Invoice):
             easygui.msgbox(
                 "Einkaufsrechnung {0} wurde als Entwurf an ERPNext übertragen. Bitte Artikel in ERPNext manuell eintragen. Künftig könnte dies ggf. automatisiert werden.".format(
                     self.no))
+            return self
+        if silent:
             return self
         choices = ["Sofort buchen", "Später buchen"]
         msg = "Einkaufsrechnung {0} wurde als Entwurf an ERPNext übertragen:\n{1}\n\n".format(self.doc['title'],

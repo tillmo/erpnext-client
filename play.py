@@ -5,11 +5,18 @@ import company
 
 init()
 company.Company.init_companies()
-doc = Api.api.get_doc("PreRechnung",'PreR00492')
-if not doc.get('json'):
-    prerechnung.process_inv(doc)
-prerechnung.read_and_transfer(doc)
-
+company.Company.current_load_data()
+for pr in Api.api.get_list("PreRechnung",filters={'purchase_invoice':['>','a']},limit_page_length=1): # later on, replace with 1
+    pinv1 = Api.api.get_doc("Purchase Invoice",pr['purchase_invoice'])
+    if not pr.get('json'):
+        prerechnung.process_inv(pr)
+    # create purchase invoice object based on pr['json']
+    pr = Api.api.get_doc("PreRechnung",pr['name']) # reload
+    pinv2 = prerechnung.read_and_transfer(pr,check_dup=False)
+    pinv2 = Api.api.get_doc("Purchase Invoice",pinv2.name)
+    print(pinv1['name'],pinv2['name'])
+    # compare pinv1 and pinv2 (only the relevant components)
+      # todo
 exit(0)
 
 pr = Api.api.get_list("PreRechnung", filters={'processed': False}, limit_page_length=1)[0]
