@@ -133,6 +133,7 @@ def read_and_transfer(inv):
     print("Lese ein {} {}:".format(inv['name'],inv['pdf']))
     f = None
     json_str = inv.get('json')
+    json_object = None
     if json_str:
         json_object = json.loads(json_str)
     if not f:
