@@ -51,6 +51,15 @@ def arg_parser():
     parser.set_defaults(price_dates=False)
     return parser
 
+def set_google_credentials(credentials):
+    if type(credentials)==str:
+        credentials = json.loads(credentials)
+    for key in credentials.keys():
+        credentials[key] = credentials[key].replace("\\n", "\n")
+    with open("google-credentials.json", "w") as f:
+        json.dump(credentials, f)
+    sg.UserSettings()['-google-credentials-'] = credentials
+
 
 def init():
     # process command line arguments
@@ -72,11 +81,6 @@ def init():
     if args.invoice_processor:
         settings['-invoice-processor-'] = args.invoice_processor
     if args.google_credentials:
-        credentials = json.loads(args.google_credentials)
-        for key in credentials.keys():
-            credentials[key] = credentials[key].replace("\\n", "\n")
-        with open("google-credentials.json", "w") as f:
-            json.dump(credentials, f)
-        settings['-google-credentials-'] = credentials
+        set_google_credentials(args.google_credentials)
     settings['-setup-'] = not api_wrapper_test(Api.initialize)
     return args

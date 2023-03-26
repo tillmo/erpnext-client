@@ -25,6 +25,8 @@ from datetime import datetime
 import settings
 import journal
 import prerechnung
+import args
+import json
 
 def initial_loads():
     if sg.UserSettings()['-setup-']:
@@ -200,6 +202,23 @@ def event_handler(event,window):
                 initial_loads()
                 window.close()
                 return "outer"
+    elif event == 'Google':
+        layout = [  [sg.Text('Google invoice processor id')],     
+                    [sg.Input(default_text = user_settings['-invoice-processor-'])],
+                    [sg.Text('Google API credentials')],     
+                    [sg.Input(default_text = json.dumps(user_settings['-google-credentials-']))],
+                    [sg.Button('Speichren')] ]
+        window1 = sg.Window("Google-Einstellungen", layout, finalize=True)
+        window1.bring_to_front()
+        event, values = window1.read()
+        if values:
+            if len(values)>0 and values[0]:
+                user_settings['-invoice-processor-'] = values[0]
+                print("Neue Einstellung gespeichert")
+            if len(values)>1 and values[1]:
+                args.set_google_credentials(values[1])
+                print("Neue Einstellung gespeichert")
+            window1.close()
     elif event == 'Update':
         print()
         print("Aktualisiere dieses Programm...")
@@ -679,7 +698,7 @@ def menus():
                 ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte','Balkonmodulverkauf','zu bezahlende Prerechnungen']], 
                 ['Bereich', company.Company.all()], 
                 ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen']], 
-                ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Update']], 
+                ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Google', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
 
 
