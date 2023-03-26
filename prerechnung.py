@@ -136,7 +136,7 @@ def read_and_transfer(inv):
     json_object = None
     if json_str:
         json_object = json.loads(json_str)
-    if not f:
+    if not json_object:
         pdf = Api.api.get_file(inv['pdf'])
         f = utils.store_temp_file(pdf,".pdf")
     update_stock = 'chance' in inv and inv['chance'] and \
