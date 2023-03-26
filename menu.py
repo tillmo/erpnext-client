@@ -432,8 +432,8 @@ def event_handler(event,window):
             inv_key = 'customer'
             inv_heading = 'Kunde'
         while True:
-            keys = ['posting_date']+amount_key+['bill_no','status',inv_key]
-            headings = ['Datum']+amount_head+['Rechungsnr.','Status',inv_heading]
+            keys = ['posting_date']+amount_key+['bill_no','status',inv_key,'owner']
+            headings = ['Datum']+amount_head+['Rechungsnr.','Status',inv_heading,'Ersteller']
             comp = company.Company.get_company(user_settings['-company-'])
             invs = comp.get_invoices_of_type(inv_type,open_invs)
             inv_docs = []
