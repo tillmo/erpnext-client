@@ -83,6 +83,7 @@ def process_inv(pr):
     contents = Api.api.get_file(pdf)
     if sg.UserSettings().get('-google-credentials-'):
         pr['json'] = json.dumps(extract_invoice_info(contents))
+        # todo: set pr['betrag'] to gross total, pr['auftragsnr']
     else:
         inv = purchase_invoice.PurchaseInvoice(pr['lager'])
         tmpfile = "/tmp/r.pdf"
