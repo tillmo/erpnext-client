@@ -1,5 +1,7 @@
 import json
 import os
+import pdb
+
 import PySimpleGUI as sg
 import utils
 import project
@@ -118,38 +120,39 @@ def process_inv(pr):
 
 
 def to_pay(company_name):
-    prs = Api.api.get_list("PreRechnung",filters={'company':company_name,
-                                                  'vom_konto_überwiesen':False,
-                                                  'zu_zahlen_am':['>','01-01-1980']},
+    prs = Api.api.get_list("PreRechnung", filters={'company': company_name,
+                                                   'vom_konto_überwiesen': False,
+                                                   'zu_zahlen_am': ['>', '01-01-1980']},
                            limit_page_length=LIMIT)
-    prs.sort(key=lambda pr : pr['zu_zahlen_am'])
+    prs.sort(key=lambda pr: pr['zu_zahlen_am'])
     sum = 0.0
     for pr in prs:
         sum += pr['betrag']
         pr['summe'] = sum
     return prs
 
-def read_and_transfer(inv,check_dup=True):
-    print("Lese ein {} {}:".format(inv['name'],inv['pdf']))
-    f = None
+
+def read_and_transfer(inv, check_dup=True):
+    print("Lese ein {} {}:".format(inv['name'], inv['pdf']))
     json_str = inv.get('json')
     json_object = None
     if json_str:
         json_object = json.loads(json_str)
+    pdb.set_trace()
     pdf = Api.api.get_file(inv['pdf'])
-    f = utils.store_temp_file(pdf,".pdf")
+    f = utils.store_temp_file(pdf, ".pdf")
     update_stock = 'chance' in inv and inv['chance'] and \
-                   project.project_type(inv['chance']) \
-                      in settings.STOCK_PROJECT_TYPES
-    pinv = purchase_invoice.PurchaseInvoice.read_and_transfer\
-                (json_object,f,update_stock,inv['buchungskonto'],
-                 inv['selbst_bezahlt'],inv['chance'],inv['lieferant'],
-                 check_dup=check_dup)        
-    if pinv and not inv.get('purchase_invoice'): 
+                   project.project_type(inv['chance']) in settings.STOCK_PROJECT_TYPES
+    pinv = purchase_invoice.PurchaseInvoice.read_and_transfer(
+        json_object, f, update_stock,
+        account=inv.get('buchungskonto'), paid_by_submitter=inv.get('selbst_bezahlt', False),
+        project=inv.get('chance'), supplier=inv.get('lieferant'), check_dup=check_dup
+    )
+    if pinv and not inv.get('purchase_invoice'):
         inv['eingepflegt'] = True
         inv['purchase_invoice'] = pinv.doc['name']
-        inv_doc = doc.Doc(doc=inv,doctype='PreRechnung')
+        inv_doc = doc.Doc(doc=inv, doctype='PreRechnung')
         inv_doc.update()
-    if f:    
+    if f:
         os.remove(f)
-    return pinv    
+    return pinv

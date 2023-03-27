@@ -859,7 +859,7 @@ class PurchaseInvoice(Invoice):
         return self
 
     def parse_invoice(self, invoice_json, infile, account=None, paid_by_submitter=False, given_supplier=None,
-                      is_test=False, check_dup = True):
+                      is_test=False, check_dup=True):
         if invoice_json:
             print("Nutze Google invoice parser")
             return self.parse_invoice_json(invoice_json, account, paid_by_submitter, given_supplier, is_test, check_dup)
@@ -909,7 +909,7 @@ class PurchaseInvoice(Invoice):
         return self.parse_generic(lines, account, paid_by_submitter, is_test)
 
     def parse_invoice_json(self, invoice_json, default_account=None, paid_by_submitter=False, given_supplier=None,
-                           is_test=False, check_dup = True):
+                           is_test=False, check_dup=True):
         rounding_error = 0
         self.shipping = 0
         self.items = []
@@ -925,7 +925,6 @@ class PurchaseInvoice(Invoice):
             if self.update_stock:
                 line_items = [el for el in invoice_json['entities'] if el.get('type') == 'line_item']
                 for line_item in line_items:
-                    # print(line_item)
                     s_item = SupplierItem(self)
                     for prop in line_item.get('properties'):
                         if prop['type'] == 'line_item/description':
@@ -941,9 +940,8 @@ class PurchaseInvoice(Invoice):
                             s_item.amount = float(prop['value'])
                     if s_item.description and "Vorkasse" in s_item.description:
                         continue
-                    if s_item.description and \
-                       ("Fracht" in s_item.description \
-                        or "Transportkosten" in s_item.description):
+                    if s_item.description and (
+                            "Fracht" in s_item.description or "Transportkosten" in s_item.description):
                         self.shipping = s_item.amount
                         continue
                     if s_item.qty_unit and s_item.qty_unit == "Rol":
@@ -1151,7 +1149,7 @@ class PurchaseInvoice(Invoice):
             err += "\n\nTrotzdem Rechnung erstellen?"
         return err
 
-    def check_if_present(self, check_dup = True):
+    def check_if_present(self, check_dup=True):
         if not check_dup or not self.no or not self.no.strip():
             return False
         upload = None
@@ -1238,7 +1236,7 @@ class PurchaseInvoice(Invoice):
 
     @classmethod
     def read_and_transfer(cls, invoice_json, infile, update_stock, account=None, paid_by_submitter=False, project=None,
-                          supplier=None, check_dup = True):
+                          supplier=None, check_dup=True):
         one_more = True
         inv = None
         while one_more:
@@ -1343,7 +1341,7 @@ class PurchaseInvoice(Invoice):
                                      infile, True)
         return upload
 
-    def send_to_erpnext(self,silent=False):
+    def send_to_erpnext(self, silent=False):
         print("Stelle ERPNext-Rechnung zusammen")
         self.create_doc()
         Api.create_supplier(self.supplier)
