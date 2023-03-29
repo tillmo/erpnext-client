@@ -968,7 +968,18 @@ class PurchaseInvoice(Invoice):
                 print(e)
                 print("Rückfall auf Standard-Rechnungsbehandlung")
 
-        if self.supplier and self.date and self.no and self.vat[self.default_vat] and self.gross_total:
+        if not check_dup:
+            if not self.supplier:
+                self.supplier = "???"
+            if not self.date:
+                self.date = "1970-01-01"
+            if not self.no:
+                self.no = "???"
+            if not self.vat[self.default_vat]:
+                self.vat[self.default_vat] = 0.0
+            if not self.gross_total:
+                self.gross_total = 0.0
+        if not check_dup or (self.supplier and self.date and self.no and self.vat[self.default_vat] and self.gross_total):
             self.compute_total()
             return self
 
