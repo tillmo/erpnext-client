@@ -7,3 +7,4 @@ anytree
 plotly
 pandas
 google-cloud-documentai==2.14.0
+jsondiff

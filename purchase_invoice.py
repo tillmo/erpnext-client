@@ -143,7 +143,7 @@ class SupplierItem:
         self.qty_unit = None
         self.item_code = None
 
-    def search_item(self, supplier):
+    def search_item(self, supplier, check_dup=True):
         if self.item_code:
             if supplier in Api.item_code_translation:
                 trans_table_supplier = Api.item_code_translation[supplier]
@@ -164,7 +164,10 @@ class SupplierItem:
         title = "Artikel wählen"
         msg = "Artikel in Rechnung:\n{0}\n\n".format(self.long_description)
         msg += "Bitte passenden Artikel in ERPNext auswählen:"
-        choice = easygui.choicebox(msg, title, texts)
+        if check_dup:
+            choice = easygui.choicebox(msg, title, texts)
+        else:
+            choice = 'Neuen Artikel anlegen'
         if choice == None:
             return None
         if choice:
@@ -189,13 +192,20 @@ class SupplierItem:
             groups = Api.api.get_list("Item Group", limit_page_length=LIMIT)
             groups = [g['name'] for g in groups]
             groups.sort()
-            group = easygui.choicebox(msg, title, groups)
+            if check_dup:
+                group = easygui.choicebox(msg, title, groups)
+            else:    
+                group = STANDARD_ITEM_GROUP
             if group == None:
                 return None
             msg += "\nArtikelgruppe: " + group
             title = "Neuen Artikel in ERPNext eintragen"
             msg += "\n\nDiesen Artikel eintragen?"
-            if easygui.ccbox(msg, title):
+            if check_dup:
+                choice = easygui.choicebox(msg, title)
+            else:
+                choice = True
+            if choice:
                 item_code = "new" + ''.join(random.choices( \
                     string.ascii_uppercase + string.digits, k=8))
                 company_name = self.purchase_invoice.company_name
@@ -237,8 +247,8 @@ class SupplierItem:
             doc = gui_api_wrapper(Api.api.insert, price)
             # print(doc)
 
-    def process_item(self, supplier, date):
-        e_item = self.search_item(supplier)
+    def process_item(self, supplier, date, check_dup=True):
+        e_item = self.search_item(supplier, check_dup)
         if e_item:
             if e_item['item_group'] in STOCK_ITEM_GROUPS:
                 self.add_item_price(e_item, self.rate, self.qty_unit, date)
@@ -1284,7 +1294,7 @@ class PurchaseInvoice(Invoice):
             Api.load_item_data()
             print("Hole Lagerdaten")
             yesterd = utils.yesterday(self.date)
-            self.e_items = list(map(lambda item: item.process_item(self.supplier, yesterd), self.items))
+            self.e_items = list(map(lambda item: item.process_item(self.supplier, yesterd, check_dup), self.items))
             if None in self.e_items:
                 print(
                     "Nicht alle Artikel wurden eingetragen.\n Deshalb kann keine Einkaufsrechnung in ERPNext erstellt werden.")
