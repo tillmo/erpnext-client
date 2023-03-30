@@ -141,6 +141,7 @@ class SupplierItem:
         self.long_description = None
         self.qty = None
         self.qty_unit = None
+        self.amount = None
         self.item_code = None
 
     def search_item(self, supplier, check_dup=True):
@@ -154,9 +155,11 @@ class SupplierItem:
         # look for most similar e_items
         sim_items = []
         for e_code, e_item in Api.items_by_code.items():
-            sim_items.append((utils.similar(e_item['item_name'],
-                                            self.description),
-                              e_item))
+            if self.description:
+                sim_items.append((utils.similar(e_item['item_name'], self.description),
+                                  e_item))
+            else:
+                sim_items.append((0, e_item))
         top_items = sorted(sim_items, reverse=True, key=lambda x: x[0])[0:20]
         # print(top_items)
         texts = ['Neuen Artikel anlegen']
@@ -185,7 +188,7 @@ class SupplierItem:
             return e_item
         else:
             title = "Artikelgruppe für Neuen Artikel in ERPNext wählen"
-            msg = self.long_description + "\n"
+            msg = self.long_description + "\n" if self.long_description else ""
             if self.item_code:
                 msg += "Code Lieferant: " + self.item_code + "\n"
             msg += "Einzelpreis: {0:.2f}€".format(self.rate)
@@ -194,8 +197,8 @@ class SupplierItem:
             groups.sort()
             if check_dup:
                 group = easygui.choicebox(msg, title, groups)
-            else:    
-                group = STANDARD_ITEM_GROUP
+            else:
+                group = settings.STANDARD_ITEM_GROUP
             if group == None:
                 return None
             msg += "\nArtikelgruppe: " + group
@@ -206,8 +209,7 @@ class SupplierItem:
             else:
                 choice = True
             if choice:
-                item_code = "new" + ''.join(random.choices( \
-                    string.ascii_uppercase + string.digits, k=8))
+                item_code = "new" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
                 company_name = self.purchase_invoice.company_name
                 e_item = {'doctype': 'Item',
                           'item_code': item_code,
@@ -856,7 +858,7 @@ class PurchaseInvoice(Invoice):
             paccs = list(set(paccs))
             for acc in paccs:
                 try:
-                    account_names.remove(j)
+                    account_names.remove(acc)
                 except Exception:
                     pass
             account_names = paccs + account_names
@@ -930,8 +932,12 @@ class PurchaseInvoice(Invoice):
         self.gross_total = get_element_with_high_confidence(invoice_json, 'total_amount')
         self.no = get_element_with_high_confidence(invoice_json, 'invoice_id')
         try:
-            self.totals[self.default_vat] = float(get_element_with_high_confidence(invoice_json, 'net_amount'))
-            self.vat[self.default_vat] = float(get_element_with_high_confidence(invoice_json, 'total_tax_amount'))
+            net_amount = get_element_with_high_confidence(invoice_json, 'net_amount')
+            if net_amount:
+                self.totals[self.default_vat] = float(net_amount)
+            total_tax_amount = get_element_with_high_confidence(invoice_json, 'total_tax_amount')
+            if total_tax_amount:
+                self.vat[self.default_vat] = float(total_tax_amount)
             if self.update_stock:
                 line_items = [el for el in invoice_json['entities'] if el.get('type') == 'line_item']
                 for line_item in line_items:
@@ -962,7 +968,7 @@ class PurchaseInvoice(Invoice):
                             s_item.qty = int(r2.group(0))
                         except Exception:
                             pass
-                    if s_item.qty:
+                    if s_item.qty and s_item.amount:
                         s_item.rate = round(s_item.amount / s_item.qty, 2)
                         rounding_error += s_item.amount - s_item.rate * s_item.qty
                         self.items.append(s_item)
@@ -1097,12 +1103,15 @@ class PurchaseInvoice(Invoice):
                       self.vat[vat])
 
     def assign_default_e_items(self, accounts):
-        self.e_items = \
-            [{'item_code': settings.DEFAULT_ITEM_CODE,
-              'qty': 1,
-              'rate': self.totals[vat],
-              'cost_center': self.company.cost_center} \
-             for vat in self.vat_rates if vat in accounts and self.totals[vat]]
+        self.e_items = []
+        for vat in self.vat_rates:
+            if vat in accounts.keys() and self.totals[vat] is not None:
+                self.e_items.append(
+                    {'item_code': settings.DEFAULT_ITEM_CODE,
+                     'qty': 1,
+                     'rate': self.totals[vat],
+                     'cost_center': self.company.cost_center}
+                )
         if not self.update_stock and self.vat_rates:
             self.e_items[0]['expense_account'] = accounts[self.vat_rates[0]]
 
@@ -1294,7 +1303,7 @@ class PurchaseInvoice(Invoice):
             Api.load_item_data()
             print("Hole Lagerdaten")
             yesterd = utils.yesterday(self.date)
-            self.e_items = list(map(lambda item: item.process_item(self.supplier, yesterd, check_dup), self.items))
+            self.e_items = list(map(lambda item: item.process_item(self.supplier, yesterd), self.items))
             if None in self.e_items:
                 print(
                     "Nicht alle Artikel wurden eingetragen.\n Deshalb kann keine Einkaufsrechnung in ERPNext erstellt werden.")
@@ -1310,7 +1319,7 @@ class PurchaseInvoice(Invoice):
 
     def summary(self):
         if not self.doc:
-            create_doc()
+            self.create_doc()
         fields = [('Rechnungsnr.', 'bill_no'),
                   ('Unternehmen', 'company'),
                   ('Lieferant', 'supplier'),
