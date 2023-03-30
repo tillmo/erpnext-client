@@ -1157,10 +1157,10 @@ class PurchaseInvoice(Invoice):
                                       'description': DELIVERY_COST_DESCRIPTION,
                                       'tax_amount': self.shipping})
 
-    def check_total(self):
+    def check_total(self,check_dup = True):
         err = ""
         computed_total = self.shipping + sum([item.rate * item.qty for item in self.items])
-        if abs(self.total - computed_total) > 0.005:
+        if check_dup and abs(self.total - computed_total) > 0.005:
             err = "Abweichung! Summe in Rechnung: {0}, Summe der Posten: {1}".format(self.total, computed_total)
             err += "\nDies kann noch durch Preisanpassungen korrigiert werden.\n"
         return err
@@ -1303,12 +1303,12 @@ class PurchaseInvoice(Invoice):
             Api.load_item_data()
             print("Hole Lagerdaten")
             yesterd = utils.yesterday(self.date)
-            self.e_items = list(map(lambda item: item.process_item(self.supplier, yesterd), self.items))
+            self.e_items = list(map(lambda item: item.process_item(self.supplier, yesterd, check_dup), self.items))
             if None in self.e_items:
                 print(
                     "Nicht alle Artikel wurden eingetragen.\n Deshalb kann keine Einkaufsrechnung in ERPNext erstellt werden.")
                 return None
-            if not ask_if_to_continue(self.check_total(), "Fortsetzen?"):
+            if not ask_if_to_continue(self.check_total(check_dup), "Fortsetzen?"):
                 return None
             if not ask_if_to_continue(self.check_duplicates()):
                 return None
