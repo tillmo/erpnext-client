@@ -18,6 +18,7 @@ import bank
 import stock
 from invoice import Invoice
 from collections import defaultdict
+import datefinder
 import random
 import string
 from pprint import pprint
@@ -126,12 +127,18 @@ def ask_if_to_continue(err, msg=""):
 
 
 def get_element_with_high_confidence(invoice_json, element_type):
-    elements = [el for el in invoice_json['entities'] if el.get('type') == element_type]
+    elements = [el for el in invoice_json['entities'] if el.get('type') == element_type and el.get('confidence')]
     sorted_list = sorted(elements, key=lambda k: -float(k['confidence']))
     best_elem = sorted_list[0]['value'] if len(sorted_list) > 0 else None
-    if type(best_elem)==str:
+    if type(best_elem) == str:
         best_elem = best_elem.strip()
     return best_elem
+
+
+def get_float_number(float_str: str):
+    if ',' in float_str:
+        float_str = float_str.replace('.', '').replace(',', '.')
+    return float(float_str.replace(' ', ''))
 
 
 class SupplierItem:
@@ -213,7 +220,7 @@ class SupplierItem:
                 company_name = self.purchase_invoice.company_name
                 e_item = {'doctype': 'Item',
                           'item_code': item_code,
-                          'item_name': self.description,
+                          'item_name': self.description[:140] if self.description else None,
                           'description': self.long_description,
                           'item_group': group,
                           'item_defaults': [{'company': company_name,
@@ -928,18 +935,22 @@ class PurchaseInvoice(Invoice):
         self.extract_items = self.update_stock
         self.supplier = given_supplier or get_element_with_high_confidence(invoice_json, 'supplier_name')
         self.date = get_element_with_high_confidence(invoice_json, 'invoice_date')
+        if self.date:
+            matches = list(datefinder.find_dates(self.date))
+            self.date = matches[0].strftime('%Y-%m-%d') if matches else None
         self.order_id = get_element_with_high_confidence(invoice_json, 'purchase_order')
         self.gross_total = get_element_with_high_confidence(invoice_json, 'total_amount')
         self.no = get_element_with_high_confidence(invoice_json, 'invoice_id')
         try:
             net_amount = get_element_with_high_confidence(invoice_json, 'net_amount')
             if net_amount:
-                self.totals[self.default_vat] = float(net_amount)
+                self.totals[self.default_vat] = get_float_number(net_amount)
             total_tax_amount = get_element_with_high_confidence(invoice_json, 'total_tax_amount')
             if total_tax_amount:
-                self.vat[self.default_vat] = float(total_tax_amount)
+                self.vat[self.default_vat] = get_float_number(total_tax_amount)
             if self.update_stock:
                 line_items = [el for el in invoice_json['entities'] if el.get('type') == 'line_item']
+                sum_amount = 0
                 for line_item in line_items:
                     s_item = SupplierItem(self)
                     for prop in line_item.get('properties'):
@@ -949,16 +960,27 @@ class PurchaseInvoice(Invoice):
                         elif prop['type'] == 'line_item/product_code':
                             s_item.item_code = prop['value']
                         elif prop['type'] == 'line_item/quantity' and s_item.qty is None:
-                            s_item.qty = int(prop['value'])
+                            s_item.qty = get_float_number(prop['value']) if prop['value'] else 0
+                            if s_item.qty < 0:
+                                s_item.qty = 0
                         elif prop['type'] == 'line_item/unit' and s_item.qty_unit is None:
-                            s_item.qty_unit = prop['value']
-                        elif prop['type'] == 'line_item/amount':
-                            s_item.amount = float(prop['value'])
+                            if prop['value'] in ['Stück', 'ST', 'ST X', 'KT X', 'KTX']:
+                                s_item.qty_unit = 'Stk'
+                            else:
+                                s_item.qty_unit = prop['value']
+                        elif prop['type'] == 'line_item/amount' and s_item.amount is None:
+                            s_item.amount = get_float_number(prop['value']) if prop['value'] else 0
+                            if s_item.amount < 0:
+                                s_item.amount = 0
+                        elif prop['type'] == 'line_item/unit_price' and s_item.qty and not s_item.amount:
+                            s_item.amount = get_float_number(prop['value']) * s_item.qty if prop['value'] else 0
                     if s_item.description and "Vorkasse" in s_item.description:
+                        continue
+                    if s_item.qty_unit in ['kg', 'KG', 'WP', 'Einheiten', 'EP']:
                         continue
                     if s_item.description and (
                             "Fracht" in s_item.description or "Transportkosten" in s_item.description):
-                        self.shipping = s_item.amount
+                        self.shipping = s_item.amount if s_item.amount else 0
                         continue
                     if s_item.qty_unit and s_item.qty_unit == "Rol":
                         try:
@@ -971,10 +993,18 @@ class PurchaseInvoice(Invoice):
                     if s_item.qty and s_item.amount:
                         s_item.rate = round(s_item.amount / s_item.qty, 2)
                         rounding_error += s_item.amount - s_item.rate * s_item.qty
+                        sum_amount += s_item.amount
                         self.items.append(s_item)
                     elif s_item.description:
-                        print("Keine Mengenangabe gefunden für",
-                              s_item.description)
+                            print("Keine Mengenangabe gefunden für", s_item.description)
+                if self.gross_total and self.vat[self.default_vat]:
+                    diff = get_float_number(self.gross_total) - self.vat[self.default_vat] - sum_amount
+                    if diff >= 1:
+                        s_item = SupplierItem(self)
+                        s_item.qty = 1
+                        s_item.amount = diff
+                        s_item.rate = round(s_item.amount, 2)
+                        self.items.append(s_item)
             self.shipping += rounding_error
             self.compute_total()
         except Exception as e:
@@ -1157,7 +1187,7 @@ class PurchaseInvoice(Invoice):
                                       'description': DELIVERY_COST_DESCRIPTION,
                                       'tax_amount': self.shipping})
 
-    def check_total(self,check_dup = True):
+    def check_total(self, check_dup=True):
         err = ""
         computed_total = self.shipping + sum([item.rate * item.qty for item in self.items])
         if check_dup and abs(self.total - computed_total) > 0.005:
