@@ -65,6 +65,8 @@ for pr in Api.api.get_list("PreRechnung", filters={'json1': ['is', 'set']},
     if diff and list(diff.keys())!=['name']:
         print("\n",pr['name'])
         print(diff)
+    else:
+        diff = None
     pr['diff'] = str(diff)
     pr['doctype'] = 'PreRechnung'
     Api.api.update(pr)
