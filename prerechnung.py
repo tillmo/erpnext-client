@@ -118,7 +118,8 @@ def process_inv(pr):
         with open(tmpfile, "wb") as f:
             f.write(contents)
         try:
-            inv.parse_invoice(tmpfile, account=pr['buchungskonto'],
+            inv.parse_invoice(None,tmpfile,
+                              account=pr['buchungskonto'],
                               paid_by_submitter=pr['selbst_bezahlt'],
                               given_supplier=pr['lieferant'],
                               is_test=True)

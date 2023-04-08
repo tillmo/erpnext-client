@@ -5,13 +5,65 @@ from args import init
 import company
 import traceback
 from compute_tests import compute_json, compute_diff
+import purchase_invoice
 
 init()
+
+company.Company.init_companies()
+pinvs = Api.api.get_list("PreRechnung",filters={'lieferant':['in',['Krannich Solar GmbH & Co KG','pvXchange Trading GmbH','Solarwatt GmbH','Wagner Solar','Heckert Solar GmbH']]},
+                           limit_page_length=LIMIT)
+for pr in pinvs:
+    print(pr['name'])
+    inv = purchase_invoice.PurchaseInvoice(True)
+    pdf = pr['pdf']
+    contents = Api.api.get_file(pdf)
+    tmpfile = "/tmp/r.pdf"
+    with open(tmpfile, "wb") as f:
+        f.write(contents)
+    try:
+        inv.parse_invoice(None,tmpfile,
+                          account=pr['buchungskonto'],
+                          paid_by_submitter=pr['selbst_bezahlt'],
+                          given_supplier=pr['lieferant'],
+                          is_test=True)
+    except Exception as e:
+        print(e)
+        pass
+    try:
+        vat = sum(map(int, inv.vat.values()))
+    except:
+        vat = 0
+    if not inv.gross_total:
+        inv.gross_total = inv.total + vat
+    if vars(inv).get('items'):
+        j = {'order_id': inv.order_id,
+             'total' : inv.total,
+             'gross_total' : inv.gross_total,
+             'taxes': inv.vat,
+             'supplier': inv.supplier,
+             'posting_date' : inv.date,
+             'bill_no': inv.no,
+             'shipping': inv.shipping}
+        items = []
+        for item in inv.items:
+            d = vars(item)
+            d['short_description'] = d['description']
+            d['description'] = d['long_description']
+            del d['long_description']
+            del d['purchase_invoice']
+            items.append(d)
+        j['items'] = items    
+        pr['json2'] = json.dumps(j)
+        pr['doctype'] = 'PreRechnung'
+        Api.api.update(pr)
+        print(j['taxes'])
+
+exit(0)
 
 
 Api.load_item_data()
 pinvs = Api.api.get_list("Purchase Invoice",filters={'company':'Laden'},
-                           limit_page_length=1)
+                           limit_page_length=LIMIT)
 for inv in pinvs:
     atts = Api.api.get_list('File', filters={
 		'attached_to_doctype': "Purchase Invoice",
