@@ -39,7 +39,7 @@ for pr in pinvs:
         j = {'order_id': inv.order_id,
              'total' : inv.total,
              'gross_total' : inv.gross_total,
-             'taxes': inv.vat,
+             'taxes': [{"rate": 19, "tax_amount": inv.vat[None]}],
              'supplier': inv.supplier,
              'posting_date' : inv.date,
              'bill_no': inv.no,
