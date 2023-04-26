@@ -148,6 +148,8 @@ class SupplierItem:
         self.long_description = None
         self.qty = None
         self.qty_unit = None
+        self.rate = None
+        self.pos = None
         self.amount = None
         self.item_code = None
 
@@ -933,14 +935,18 @@ class PurchaseInvoice(Invoice):
         self.shipping = 0
         self.items = []
         self.extract_items = self.update_stock
-        self.supplier = given_supplier or get_element_with_high_confidence(invoice_json, 'supplier_name')
-        self.date = get_element_with_high_confidence(invoice_json, 'invoice_date')
+        self.supplier = given_supplier or get_element_with_high_confidence(invoice_json, 'supplier')
+        self.supplier_address = get_element_with_high_confidence(invoice_json, 'supplier_address')
+        self.shipping_address = get_element_with_high_confidence(invoice_json, 'ship_to_address')
+        self.date = get_element_with_high_confidence(invoice_json, 'posting_date')
+        if self.date is None:
+            self.date = get_element_with_high_confidence(invoice_json, 'due_date')
         if self.date:
             matches = list(datefinder.find_dates(self.date))
             self.date = matches[0].strftime('%Y-%m-%d') if matches else None
-        self.order_id = get_element_with_high_confidence(invoice_json, 'purchase_order')
+        self.order_id = get_element_with_high_confidence(invoice_json, 'order_id')
         self.gross_total = get_element_with_high_confidence(invoice_json, 'total_amount')
-        self.no = get_element_with_high_confidence(invoice_json, 'invoice_id')
+        self.no = get_element_with_high_confidence(invoice_json, 'bill_no')
         try:
             net_amount = get_element_with_high_confidence(invoice_json, 'net_amount')
             if net_amount:
@@ -949,54 +955,45 @@ class PurchaseInvoice(Invoice):
             if total_tax_amount:
                 self.vat[self.default_vat] = get_float_number(total_tax_amount)
             if self.update_stock:
-                line_items = [el for el in invoice_json['entities'] if el.get('type') == 'line_item']
+                line_items = [el for el in invoice_json['entities'] if el.get('type') == 'item']
                 sum_amount = 0
                 for line_item in line_items:
                     s_item = SupplierItem(self)
                     for prop in line_item.get('properties'):
-                        if prop['type'] == 'line_item/description':
+                        if prop['type'] == 'item-description' and s_item.description is None:
                             s_item.description = prop['value']
                             s_item.long_description = prop['value']
-                        elif prop['type'] == 'line_item/product_code':
+                        elif prop['type'] == 'item-code' and s_item.item_code is None:
                             s_item.item_code = prop['value']
-                        elif prop['type'] == 'line_item/quantity' and s_item.qty is None:
+                        elif prop['type'] == 'item-pos' and s_item.pos is None:
+                            s_item.pos = prop['value']
+                        elif prop['type'] == 'item-quantity' and s_item.qty is None:
                             s_item.qty = get_float_number(prop['value']) if prop['value'] else 0
                             if s_item.qty < 0:
                                 s_item.qty = 0
-                        elif prop['type'] == 'line_item/unit' and s_item.qty_unit is None:
-                            if prop['value'] in ['Stück', 'ST', 'ST X', 'KT X', 'KTX']:
-                                s_item.qty_unit = 'Stk'
-                            else:
-                                s_item.qty_unit = prop['value']
-                        elif prop['type'] == 'line_item/amount' and s_item.amount is None:
+                            s_item.qty_unit = 'Stk'
+                        elif prop['type'] == 'item-amount' and s_item.amount is None:
                             s_item.amount = get_float_number(prop['value']) if prop['value'] else 0
-                            if s_item.amount < 0:
-                                s_item.amount = 0
-                        elif prop['type'] == 'line_item/unit_price' and s_item.qty and not s_item.amount:
-                            s_item.amount = get_float_number(prop['value']) * s_item.qty if prop['value'] else 0
+                        elif prop['type'] == 'item-unit-price' and s_item.rate is None:
+                            s_item.rate = get_float_number(prop['value']) if prop['value'] else None
+                            if s_item.qty and not s_item.amount:
+                                s_item.amount = s_item.rate * s_item.qty if prop['value'] else 0
+                            elif not s_item.qty and s_item.amount:
+                                s_item.qty = s_item.amount / s_item.rate if prop['value'] else 0
                     if s_item.description and "Vorkasse" in s_item.description:
-                        continue
-                    if s_item.qty_unit in ['kg', 'KG', 'WP', 'Einheiten', 'EP']:
                         continue
                     if s_item.description and (
                             "Fracht" in s_item.description or "Transportkosten" in s_item.description):
                         self.shipping = s_item.amount if s_item.amount else 0
                         continue
-                    if s_item.qty_unit and s_item.qty_unit == "Rol":
-                        try:
-                            r1 = re.search('[0-9]+ *[mM]', s_item.description)
-                            r2 = re.search('[0-9]+', r1.group(0))
-                            s_item.qty_unit = "Meter"
-                            s_item.qty = int(r2.group(0))
-                        except Exception:
-                            pass
                     if s_item.qty and s_item.amount:
-                        s_item.rate = round(s_item.amount / s_item.qty, 2)
+                        if not s_item.rate:
+                            s_item.rate = round(s_item.amount / s_item.qty, 2)
                         rounding_error += s_item.amount - s_item.rate * s_item.qty
                         sum_amount += s_item.amount
                         self.items.append(s_item)
                     elif s_item.description:
-                            print("Keine Mengenangabe gefunden für", s_item.description)
+                        print("Keine Mengenangabe gefunden für", s_item.description)
                 if self.gross_total and self.vat[self.default_vat]:
                     diff = get_float_number(self.gross_total) - self.vat[self.default_vat] - sum_amount
                     if diff >= 1:

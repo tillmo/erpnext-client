@@ -62,23 +62,45 @@ def extract_invoice_info(pdf_file_content) -> dict:
     text = document.text
 
     # Get the entities from the document
-    entities = []
+    sub_entities = []
     for entity in document.entities:
         props = []
         for prop in entity.properties:
-            props.append({
-                "value": prop.normalized_value.text or prop.text_anchor.content or prop.mention_text,
-                "type": prop.type_,
-                "confidence": prop.confidence,
-            })
-        entities.append(
-            {
+            if prop.confidence >= 0.2:
+                props.append({
+                    "value": prop.normalized_value.text or prop.text_anchor.content or prop.mention_text,
+                    "type": prop.type_,
+                    "confidence": prop.confidence,
+                })
+        if entity.type_ == "item" or entity.confidence >= 0.2:
+            sub_entities.append({
                 "value": entity.normalized_value.text or entity.text_anchor.content or entity.mention_text,
                 "type": entity.type_,
                 "properties": props,
                 "confidence": entity.confidence,
-            }
-        )
+                "page_number": entity.page_anchor.page_refs[0].page,
+                "line_number": entity.text_anchor.text_segments[0].start_index,
+            })
+    sub_entities = sorted(sub_entities, key=lambda x: (x['page_number'], x['line_number']))
+
+    keys = []
+    entities = []
+    base_entity_info = {}
+    for sub_entity in sub_entities:
+        if sub_entity['type'] == 'item':
+            prop_types = [d['type'] for d in sub_entity['properties']]
+            if set(keys) & set(prop_types):
+                entities.append(base_entity_info)
+                keys = []
+                base_entity_info = {}
+            keys.extend(prop_types)
+            if not base_entity_info.keys():
+                base_entity_info = sub_entity
+            else:
+                base_entity_info['properties'].extend(sub_entity['properties'])
+        else:
+            entities.append(sub_entity)
+
     # Return the results as a dictionary
     return {"document_text": text, "entities": entities}
 
