@@ -1210,22 +1210,19 @@ class PurchaseInvoice(Invoice):
         if not check_dup or not self.no or not self.no.strip():
             return False
         upload = None
-        invs = gui_api_wrapper(Api.api.get_list, "Purchase Invoice",
-                               {'bill_no': self.no, 'status': ['!=', 'Cancelled']})
+        invs = gui_api_wrapper(Api.api.get_list,"Purchase Invoice",
+                               filters={'bill_no': self.no, 'status': ['!=','Cancelled']})
         if not invs and self.order_id:
-            invs = gui_api_wrapper(Api.api.get_list, "Purchase Invoice",
-                                   {'order_id': self.order_id, 'status': ['!=', 'Cancelled']})
-            if invs:
-                # attach the present PDF to invoice with same order_id
-                upload = self.upload_pdfs(invs[0]['name'])
+            invs1 = gui_api_wrapper(Api.api.get_list,"Purchase Invoice",
+                               filters={'order_id': self.order_id, 'status': ['!=','Cancelled']})
+            if invs1:
+                easygui.msgbox("Einkaufsrechnung {} ist möglicherweise schon als {} in ERPNext eingetragen worden. Möglicherweise ist der Auftrag aber auch in mehrere Rechnungen gesplittet worden.".format(self.no,invs1[0]['name']))
         if invs:
+            # attach the present PDF to invoice with same bill_no
+            upload = self.upload_pdfs(invs[0]['name'])
             if upload:
                 upload = "Aktuelle Rechnung wurde dort angefügt."
-            easygui.msgbox("Einkaufsrechnung {} ist schon als {} in ERPNext eingetragen worden. {}".format(self.no,
-                                                                                                           invs[0][
-                                                                                                               'name'],
-                                                                                                           upload))
-
+            easygui.msgbox("Einkaufsrechnung {} ist schon als {} in ERPNext eingetragen worden. {}".format(self.no,invs[0]['name'],upload))
             self.is_duplicate = True
             self.doc = invs[0]
             return True
