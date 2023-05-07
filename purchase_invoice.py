@@ -2,7 +2,7 @@
 
 from settings import STANDARD_PRICE_LIST, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, \
     DELIVERY_COST_DESCRIPTION, NKK_ACCOUNTS, KORNKRAFT_ACCOUNTS, SOMIKO_ACCOUNTS, MATERIAL_ITEM_CODE, STOCK_ITEM_GROUPS, \
-    MATERIAL_ITEM_VALUE
+    MATERIAL_ITEM_VALUE, DEFAULT_ITEMS
 
 import utils
 import PySimpleGUI as sg
@@ -164,11 +164,13 @@ class SupplierItem:
         # look for most similar e_items
         sim_items = []
         for e_code, e_item in Api.items_by_code.items():
-            if self.description:
-                sim_items.append((utils.similar(e_item['item_name'], self.description),
-                                  e_item))
+            if e_code in DEFAULT_ITEMS:
+                sim = 1
+            elif self.description:
+                sim = utils.similar(e_item['item_name'], self.description)
             else:
-                sim_items.append((0, e_item))
+                sim = 0
+            sim_items.append((sim, e_item))
         top_items = sorted(sim_items, reverse=True, key=lambda x: x[0])[0:20]
         # print(top_items)
         texts = ['Neuen Artikel anlegen']
