@@ -283,6 +283,16 @@ class FrappeClient(object):
 		'''Returns a file from the file system'''
 		return self.session.get(self.url + path).content
 
+	def get_attachments(self, doctype, name):
+		'''Returns attachments to a document'''
+		params = {
+			'doctype': doctype,
+			'name' : name,
+		}
+		res = self.session.get(self.url + "/api/resource/" + doctype + "/" + name + "?run_method=frappe.core.doctype.file.file.get_attached_images",
+			params=params)
+		return self.post_process(res)
+
 	def get_unreconciled_entries(self,name):
 		res = self.session.get(self.url + '/api/resource/' + 'Payment Reconciliation' + '/' + name)
 
