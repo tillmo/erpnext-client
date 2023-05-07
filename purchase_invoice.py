@@ -214,10 +214,10 @@ class SupplierItem:
             title = "Neuen Artikel in ERPNext eintragen"
             msg += "\n\nDiesen Artikel eintragen?"
             if check_dup:
-                choice = easygui.choicebox(msg, title)
+                choice = easygui.choicebox(msg, title,["Ja","Nein"])
             else:
-                choice = True
-            if choice:
+                choice = "Ja"
+            if choice == "Ja":
                 item_code = "new" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
                 company_name = self.purchase_invoice.company_name
                 e_item = {'doctype': 'Item',
