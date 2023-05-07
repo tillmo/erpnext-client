@@ -176,7 +176,8 @@ class SupplierItem:
         texts = ['Neuen Artikel anlegen']
         texts += [i[1]['item_code'] + ' ' + i[1]['item_name'] for i in top_items]
         title = "Artikel wählen"
-        msg = "Artikel in Rechnung:\n{0}\n\n".format(self.long_description)
+        msg = "Artikel in Rechnung:\n{0}\n\nCode Lieferant: {1}\n\n".format(self.long_description,self.item_code)
+              
         msg += "Bitte passenden Artikel in ERPNext auswählen:"
         if check_dup:
             choice = easygui.choicebox(msg, title, texts)
