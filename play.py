@@ -11,6 +11,13 @@ import menu
 
 init()
 
+for pr in Api.api.get_list("PreRechnung",
+                           filters={'short_error':['is', 'set']},
+                           limit_page_length=LIMIT):
+    print(pr['name'],pr['short_error'])
+    
+exit(0)
+
 FIELD = 'bill_no'
 FIELD1 = 'bill_no'
 for pr in Api.api.get_list("PreRechnung",
