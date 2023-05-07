@@ -6,8 +6,38 @@ import company
 import traceback
 from compute_tests import compute_json, compute_diff
 import purchase_invoice
+from purchase_invoice import get_element_with_high_confidence
+import menu
 
 init()
+
+FIELD = 'bill_no'
+FIELD1 = 'bill_no'
+for pr in Api.api.get_list("PreRechnung",
+                           filters={'json':['is', 'set'],'json1':['is', 'set']},
+                           limit_page_length=LIMIT):
+    myjson = json.loads(pr['json'])    
+    f = get_element_with_high_confidence(myjson, FIELD)
+    json1 = json.loads(pr['json1'])
+    if pr.get('json2'):
+        json2 = json.loads(pr['json2'])
+    else:
+        json2 = {}
+    #print(json1)
+    if json1.get(FIELD1):
+        if f != json1.get(FIELD1) and f != json2.get(FIELD1):
+            if json2.get(FIELD1) and json2.get(FIELD1)!=json1.get(FIELD1):
+                print("{}: expected1: '{}',  expected2: '{}', actual: '{}'".format(pr['name'],json1.get(FIELD1),json2.get(FIELD1),f))
+            else:    
+                print("{}: expected1: '{}', actual: '{}'".format(pr['name'],json1.get(FIELD1),f))
+        else:
+            print("OK")
+    else:
+        print("not found")
+#    prerechnung.process_inv(pr)
+exit(0)
+menu.main_loop()
+exit(0)
 
 company.Company.init_companies()
 pinvs = Api.api.get_list("PreRechnung",filters={'lieferant':['in',['Krannich Solar GmbH & Co KG','pvXchange Trading GmbH','Solarwatt GmbH','Wagner Solar','Heckert Solar GmbH']]},
