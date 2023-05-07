@@ -983,7 +983,7 @@ class PurchaseInvoice(Invoice):
                     if s_item.description and "Vorkasse" in s_item.description:
                         continue
                     if s_item.description and (
-                            "Fracht" in s_item.description or "Transportkosten" in s_item.description):
+                            "Fracht" in s_item.description or "Transportkosten" in s_item.description or "Versand" in s_item.description):
                         self.shipping = s_item.amount if s_item.amount else 0
                         continue
                     if s_item.qty and s_item.amount:
