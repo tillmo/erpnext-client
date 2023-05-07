@@ -8,8 +8,10 @@ import project
 import doc
 import settings
 import purchase_invoice
+from purchase_invoice import get_element_with_high_confidence
 from api import Api, LIMIT
 import json
+import traceback
 
 from google.cloud import documentai_v1beta3 as documentai
 from google.api_core.client_options import ClientOptions
@@ -110,8 +112,16 @@ def process_inv(pr):
     pdf = pr['pdf']
     contents = Api.api.get_file(pdf)
     if sg.UserSettings().get('-google-credentials-'):
-        pr['json'] = json.dumps(extract_invoice_info(contents))
-        # todo: set pr['betrag'] to gross total, pr['auftragsnr']
+        try:
+            pr['json'] = json.dumps(extract_invoice_info(contents))
+            myjson = json.loads(pr['json'])    
+            pr['auftragsnr'] = get_element_with_high_confidence(myjson, 'order_id')
+            pr['betrag'] = get_element_with_high_confidence(myjson, 'total_amount')
+            pr['processed'] = True
+            pr['doctype'] = 'PreRechnung'
+            Api.api.update(pr)
+        except Exception as e:
+            print(str(e)+"\n"+traceback.format_exc())
     else:
         inv = purchase_invoice.PurchaseInvoice(pr['lager'])
         tmpfile = "/tmp/r.pdf"
@@ -137,9 +147,9 @@ def process_inv(pr):
             pr['betrag'] = inv.gross_total
         if inv.order_id:
             pr['auftragsnr'] = inv.order_id
-    pr['processed'] = True
-    pr['doctype'] = 'PreRechnung'
-    Api.api.update(pr)
+        pr['processed'] = True
+        pr['doctype'] = 'PreRechnung'
+        Api.api.update(pr)
 
 
 def to_pay(company_name):
