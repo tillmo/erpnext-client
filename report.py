@@ -11,6 +11,7 @@ from anytree import Node, RenderTree, PostOrderIter
 from collections import defaultdict
 import PySimpleGUI as sg
 import plotly.express as px
+import csv
 
 def get_dates():
     year = sg.UserSettings()['-year-'] 
@@ -525,3 +526,32 @@ def balkonmodule(company):
 #        print(start_date_str,end_date_str,aggr_items)
     fig = px.line(report, x="Datum", y="Anzahl", title=company+' - Balkonmodulverkauf', color='Wert',line_shape='spline')
     fig.show()    
+
+def balkonmodule_csv(company):
+    items = defaultdict(float)
+    project = Api.api.get_list("Project",
+                               filters={'project_type': 'Balkonmodule',
+                                        'status': 'Open'})[0]
+    sinvs = Api.api.get_list("Sales Invoice",
+                             filters={'company':company,
+                                      'project' : project['name'],
+                                      'status': ['!=','Cancelled']},
+                             limit_page_length=LIMIT)
+    for sinv in sinvs:
+        inv = Api.api.get_doc("Sales Invoice",sinv['name'])
+        for item in inv['items']:
+            items[item['item_code']] += int(item['qty'])
+    full_items = []        
+    for item_code,qty in items.items():
+        full_item = Api.api.get_doc("Item",item_code)
+        full_items.append({'item_name':full_item['item_name'],
+                           'item_code':full_item['item_code'],
+                           'qty':int(qty)})    
+    full_items.sort(key=lambda item:item['item_name'])
+    with open('balkon.csv', 'w') as f:
+        w = csv.DictWriter(f, full_items[0].keys(),
+                           quotechar='"', quoting=csv.QUOTE_NONNUMERIC)
+        w.writeheader()
+        w.writerows(full_items)
+    print("Projekt {} - exportiert nach balkon.csv".format(project['name']))
+    
