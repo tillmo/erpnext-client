@@ -626,6 +626,7 @@ def event_handler(event,window):
         q = utils.last_quarter(datetime.today())
         print("Erstelle Buchungen für Umverteilung der Einnahmen "+q)
         journal.create_income_dist_journal_entries(comp,q)
+        print("\nBitte diese Buchungssätze noch buchen")
     elif event == 'USt-Voranmeldung':
         comp = user_settings['-company-']
         q = utils.last_quarter(datetime.today())
