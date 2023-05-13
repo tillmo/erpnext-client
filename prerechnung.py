@@ -75,13 +75,17 @@ def extract_invoice_info(pdf_file_content) -> dict:
                     "confidence": prop.confidence,
                 })
         if entity.type_ == "item" or entity.confidence >= 0.2:
+            try:
+                line_no = entity.text_anchor.text_segments[0].start_index
+            except:
+                line_no = 0
             sub_entities.append({
                 "value": entity.normalized_value.text or entity.text_anchor.content or entity.mention_text,
                 "type": entity.type_,
                 "properties": props,
                 "confidence": entity.confidence,
                 "page_number": entity.page_anchor.page_refs[0].page,
-                "line_number": entity.text_anchor.text_segments[0].start_index,
+                "line_number": line_no,
             })
     sub_entities = sorted(sub_entities, key=lambda x: (x['page_number'], x['line_number']))
 
