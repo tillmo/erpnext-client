@@ -70,13 +70,13 @@ TAX_ACCOUNTS = \
 
 INCOME_DIST_ACCOUNTS = \
  {'Laden':
-    {'income' : [{'unclear' : '8501 - Ladenkasse Ust. noch unklar - Laden',
+    {'income' : [{'unclear' : '8503 - Ladenkasse Ust. noch unklar - Laden',
                   7 : '8301 - Ladenkasse Ust.7% - Laden',
                   19: '8401 - Ladenkasse Ust.19% - Laden'},
                  {'unclear' :  '8502 - Café an Laden USt. noch unklar - Laden',
                   7 : '8402 - Café an Laden Ust.19% - Laden',
                   19 : '8403 - Bieterrunde Laden Ust.19% - Laden'}, 
-                 {'unclear' : '8503 - Bieterrunde USt. noch unklar - Laden',
+                 {'unclear' : '8501 - Bieterrunde USt. noch unklar - Laden',
                   7 : '8302 - Café an Laden Ust.7% - Laden',
                   19 :'8303 - Bieterrunde Laden Ust.7% - Laden'}],
      'expense' : { 7 : '3300 - Wareneingang 7% Vorsteuer - Laden',
