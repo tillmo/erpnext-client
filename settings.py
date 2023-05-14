@@ -95,9 +95,12 @@ INCOME_ACCOUNTS = \
           '8403 - Bieterrunde Laden Ust.19% - Laden', 
           '8303 - Bieterrunde Laden Ust.7% - Laden']},
   'Bremer SolidarStrom':
-    {19: ['8401 - Selbstbauanlagen - SoMiKo',
-          '8402 - Selbstbausets - SoMiKo',
-          '8403 - Balkonmodule - SoMiKo',
-          '8404 - Neukund*innen Ökostrom - SoMiKo']},
+    {0: ['8291 - Selbstbauanlagen 0% - SoMiKo',
+          '8292 - Selbstbausets 0% - SoMiKo',
+          '8293 - Balkonmodule 0% - SoMiKo'],
+    19: ['8401 - Selbstbauanlagen 19% - SoMiKo',
+          '8402 - Selbstbausets 19% - SoMiKo',
+          '8403 - Balkonmodule 19% - SoMiKo',
+          '8404 - Neukund*innen Ökostrom 19% - SoMiKo']},
   'Soli e.V.': {}
  }
