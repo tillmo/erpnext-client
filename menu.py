@@ -135,7 +135,7 @@ def event_handler(event,window):
         print('Im Homebanking die Banktransaktionen seit diesem Datum herunterladen und als csv-Datein speichern')
         print('- Doppelungen werden erkannt, also lieber einen zu großen statt zu kleinen Zeitraum wählen')
         print('Dann hier unter Einlesen - Kontoauszug die csv-Datei hochladen')
-        print('Danach unter Bearbeiten - Banktransaktionen die Banktransaktionen zuordnen')
+        print('Danach unter Offene Dokumente - Banktransaktionen die Banktransaktionen zuordnen')
         print('Jeder Banktransaktion muss ein ERPNext-Buchungskonto oder eine offene Rechnung zugeordnet werden')
         print('- Dadurch entsteht ein ERPNext-Buchungssatz oder eine ERPNext-(An)Zahlung')
         print('- Man kann die Bearbeitung einer Banktransaktion auch abbrechen und mit der nächsten weitermachen')
@@ -288,7 +288,7 @@ def event_handler(event,window):
     elif event == 'Einkaufsrechnung Lager':
         if purchase_inv(True):
             show_company_data = True
-    elif event == 'Banktransaktionen bearbeiten':
+    elif event == 'Banktransaktionen einzeln':
         comp = company.Company.get_company(user_settings['-company-'])
         if comp:
             comp.reconcile_all()
@@ -681,8 +681,7 @@ def menus():
 
     # ------ Menu Definition ------ #
     menu_def = [['&Einlesen', ['&Kontoauszug', '&Einkaufsrechnung', '&Einkaufsrechnung Lager']],
-                ['&Bearbeiten', ['Banktransaktionen bearbeiten']],
-                ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Unzugeordnete (An)Zahlungen (Summen)','Prerechnungen','Prerechnungen Anzahlung','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen','Prerechnungen vorprozessieren']],
+                ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Unzugeordnete (An)Zahlungen (Summen)','Prerechnungen','Prerechnungen Anzahlung','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen','Banktransaktionen einzeln','Prerechnungen vorprozessieren']],
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte','Balkonmodulverkauf (grafisch)','Balkonmodulverkauf (csv)','zu bezahlende Prerechnungen']], 
                 ['Bereich', company.Company.all()], 
