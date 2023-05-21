@@ -17,6 +17,41 @@ from google.cloud import documentai_v1beta3 as documentai
 from google.api_core.client_options import ClientOptions
 
 
+ENTITIES_DATA_SCHEMA = {
+    "title": "Entities format",
+    "required": ["total_amount"],
+    "type": "object",
+    "properties": {
+        "supplier": {"type": "string"},
+        "supplier_address": {"type": "string"},
+        "bill_no": {"type": "string"},
+        "order_id": {"type": "string"},
+        "due_date": {"type": "string"},
+        "posting_date": {"type": "string"},
+        "ship_to_address": {"type": "string"},
+        "net_amount": {"type": "string"},
+        "total_tax_amount": {"type": "string"},
+        "total_amount": {"type": "string"},
+        "items": {
+            "type": "array",
+            "items": {
+                "required": ["item-description", "item-amount"],
+                "type": "object",
+                "properties": {
+                    "item-pos": {"type": "string"},
+                    "item-code": {"type": "string"},
+                    "item-description": {"type": "string"},
+                    "item-quantity": {"type": "string"},
+                    "item-unit-price": {"type": "string"},
+                    "item-amount": {"type": "string"},
+                }
+            },
+            "minItems": 1,
+        },
+    }
+}
+
+
 def process(company_name):
     prs = Api.api.get_list(
         "PreRechnung",
