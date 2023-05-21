@@ -9,7 +9,21 @@ import purchase_invoice
 from purchase_invoice import get_element_with_high_confidence
 import menu
 
+
 init()
+
+for inv in Api.api.get_list("PreRechnung",
+                            filters={'json1':['is', 'set']},
+                            limit_page_length=LIMIT):
+    name = inv['name']
+    pdf = Api.api.get_file(inv['pdf'])
+    print("{} {}".format(inv['name'],inv['pdf']))
+    with open(name+".pdf",'wb') as f:
+        f.write(pdf)
+    with open(name+".json",'w') as f:
+        f.write(inv['json1'])
+    
+exit(0)
 
 for pr in Api.api.get_list("PreRechnung",
                            filters={'short_error':['is', 'set']},
