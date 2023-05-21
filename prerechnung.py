@@ -17,47 +17,6 @@ from google.cloud import documentai_v1beta3 as documentai
 from google.api_core.client_options import ClientOptions
 
 
-JSON1_DATA_SCHEMA = {
-    "title": "Intermediate format for Google AI Invoice parser",
-    "required": ["supplier", "posting_date", "bill_no", "grand_total", "taxes"],
-    "type": "object",
-    "properties": {
-        "supplier": {"type": "string"},
-        "posting_date": {"type": "string"},
-        "bill_no": {"type": "string"},
-        "total": {"type": "number"},
-        "grand_total": {"type": "number"},
-        "shipping": {"type": "number"},
-        "items": {
-            "type": "array",
-            "items": {
-                "required": ["description", "amount"],
-                "type": "object",
-                "properties": {
-                    "description": {"type": "string"},
-                    "qty": {"type": "number"},
-                    "uom": {"type": "string"},
-                    "rate": {"type": "number"},
-                    "amount": {"type": "number"},
-                }
-            },
-        },
-        "taxes": {
-            "type": "array",
-            "items": {
-                "required": ["rate", "tax_amount"],
-                "type": "object",
-                "properties": {
-                    "rate": {"type": "integer"},
-                    "tax_amount": {"type": "number"},
-                }
-            },
-            "minItems": 0,
-        },
-    }
-}
-
-
 ENTITIES_DATA_SCHEMA = {
     "title": "Entities format",
     "required": ["total_amount"],
