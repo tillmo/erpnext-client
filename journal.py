@@ -281,6 +281,12 @@ def pretax(company_name,start_date,end_date):
     accounts = TAX_ACCOUNTS[company_name]['pre_tax_accounts']
     return get_gl_total(company_name,start_date,end_date,accounts)
 
+def pretax_details(company_name,start_date,end_date):
+    accounts = TAX_ACCOUNTS[company_name]['pre_tax_accounts']
+    gl = get_gl(company_name,start_date,end_date,accounts)
+    gl = [(gle['voucher_no'],gle['debit']) for gle in gl if gle.get('voucher_type') == 'Purchase Invoice']
+    return gl    
+
 def vat_declaration(company_name,quarter):
     start_date,end_date = utils.quarter_to_dates(quarter)
     cs = company.Company.descendants_by_name(company_name)
