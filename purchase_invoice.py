@@ -1034,6 +1034,18 @@ class PurchaseInvoice(Invoice):
             self.compute_total()
             return self
 
+
+        if not self.supplier:
+            print("Lieferant nicht erkannt")
+        if not self.date:
+            print("Datum nicht erkannt")
+        if not self.no:
+            print("Rechnungsnr. nicht erkannt")
+        if not self.vat[self.default_vat]:
+            print("MWSt nicht erkannt")
+        if not self.gross_total:
+            print("Bruttobetrag nicht erkannt")
+        print("Rückfall auf manuelle Eingabe")
         suppliers = gui_api_wrapper(Api.api.get_list, "Supplier", limit_page_length=LIMIT)
         supplier_names = [supp['name'] for supp in suppliers]
         supplier_names.sort()
