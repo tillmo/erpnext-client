@@ -958,31 +958,32 @@ class PurchaseInvoice(Invoice):
             if total_tax_amount:
                 self.vat[self.default_vat] = get_float_number(total_tax_amount)
             if self.update_stock:
-                line_items = [el for el in invoice_json['entities'] if el.get('type') == 'item']
+                line_items = [el for el in invoice_json['entities'] if el.get('type') in ['item','line_item']]
                 sum_amount = 0
                 for line_item in line_items:
                     s_item = SupplierItem(self)
                     for prop in line_item.get('properties'):
-                        if prop['type'] == 'item-description' and s_item.description is None:
+                        if prop['type'] in ['item-description','line_item/description'] and s_item.description is None:
                             s_item.description = prop['value']
                             s_item.long_description = prop['value']
-                        elif prop['type'] == 'item-code' and s_item.item_code is None:
+                        elif prop['type'] in ['item-code','line_item/product_code'] and s_item.item_code is None:
                             s_item.item_code = prop['value']
-                        elif prop['type'] == 'item-pos' and s_item.pos is None:
+                        elif prop['type'] in ['item-pos','line_item/pos'] and s_item.pos is None:
                             s_item.pos = prop['value']
-                        elif prop['type'] == 'item-quantity' and s_item.qty is None:
+                        elif prop['type'] in ['item-quantity','line_item/quantity'] and s_item.qty is None:
                             s_item.qty = get_float_number(prop['value']) if prop['value'] else 0
                             if s_item.qty < 0:
                                 s_item.qty = 0
                             s_item.qty_unit = 'Stk'
-                        elif prop['type'] == 'item-amount' and s_item.amount is None:
+                        elif prop['type'] in ['item-amount','line_item/amount'] and s_item.amount is None:
                             s_item.amount = get_float_number(prop['value']) if prop['value'] else 0
-                        elif prop['type'] == 'item-unit-price' and s_item.rate is None:
+                        elif prop['type'] in ['item-unit-price','line_item/unit_price'] and s_item.rate is None:
                             s_item.rate = get_float_number(prop['value']) if prop['value'] else None
                             if s_item.qty and not s_item.amount:
                                 s_item.amount = s_item.rate * s_item.qty if prop['value'] else 0
                             elif not s_item.qty and s_item.amount:
                                 s_item.qty = s_item.amount / s_item.rate if prop['value'] else 0
+                    #print(vars(s_item),"\n",line_item)
                     if s_item.description and "Vorkasse" in s_item.description:
                         continue
                     if s_item.description and (
@@ -1330,7 +1331,7 @@ class PurchaseInvoice(Invoice):
             Api.load_item_data()
             print("Hole Lagerdaten")
             yesterd = utils.yesterday(self.date)
-            self.e_items = list(map(lambda item: item.process_item(self.supplier, yesterd, check_dup), self.items))
+            self.e_items = [item.process_item(self.supplier, yesterd, check_dup) for item in self.items] # if item.description]
             if None in self.e_items:
                 print(
                     "Nicht alle Artikel wurden eingetragen.\n Deshalb kann keine Einkaufsrechnung in ERPNext erstellt werden.")
