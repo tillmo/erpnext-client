@@ -1,31 +1,27 @@
 import json
-
-from jsonschema import validate
-
 import prerechnung
 from api import Api, LIMIT
 from args import init
 import company
 import traceback
-from compute_tests import compute_json, compute_diff, JSON1_DATA_SCHEMA
+from compute_tests import compute_json, compute_diff, validate_json1
 import purchase_invoice
 from purchase_invoice import get_element_with_high_confidence
 import menu
 
-
 init()
 
 for inv in Api.api.get_list("PreRechnung",
-                            filters={'json1':['is', 'set']},
+                            filters={'json1': ['is', 'set']},
                             limit_page_length=LIMIT):
     name = inv['name']
     pdf = Api.api.get_file(inv['pdf'])
-    print("{} {}".format(inv['name'],inv['pdf']))
-    with open(name+".pdf",'wb') as f:
+    print("{} {}".format(inv['name'], inv['pdf']))
+    with open(name + ".pdf", 'wb') as f:
         f.write(pdf)
-    with open(name+".json",'w') as f:
+    with open(name + ".json", 'w') as f:
         f.write(inv['json1'])
-    
+
 exit(0)
 
 for pr in Api.api.get_list("PreRechnung",
@@ -164,14 +160,11 @@ for pr in Api.api.get_list("PreRechnung", filters={'purchase_invoice': ['is', 's
         pr = Api.api.get_doc("PreRechnung", pr['name'])  # reload
         pinv2 = prerechnung.read_and_transfer(pr, check_dup=False)
         pinv2 = Api.api.get_doc("Purchase Invoice", pinv2.name)
-        validate(
-            instance=pinv1,
-            schema=JSON1_DATA_SCHEMA,
-        )
-        pr['json1'] = json.dumps(pinv1)
-        pr['json2'] = json.dumps(pinv2)
-        pr['doctype'] = 'PreRechnung'
-        Api.api.update(pr)
+        if validate_json1(pinv1):
+            pr['json1'] = json.dumps(pinv1)
+            pr['json2'] = json.dumps(pinv2)
+            pr['doctype'] = 'PreRechnung'
+            Api.api.update(pr)
     except Exception as e:
         print(str(e))
         pr['error'] = str(e) + "\n" + traceback.format_exc()

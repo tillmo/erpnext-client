@@ -2,7 +2,7 @@ import json
 import jsondiff
 from jsonschema import validate
 
-from api import Api, LIMIT
+from api import Api
 
 
 JSON1_DATA_SCHEMA = {
@@ -112,6 +112,18 @@ def convert(d, supplier):
     return sum(res, [])
 
 
+def validate_json1(json):
+    try:
+        validate(
+            instance=json,
+            schema=JSON1_DATA_SCHEMA,
+        )
+    except Exception as e:
+        print(f"validation failed: {str(e)}")
+        return False
+    return True
+
+
 def compute_json(pr):
     pinv = Api.api.get_doc("Purchase Invoice", pr['purchase_invoice'])
     json1 = {field: pinv[field] for field in INV_FIELDS if field in pinv}
@@ -125,13 +137,10 @@ def compute_json(pr):
     if json1['items'] and json1['items'][0].get('description') in ['Generisches Einkaufsprodukt', 'Montagematerial']:
         del json1['items']
     print(json1)
-    validate(
-        instance=json1,
-        schema=JSON1_DATA_SCHEMA,
-    )
-    pr['json1'] = json.dumps(json1)
-    pr['doctype'] = 'PreRechnung'
-    Api.api.update(pr)
+    if validate_json1(json1):
+        pr['json1'] = json.dumps(json1)
+        pr['doctype'] = 'PreRechnung'
+        Api.api.update(pr)
 
 
 def compute_diff(pr):
