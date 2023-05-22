@@ -176,8 +176,7 @@ class SupplierItem:
         texts = ['Neuen Artikel anlegen']
         texts += [i[1]['item_code'] + ' ' + i[1]['item_name'] for i in top_items]
         title = "Artikel wählen"
-        msg = "Artikel in Rechnung:\n{0}\n\nCode Lieferant: {1}\n\n".format(self.long_description,self.item_code)
-              
+        msg = "Artikel in Rechnung:\n{0}\n\nCode Lieferant: {1}\n\n".format(self.long_description, self.item_code)
         msg += "Bitte passenden Artikel in ERPNext auswählen:"
         if check_dup:
             choice = easygui.choicebox(msg, title, texts)
@@ -217,7 +216,7 @@ class SupplierItem:
             title = "Neuen Artikel in ERPNext eintragen"
             msg += "\n\nDiesen Artikel eintragen?"
             if check_dup:
-                choice = easygui.choicebox(msg, title,["Ja","Nein"])
+                choice = easygui.choicebox(msg, title, ["Ja", "Nein"])
             else:
                 choice = "Ja"
             if choice == "Ja":
@@ -941,15 +940,17 @@ class PurchaseInvoice(Invoice):
         self.supplier = given_supplier or get_element_with_high_confidence(invoice_json, 'supplier')
         self.supplier_address = get_element_with_high_confidence(invoice_json, 'supplier_address')
         self.shipping_address = get_element_with_high_confidence(invoice_json, 'ship_to_address')
-        self.date = get_element_with_high_confidence(invoice_json, 'posting_date')
+        self.date = get_element_with_high_confidence(invoice_json, 'due_date')
         if self.date is None:
-            self.date = get_element_with_high_confidence(invoice_json, 'due_date')
+            self.date = get_element_with_high_confidence(invoice_json, 'posting_date')
         if self.date:
             matches = list(datefinder.find_dates(self.date))
             self.date = matches[0].strftime('%Y-%m-%d') if matches else None
         self.order_id = get_element_with_high_confidence(invoice_json, 'order_id')
         self.gross_total = get_element_with_high_confidence(invoice_json, 'total_amount')
         self.no = get_element_with_high_confidence(invoice_json, 'bill_no')
+        if type(self.no) is str:
+            self.no = self.no.replace(" ", "")
         try:
             net_amount = get_element_with_high_confidence(invoice_json, 'net_amount')
             if net_amount:
@@ -958,32 +959,31 @@ class PurchaseInvoice(Invoice):
             if total_tax_amount:
                 self.vat[self.default_vat] = get_float_number(total_tax_amount)
             if self.update_stock:
-                line_items = [el for el in invoice_json['entities'] if el.get('type') in ['item','line_item']]
+                line_items = [el for el in invoice_json['entities'] if el.get('type') in ['item', 'line_item']]
                 sum_amount = 0
                 for line_item in line_items:
                     s_item = SupplierItem(self)
                     for prop in line_item.get('properties'):
-                        if prop['type'] in ['item-description','line_item/description'] and s_item.description is None:
+                        if prop['type'] in ['item-description', 'line_item/description'] and s_item.description is None:
                             s_item.description = prop['value']
                             s_item.long_description = prop['value']
-                        elif prop['type'] in ['item-code','line_item/product_code'] and s_item.item_code is None:
+                        elif prop['type'] in ['item-code', 'line_item/product_code'] and s_item.item_code is None:
                             s_item.item_code = prop['value']
-                        elif prop['type'] in ['item-pos','line_item/pos'] and s_item.pos is None:
+                        elif prop['type'] in ['item-pos', 'line_item/pos'] and s_item.pos is None:
                             s_item.pos = prop['value']
-                        elif prop['type'] in ['item-quantity','line_item/quantity'] and s_item.qty is None:
+                        elif prop['type'] in ['item-quantity', 'line_item/quantity'] and s_item.qty is None:
                             s_item.qty = get_float_number(prop['value']) if prop['value'] else 0
                             if s_item.qty < 0:
                                 s_item.qty = 0
                             s_item.qty_unit = 'Stk'
-                        elif prop['type'] in ['item-amount','line_item/amount'] and s_item.amount is None:
+                        elif prop['type'] in ['item-amount', 'line_item/amount'] and s_item.amount is None:
                             s_item.amount = get_float_number(prop['value']) if prop['value'] else 0
-                        elif prop['type'] in ['item-unit-price','line_item/unit_price'] and s_item.rate is None:
+                        elif prop['type'] in ['item-unit-price', 'line_item/unit_price'] and s_item.rate is None:
                             s_item.rate = get_float_number(prop['value']) if prop['value'] else None
                             if s_item.qty and not s_item.amount:
                                 s_item.amount = s_item.rate * s_item.qty if prop['value'] else 0
                             elif not s_item.qty and s_item.amount:
                                 s_item.qty = s_item.amount / s_item.rate if prop['value'] else 0
-                    #print(vars(s_item),"\n",line_item)
                     if s_item.description and "Vorkasse" in s_item.description:
                         continue
                     if s_item.description and (
@@ -1026,7 +1026,8 @@ class PurchaseInvoice(Invoice):
                 self.vat[self.default_vat] = 0.0
             if not self.gross_total:
                 self.gross_total = 0.0
-        if not check_dup or (self.supplier and self.date and self.no and self.vat[self.default_vat] and self.gross_total):
+        if not check_dup or (
+                self.supplier and self.date and self.no and self.vat[self.default_vat] and self.gross_total):
             self.compute_total()
             return self
 
@@ -1214,19 +1215,24 @@ class PurchaseInvoice(Invoice):
         if not check_dup or not self.no or not self.no.strip():
             return False
         upload = None
-        invs = gui_api_wrapper(Api.api.get_list,"Purchase Invoice",
-                               filters={'bill_no': self.no, 'status': ['!=','Cancelled']})
+        invs = gui_api_wrapper(Api.api.get_list, "Purchase Invoice",
+                               filters={'bill_no': self.no, 'status': ['!=', 'Cancelled']})
         if not invs and self.order_id:
-            invs1 = gui_api_wrapper(Api.api.get_list,"Purchase Invoice",
-                               filters={'order_id': self.order_id, 'status': ['!=','Cancelled']})
+            invs1 = gui_api_wrapper(Api.api.get_list, "Purchase Invoice",
+                                    filters={'order_id': self.order_id, 'status': ['!=', 'Cancelled']})
             if invs1:
-                easygui.msgbox("Einkaufsrechnung {} ist möglicherweise schon als {} in ERPNext eingetragen worden. Möglicherweise ist der Auftrag aber auch in mehrere Rechnungen gesplittet worden.".format(self.no,invs1[0]['name']))
+                easygui.msgbox(
+                    "Einkaufsrechnung {} ist möglicherweise schon als {} in ERPNext eingetragen worden. Möglicherweise ist der Auftrag aber auch in mehrere Rechnungen gesplittet worden.".format(
+                        self.no, invs1[0]['name']))
         if invs:
             # attach the present PDF to invoice with same bill_no
             upload = self.upload_pdfs(invs[0]['name'])
             if upload:
                 upload = "Aktuelle Rechnung wurde dort angefügt."
-            easygui.msgbox("Einkaufsrechnung {} ist schon als {} in ERPNext eingetragen worden. {}".format(self.no,invs[0]['name'],upload))
+            easygui.msgbox("Einkaufsrechnung {} ist schon als {} in ERPNext eingetragen worden. {}".format(self.no,
+                                                                                                           invs[0][
+                                                                                                               'name'],
+                                                                                                           upload))
             self.is_duplicate = True
             self.doc = invs[0]
             return True
@@ -1299,7 +1305,8 @@ class PurchaseInvoice(Invoice):
         inv = None
         while one_more:
             one_more = False
-            inv_new = PurchaseInvoice(update_stock).read_pdf(invoice_json, infile, account, paid_by_submitter, supplier, check_dup=check_dup)
+            inv_new = PurchaseInvoice(update_stock).read_pdf(invoice_json, infile, account, paid_by_submitter, supplier,
+                                                             check_dup=check_dup)
             if (inv is None) and inv_new and inv_new.is_duplicate:
                 return inv_new
             if inv_new and not inv_new.is_duplicate:
@@ -1331,7 +1338,7 @@ class PurchaseInvoice(Invoice):
             Api.load_item_data()
             print("Hole Lagerdaten")
             yesterd = utils.yesterday(self.date)
-            self.e_items = [item.process_item(self.supplier, yesterd, check_dup) for item in self.items] # if item.description]
+            self.e_items = [item.process_item(self.supplier, yesterd, check_dup) for item in self.items]  # if item.description]
             if None in self.e_items:
                 print(
                     "Nicht alle Artikel wurden eingetragen.\n Deshalb kann keine Einkaufsrechnung in ERPNext erstellt werden.")
@@ -1466,8 +1473,8 @@ class PurchaseInvoice(Invoice):
 heckert_info = {'parser': PurchaseInvoice.parse_heckert,
                 'raw': False, 'multi': False,
                 'supplier': 'Heckert Solar GmbH'}
-PurchaseInvoice.suppliers = \
-    {'Krannich Solar GmbH & Co KG':
+
+PurchaseInvoice.suppliers = {'Krannich Solar GmbH & Co KG':
          {'parser': PurchaseInvoice.parse_krannich,
           'raw': False, 'multi': False},
      'pvXchange Trading GmbH':
