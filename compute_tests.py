@@ -2,8 +2,10 @@ import json
 import jsondiff
 from jsonschema import validate
 
+import project
+import settings
 from api import Api, LIMIT
-
+from purchase_invoice import PurchaseInvoice
 
 JSON1_DATA_SCHEMA = {
     "title": "Intermediate format for Google AI Invoice parser",
@@ -112,6 +114,28 @@ def convert(d, supplier):
     return sum(res, [])
 
 
+def validate_json1(json):
+    try:
+        validate(
+            instance=json,
+            schema=JSON1_DATA_SCHEMA,
+        )
+    except Exception as e:
+        print(f"validation failed: {str(e)}")
+        return False
+    return True
+
+
+def validate_prerechnungs():
+    for pr in Api.api.get_list("PreRechnung", filters={'json1': ['is', 'set']}, limit_page_length=LIMIT):
+        print(pr['name'])
+        json1 = json.loads(pr['json1'])
+        if not validate_json1(json1):
+            return False
+        print("Passed")
+    return True
+
+
 def compute_json(pr):
     pinv = Api.api.get_doc("Purchase Invoice", pr['purchase_invoice'])
     json1 = {field: pinv[field] for field in INV_FIELDS if field in pinv}
@@ -125,13 +149,26 @@ def compute_json(pr):
     if json1['items'] and json1['items'][0].get('description') in ['Generisches Einkaufsprodukt', 'Montagematerial']:
         del json1['items']
     print(json1)
-    validate(
-        instance=json1,
-        schema=JSON1_DATA_SCHEMA,
-    )
-    pr['json1'] = json.dumps(json1)
-    pr['doctype'] = 'PreRechnung'
-    Api.api.update(pr)
+    if validate_json1(json1):
+        pr['json1'] = json.dumps(json1)
+        pr['doctype'] = 'PreRechnung'
+        Api.api.update(pr)
+
+
+def compute_json1_diff(inv):
+    supplier = inv.get('lieferant')
+    json_str = inv.get('json')
+    invoice_json = None
+    if json_str:
+        invoice_json = json.loads(json_str)
+    update_stock = 'chance' in inv and inv['chance'] and project.project_type(inv['chance']) in settings.STOCK_PROJECT_TYPES
+    old_json1 = json.loads(inv.get('json1'))
+    new_json1 = PurchaseInvoice(update_stock).extract_main_info(invoice_json, supplier)
+
+    diff = jsondiff.diff(old_json1, new_json1, syntax='symmetric')
+    print(".", end="")
+    print("\n", inv['name'])
+    print(diff)
 
 
 def compute_diff(pr):
