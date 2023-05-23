@@ -2,8 +2,7 @@ import json
 import jsondiff
 from jsonschema import validate
 
-from api import Api
-
+from api import Api, LIMIT
 
 JSON1_DATA_SCHEMA = {
     "title": "Intermediate format for Google AI Invoice parser",
@@ -121,6 +120,16 @@ def validate_json1(json):
     except Exception as e:
         print(f"validation failed: {str(e)}")
         return False
+    return True
+
+
+def validate_prerechnungs():
+    for pr in Api.api.get_list("PreRechnung", filters={'json1': ['is', 'set']}, limit_page_length=LIMIT):
+        print(pr['name'])
+        json1 = json.loads(pr['json1'])
+        if not validate_json1(json1):
+            return False
+        print("Passed")
     return True
 
 

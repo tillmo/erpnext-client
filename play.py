@@ -4,12 +4,16 @@ from api import Api, LIMIT
 from args import init
 import company
 import traceback
-from compute_tests import compute_diff
+from compute_tests import compute_diff, validate_prerechnungs
 import purchase_invoice
 from purchase_invoice import get_element_with_high_confidence
 import menu
 
 init()
+
+validate_prerechnungs()
+
+exit(0)
 
 for inv in Api.api.get_list("PreRechnung",
                             filters={'json1': ['is', 'set']},
