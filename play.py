@@ -4,12 +4,18 @@ from api import Api, LIMIT
 from args import init
 import company
 import traceback
-from compute_tests import compute_diff, validate_prerechnungs
+from compute_tests import compute_diff, validate_prerechnungs, compute_json1_diff
 import purchase_invoice
 from purchase_invoice import get_element_with_high_confidence
 import menu
 
 init()
+company.Company.init_companies()
+company.Company.current_load_data()
+for pr in Api.api.get_list("PreRechnung", filters={'json1': ['is', 'set']}, limit_page_length=LIMIT):
+    compute_json1_diff(pr)
+
+exit(0)
 
 validate_prerechnungs()
 

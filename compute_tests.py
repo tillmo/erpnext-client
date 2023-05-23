@@ -2,7 +2,10 @@ import json
 import jsondiff
 from jsonschema import validate
 
+import project
+import settings
 from api import Api, LIMIT
+from purchase_invoice import PurchaseInvoice
 
 JSON1_DATA_SCHEMA = {
     "title": "Intermediate format for Google AI Invoice parser",
@@ -150,6 +153,22 @@ def compute_json(pr):
         pr['json1'] = json.dumps(json1)
         pr['doctype'] = 'PreRechnung'
         Api.api.update(pr)
+
+
+def compute_json1_diff(inv):
+    supplier = inv.get('lieferant')
+    json_str = inv.get('json')
+    invoice_json = None
+    if json_str:
+        invoice_json = json.loads(json_str)
+    update_stock = 'chance' in inv and inv['chance'] and project.project_type(inv['chance']) in settings.STOCK_PROJECT_TYPES
+    old_json1 = json.loads(inv.get('json1'))
+    new_json1 = PurchaseInvoice(update_stock).extract_main_info(invoice_json, supplier)
+
+    diff = jsondiff.diff(old_json1, new_json1, syntax='symmetric')
+    print(".", end="")
+    print("\n", inv['name'])
+    print(diff)
 
 
 def compute_diff(pr):
