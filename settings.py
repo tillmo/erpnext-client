@@ -1,8 +1,6 @@
 
 DEFAULT_ITEM_CODE = "000.000.000"
-MATERIAL_ITEM_CODE = '000.100.301'
 DEFAULT_ITEMS = ['026.000.315','026.000.600']
-MATERIAL_ITEM_VALUE = 100.0
 DEFAULT_SUPPLIER_GROUP = "Lieferant"
 WAREHOUSE = 'Lagerräume - SoMiKo'
 PROJECT_WAREHOUSE = 'Laufende Arbeit/-en - SoMiKo'
@@ -13,6 +11,8 @@ PROJECT_UNIT = 'Materialeinheit 1€'
 STOCK_PROJECT_TYPES =  ['Balkonmodule','Solaranlagenmaterial']
 LUMP_SUM_STOCK_PROJECT_TYPES =  ['Solaranlage']
 STOCK_ITEM_GROUPS = ['Solarmodul','Balkon-Solarmodule','Wechselrichter','Steckdosen','Batterie']
+AGGREGATE_ITEMS = {'Elektro-Komponenten':'000.100.302','default':'000.100.301'}
+AGGREGATE_ITEM_VALUE = 100.0
 STANDARD_NAMING_SERIES_PINV = 'EK .YYYY.-'
 VAT_DESCRIPTION = 'Umsatzsteuer'
 DELIVERY_COST_ACCOUNT = '3800 - Bezugsnebenkosten - SoMiKo'

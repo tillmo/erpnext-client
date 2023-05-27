@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 
 from settings import STANDARD_PRICE_LIST, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, \
-    DELIVERY_COST_DESCRIPTION, NKK_ACCOUNTS, KORNKRAFT_ACCOUNTS, SOMIKO_ACCOUNTS, MATERIAL_ITEM_CODE, STOCK_ITEM_GROUPS, \
-    MATERIAL_ITEM_VALUE, DEFAULT_ITEMS
+    DELIVERY_COST_DESCRIPTION, NKK_ACCOUNTS, KORNKRAFT_ACCOUNTS, SOMIKO_ACCOUNTS, STOCK_ITEM_GROUPS, \
+    AGGREGATE_ITEMS, AGGREGATE_ITEM_VALUE, DEFAULT_ITEMS
 
 import utils
 import PySimpleGUI as sg
@@ -266,10 +266,13 @@ class SupplierItem:
             if e_item['item_group'] in STOCK_ITEM_GROUPS:
                 self.add_item_price(e_item, self.rate, self.qty_unit, date)
             else:
-                # convert into lump-sum MATERIAL_ITEMs
-                e_item['item_code'] = MATERIAL_ITEM_CODE
-                self.qty = self.qty * self.rate / MATERIAL_ITEM_VALUE
-                self.rate = MATERIAL_ITEM_VALUE
+                # convert into lump-sum aggregated item
+                code = AGGREGRATE_ITEMS.get(e_item['item_group'])
+                if not code:
+                    code = AGGREGRATE_ITEMS['default']
+                e_item['item_code'] = code
+                self.qty = self.qty * self.rate / AGGREGRATE_ITEM_VALUE
+                self.rate = AGGREGRATE_ITEM_VALUE
             return {'item_code': e_item['item_code'],
                     'qty': self.qty,
                     'rate': self.rate,
