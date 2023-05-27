@@ -5,6 +5,8 @@ from api_wrapper import gui_api_wrapper
 from settings import TAX_ACCOUNTS, INCOME_DIST_ACCOUNTS, PAYABLE_ACCOUNTS, \
                      RECEIVABLE_ACCOUNTS, INCOME_ACCOUNTS
 from datetime import date, datetime, timedelta
+import csv
+import os
 
 def invoice_for_payment(payment_entry):
     pe = Api.api.get_doc('Payment Entry',payment_entry)
@@ -284,8 +286,32 @@ def pretax(company_name,start_date,end_date):
 def pretax_details(company_name,start_date,end_date):
     accounts = TAX_ACCOUNTS[company_name]['pre_tax_accounts']
     gl = get_gl(company_name,start_date,end_date,accounts)
-    gl = [(gle['voucher_no'],gle['debit']) for gle in gl if gle.get('voucher_type') == 'Purchase Invoice']
-    return gl    
+    gl = [(gle['voucher_no'],gle['account'],gle['debit']-gle['credit']) \
+           for gle in gl if gle.get('voucher_type') == 'Purchase Invoice']
+    return gl
+
+def save_pretax_details(company_name,quarter):
+    start_date,end_date = utils.quarter_to_dates(quarter)
+    suffix = "-{}-{}".format(company_name.replace(" ","_"),quarter)
+    dir = "Vorsteuer"+suffix
+    os.makedirs(dir,exist_ok=True)
+    with open("{}/EK-Rechnungen{}.csv".format(dir,suffix), mode='w') as csv_file:
+        writer = csv.writer(csv_file,delimiter=";")
+        writer.writerow(["Rechnungsnr.","Steuersatz","Vorsteuer"])
+        tax_sum = 0
+        for (inv_name,acc,tax) in pretax_details(company_name,start_date,end_date):
+            print(".",end="",flush=True)
+            tax_rate = acc.split("%")[0].split()[-1]
+            pretty_inv_name = inv_name.replace(" ","_")
+            writer.writerow([pretty_inv_name,tax_rate,str(tax).replace(".",",")])
+            tax_sum += tax
+            inv = Api.api.get_doc("Purchase Invoice",inv_name)
+            pdf = Api.api.get_file(inv['supplier_invoice'])
+            with open(dir + "/" + pretty_inv_name + ".pdf", 'wb') as f:
+                f.write(pdf)
+        writer.writerow(["Summe","",str(tax_sum).replace(".",",")])
+        print()
+    return dir    
 
 def vat_declaration(company_name,quarter):
     start_date,end_date = utils.quarter_to_dates(quarter)

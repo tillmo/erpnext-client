@@ -631,6 +631,11 @@ def event_handler(event,window):
         comp = user_settings['-company-']
         q = utils.last_quarter(datetime.today())
         journal.vat_declaration(comp,q)
+    elif event == 'USt-Rechnungen zusammenstellen':
+        comp = user_settings['-company-']
+        q = utils.last_quarter(datetime.today())
+        dir = journal.save_pretax_details(comp,q)
+        print("Rechnungen in {} gespeichert".format(dir))
     elif event == 'Prerechnungen vorprozessieren':
         prerechnung.process(user_settings['-company-'])
     elif event == 'zu bezahlende Prerechnungen':
@@ -685,7 +690,7 @@ def menus():
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte','Balkonmodulverkauf (grafisch)','Balkonmodulverkauf (csv)','zu bezahlende Prerechnungen']], 
                 ['Bereich', company.Company.all()], 
-                ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen']], 
+                ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen','USt-Rechnungen zusammenstellen']], 
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Google', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
 
