@@ -1,7 +1,4 @@
-import json
 import os
-import pdb
-
 import PySimpleGUI as sg
 import utils
 import project
@@ -130,8 +127,11 @@ def extract_invoice_info(pdf_file_content) -> dict:
     for sub_entity in sub_entities:
         if sub_entity['type'] == 'item':
             prop_types = [d['type'] for d in sub_entity['properties']]
+            if len(prop_types) == 0:
+                continue
             if set(keys) & set(prop_types):
-                entities.append(base_entity_info)
+                if len(base_entity_info['properties']) > 1:
+                    entities.append(base_entity_info)
                 keys = []
                 base_entity_info = {}
             keys.extend(prop_types)
@@ -140,7 +140,15 @@ def extract_invoice_info(pdf_file_content) -> dict:
             else:
                 base_entity_info['properties'].extend(sub_entity['properties'])
         else:
+            if base_entity_info.keys():
+                if len(base_entity_info['properties']) > 1:
+                    entities.append(base_entity_info)
+                keys = []
+                base_entity_info = {}
             entities.append(sub_entity)
+
+    if base_entity_info.keys() and len(base_entity_info['properties']) > 1:
+        entities.append(base_entity_info)
 
     # Return the results as a dictionary
     return {"document_text": text, "entities": entities}
@@ -153,7 +161,7 @@ def process_inv(pr):
     if sg.UserSettings().get('-google-credentials-'):
         try:
             pr['json'] = json.dumps(extract_invoice_info(contents))
-            myjson = json.loads(pr['json'])    
+            myjson = json.loads(pr['json'])
             pr['auftragsnr'] = get_element_with_high_confidence(myjson, 'order_id')
             pr['betrag'] = get_element_with_high_confidence(myjson, 'total_amount')
             pr['processed'] = True
@@ -167,7 +175,7 @@ def process_inv(pr):
         with open(tmpfile, "wb") as f:
             f.write(contents)
         try:
-            inv.parse_invoice(None,tmpfile,
+            inv.parse_invoice(None, tmpfile,
                               account=pr['buchungskonto'],
                               paid_by_submitter=pr['selbst_bezahlt'],
                               given_supplier=pr['lieferant'],
@@ -213,7 +221,7 @@ def read_and_transfer(inv, check_dup=True):
     pdf = Api.api.get_file(inv['pdf'])
     f = utils.store_temp_file(pdf, ".pdf")
     if utils.running_linux():
-        os.system("evince "+f+" &")
+        os.system("evince " + f + " &")
     update_stock = 'chance' in inv and inv['chance'] and \
                    project.project_type(inv['chance']) in settings.STOCK_PROJECT_TYPES
     pinv = purchase_invoice.PurchaseInvoice.read_and_transfer(
