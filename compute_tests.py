@@ -9,7 +9,7 @@ from purchase_invoice import PurchaseInvoice
 
 JSON1_DATA_SCHEMA = {
     "title": "Intermediate format for Google AI Invoice parser",
-    "required": ["supplier", "posting_date", "bill_no", "grand_total", "taxes"],
+    "required": ["supplier", "grand_total", "taxes"],
     "type": "object",
     "properties": {
         "supplier": {"type": "string"},
@@ -166,9 +166,7 @@ def compute_json1_diff(inv):
     new_json1 = PurchaseInvoice(update_stock).extract_main_info(invoice_json, supplier)
 
     diff = jsondiff.diff(old_json1, new_json1, syntax='symmetric')
-    print(".", end="")
-    print("\n", inv['name'])
-    print(diff)
+    return diff
 
 
 def compute_diff(pr):

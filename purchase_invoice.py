@@ -948,6 +948,7 @@ class PurchaseInvoice(Invoice):
         self.order_id = get_element_with_high_confidence(invoice_json, 'order_id')
         self.gross_total = get_element_with_high_confidence(invoice_json, 'total_amount')
         if self.gross_total:
+            self.gross_total = self.gross_total.replace('USD', '')
             self.gross_total = get_float_number(self.gross_total)
         net_amount = get_element_with_high_confidence(invoice_json, 'net_amount')
         if net_amount:
@@ -955,6 +956,12 @@ class PurchaseInvoice(Invoice):
         total_tax_amount = get_element_with_high_confidence(invoice_json, 'total_tax_amount')
         if total_tax_amount:
             self.vat[self.default_vat] = get_float_number(total_tax_amount)
+            if self.gross_total and (not net_amount or self.gross_total - self.vat[self.default_vat] > self.totals[self.default_vat]):
+                self.totals[self.default_vat] = round(self.gross_total - self.vat[self.default_vat], 2)
+        else:
+            if self.gross_total == self.totals[self.default_vat]:
+                self.vat[self.default_vat] = round(self.gross_total * 0.19, 2)
+                self.totals[self.default_vat] = round(self.gross_total - self.vat[self.default_vat], 2)
         due_date = get_element_with_high_confidence(invoice_json, 'due_date')
         if due_date:
             matches = list(datefinder.find_dates(due_date))
@@ -994,11 +1001,11 @@ class PurchaseInvoice(Invoice):
                             s_item.qty = 0
                         s_item.qty_unit = 'Stk'
                     elif prop['type'] in ['item-amount', 'line_item/amount'] and s_item.amount is None:
-                        s_item.amount = get_float_number(prop['value']) if prop['value'] else 0
+                        s_item.amount = round(get_float_number(prop['value']), 2) if prop['value'] else 0
                     elif prop['type'] in ['item-unit-price', 'line_item/unit_price'] and s_item.rate is None:
                         s_item.rate = get_float_number(prop['value']) if prop['value'] else None
                         if s_item.qty and not s_item.amount:
-                            s_item.amount = s_item.rate * s_item.qty if prop['value'] else 0
+                            s_item.amount = round(s_item.rate * s_item.qty, 2) if prop['value'] else 0
                         elif not s_item.qty and s_item.amount:
                             s_item.qty = s_item.amount / s_item.rate if prop['value'] else 0
                 if s_item.description and "Vorkasse" in s_item.description:
@@ -1020,10 +1027,13 @@ class PurchaseInvoice(Invoice):
                 if diff >= 1:
                     s_item = SupplierItem(self)
                     s_item.qty = 1
-                    s_item.amount = diff
+                    s_item.amount = round(diff, 2)
                     s_item.rate = round(s_item.amount, 2)
                     self.items.append(s_item)
         self.shipping += rounding_error
+        self.shipping = round(self.shipping, 2)
+        if self.shipping and self.totals[self.default_vat]:
+            self.totals[self.default_vat] -= self.shipping
 
     def extract_main_info(self, invoice_json, given_supplier):
         self.set_items(invoice_json, given_supplier)
@@ -1051,12 +1061,18 @@ class PurchaseInvoice(Invoice):
 
         result = {
             "supplier": supplier,
-            "posting_date": posting_date,
-            "bill_no": bill_no,
             "total": total,
             "grand_total": grand_total,
             "taxes": taxes,
         }
+        if bill_no:
+            result.update({
+                "bill_no": bill_no,
+            })
+        if posting_date:
+            result.update({
+                "posting_date": posting_date,
+            })
         if shipping > 0:
             result.update({
                 "shipping": shipping,
@@ -1100,7 +1116,6 @@ class PurchaseInvoice(Invoice):
             self.compute_total()
             return self
 
-
         if not self.supplier:
             print("Lieferant nicht erkannt")
         if not self.date:
@@ -1112,6 +1127,7 @@ class PurchaseInvoice(Invoice):
         if not self.gross_total:
             print("Bruttobetrag nicht erkannt")
         print("Rückfall auf manuelle Eingabe")
+
         suppliers = gui_api_wrapper(Api.api.get_list, "Supplier", limit_page_length=LIMIT)
         supplier_names = [supp['name'] for supp in suppliers]
         supplier_names.sort()
