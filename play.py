@@ -12,8 +12,16 @@ import menu
 init()
 company.Company.init_companies()
 company.Company.current_load_data()
+good = 0
+bad = 0
 for pr in Api.api.get_list("PreRechnung", filters={'json1': ['is', 'set']}, limit_page_length=LIMIT):
-    compute_json1_diff(pr)
+    d = compute_json1_diff(pr)
+    if d:
+        bad += 1
+    else:
+        good += 1
+total = good+bad        
+print("matching: {:.1f}% not matching: {:.1f}%".format(good/total*100,bad/total*100))
 
 exit(0)
 
