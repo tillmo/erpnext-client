@@ -15,6 +15,7 @@ JSON1_DATA_SCHEMA = {
         "supplier": {"type": "string"},
         "posting_date": {"type": "string"},
         "bill_no": {"type": "string"},
+        "order_id": {"type": "string"},
         "total": {"type": "number"},
         "grand_total": {"type": "number"},
         "shipping": {"type": "number"},

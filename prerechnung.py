@@ -7,6 +7,7 @@ import settings
 import purchase_invoice
 from purchase_invoice import get_element_with_high_confidence
 from api import Api, LIMIT
+from itertools import groupby
 import json
 import traceback
 
@@ -106,7 +107,16 @@ def extract_invoice_info(pdf_file_content) -> dict:
                     "type": prop.type_,
                     "confidence": prop.confidence,
                 })
-        if entity.type_ == "item" or entity.confidence >= 0.2:
+
+        # Sort the data by type and confidence in descending order
+        sorted_data = sorted(props, key=lambda x: (x['type'], -x['confidence']))
+        # Get the dictionaries with the highest confidence for each type
+        highest_confidence_props = []
+        for group, group_values in groupby(sorted_data, key=lambda x: x['type']):
+            highest_confidence_dict = max(group_values, key=lambda x: x['confidence'])
+            highest_confidence_props.append(highest_confidence_dict)
+
+        if entity.type_ == "item" or not entity.confidence or entity.confidence >= 0.2:
             try:
                 line_no = entity.text_anchor.text_segments[0].start_index
             except:
@@ -114,7 +124,7 @@ def extract_invoice_info(pdf_file_content) -> dict:
             sub_entities.append({
                 "value": entity.normalized_value.text or entity.text_anchor.content or entity.mention_text,
                 "type": entity.type_,
-                "properties": props,
+                "properties": highest_confidence_props,
                 "confidence": entity.confidence,
                 "page_number": entity.page_anchor.page_refs[0].page,
                 "line_number": line_no,
