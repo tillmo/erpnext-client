@@ -10,3 +10,4 @@ google-cloud-documentai==2.14.0
 jsondiff
 datefinder
 jsonschema==4.17.3
+jsoneditor==1.5.1
