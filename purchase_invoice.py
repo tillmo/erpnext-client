@@ -4,6 +4,7 @@ from settings import STANDARD_PRICE_LIST, STANDARD_NAMING_SERIES_PINV, VAT_DESCR
     DELIVERY_COST_DESCRIPTION, NKK_ACCOUNTS, KORNKRAFT_ACCOUNTS, SOMIKO_ACCOUNTS, STOCK_ITEM_GROUPS, \
     AGGREGATE_ITEMS, AGGREGATE_ITEM_VALUE, DEFAULT_ITEMS
 
+import os
 import utils
 import PySimpleGUI as sg
 import easygui
@@ -22,6 +23,9 @@ import datefinder
 import random
 import string
 from pprint import pprint
+import jsondiff
+from jsondiff.symbols import insert, delete
+import jsoneditor
 
 
 # extract amounts of form xxx,xx from string
@@ -276,12 +280,12 @@ class SupplierItem:
                 self.add_item_price(e_item, self.rate, self.qty_unit, date)
             else:
                 # convert into lump-sum aggregated item
-                code = AGGREGRATE_ITEMS.get(e_item['item_group'])
+                code = AGGREGATE_ITEMS.get(e_item['item_group'])
                 if not code:
-                    code = AGGREGRATE_ITEMS['default']
+                    code = AGGREGATE_ITEMS['default']
                 e_item['item_code'] = code
-                self.qty = self.qty * self.rate / AGGREGRATE_ITEM_VALUE
-                self.rate = AGGREGRATE_ITEM_VALUE
+                self.qty = self.qty * self.rate / AGGREGATE_ITEM_VALUE
+                self.rate = AGGREGATE_ITEM_VALUE
             return {'item_code': e_item['item_code'],
                     'qty': self.qty,
                     'rate': self.rate,
@@ -897,7 +901,7 @@ class PurchaseInvoice(Invoice):
                       is_test=False, check_dup=True):
         if invoice_json:
             print("Nutze Google invoice parser")
-            return self.parse_invoice_json(invoice_json, account, paid_by_submitter, given_supplier, is_test, check_dup)
+            return self.parse_invoice_json(invoice_json, infile, account, paid_by_submitter, given_supplier, is_test, check_dup)
         print("Nutze internen Parser")
         self.extract_items = False
         lines = pdf_to_text(infile)
@@ -1059,7 +1063,129 @@ class PurchaseInvoice(Invoice):
         if self.shipping and self.totals[self.default_vat]:
             self.totals[self.default_vat] -= self.shipping
 
-    def extract_main_info(self, invoice_json, given_supplier):
+    def apply_info_changes(self, diff, new_data_model):
+        for key in diff.keys():
+            value = diff[key]
+            if key == insert:
+                for new_key in value.keys():
+                    if new_key == 'supplier':
+                        self.supplier = value[new_key]
+                    elif new_key == 'taxes':
+                        for tax_info in value[new_key]:
+                            self.vat[tax_info['rate']] = tax_info['tax_amount']
+                            self.total_vat += tax_info['tax_amount']
+                        if self.total_vat == 0 and self.default_vat:
+                            self.vat[self.default_vat] = 0
+                    elif new_key == 'items':
+                        for item in value[new_key]:
+                            s_item = SupplierItem(self)
+                            s_item.description = item.get('description')
+                            s_item.qty = item.get('qty')
+                            s_item.qty_unit = item.get('uom')
+                            s_item.rate = item.get('rate')
+                            s_item.amount = item.get('amount')
+                            self.items.append(s_item)
+                    elif new_key == 'total':
+                        self.totals[self.default_vat] = value[new_key]
+                    elif new_key == 'grand_total':
+                        self.gross_total = value[new_key]
+                    elif new_key == 'bill_no':
+                        self.bill_no = value[new_key]
+                    elif new_key == 'order_id':
+                        self.order_id = value[new_key]
+                    elif new_key == 'posting_date':
+                        self.posting_date = value[new_key]
+                    elif new_key == 'shipping':
+                        self.shipping = value[new_key]
+            elif key == delete:
+                for deleted_key in value.keys():
+                    if deleted_key == 'supplier':
+                        self.supplier = None
+                    elif deleted_key == 'taxes':
+                        self.vat[self.default_vat] = 0
+                        self.total_vat = 0
+                    elif deleted_key == 'items':
+                        self.items = []
+                        if new_data_model and new_data_model.get('items'):
+                            for item in new_data_model.get('items'):
+                                s_item = SupplierItem(self)
+                                s_item.description = item.get('description')
+                                s_item.qty = item.get('qty')
+                                s_item.qty_unit = item.get('uom')
+                                s_item.rate = item.get('rate')
+                                s_item.amount = item.get('amount')
+                                self.items.append(s_item)
+                    elif deleted_key == 'total':
+                        self.totals[self.default_vat] = 0
+                    elif deleted_key == 'grand_total':
+                        self.gross_total = 0
+                    elif deleted_key == 'bill_no':
+                        self.bill_no = None
+                    elif deleted_key == 'order_id':
+                        self.order_id = None
+                    elif deleted_key == 'posting_date':
+                        self.posting_date = None
+                    elif deleted_key == 'shipping':
+                        self.shipping = 0
+            else:
+                if key == 'supplier':
+                    self.supplier = value[1]
+                elif key == 'taxes':
+                    self.total_vat = 0
+                    if type(value) is list:
+                        for tax_info in value[1]:
+                            self.vat[tax_info['rate']] = tax_info['tax_amount']
+                            self.total_vat += tax_info['tax_amount']
+                    elif new_data_model:
+                        for tax_info in new_data_model['taxes']:
+                            self.vat[tax_info['rate']] = tax_info['tax_amount']
+                            self.total_vat += tax_info['tax_amount']
+                    if self.total_vat == 0 and self.default_vat:
+                        self.vat[self.default_vat] = 0
+                elif key == 'items':
+                    self.items = []
+                    if new_data_model and new_data_model.get('items'):
+                        for item in new_data_model.get('items'):
+                            s_item = SupplierItem(self)
+                            s_item.description = item.get('description')
+                            s_item.qty = item.get('qty')
+                            s_item.qty_unit = item.get('uom')
+                            s_item.rate = item.get('rate')
+                            s_item.amount = item.get('amount')
+                            self.items.append(s_item)
+                elif key == 'total':
+                    self.totals[self.default_vat] = value[1]
+                elif key == 'grand_total':
+                    self.gross_total = value[1]
+                elif key == 'bill_no':
+                    self.bill_no = value[1]
+                elif key == 'order_id':
+                    self.order_id = value[1]
+                elif key == 'posting_date':
+                    self.posting_date = value[1]
+                elif key == 'shipping':
+                    self.shipping = value[1]
+
+    def edit_data_model_manually(self, data_model, infile):
+        diff = None
+        new_data_model = None
+
+        if utils.running_linux():
+            os.system("evince " + infile + " &")
+
+        def store_json(json_data: dict):
+            nonlocal diff, new_data_model
+            new_data_model = json_data
+            diff = jsondiff.diff(data_model, json_data, syntax='symmetric')
+
+        jsoneditor.editjson(data_model, callback=store_json)
+
+        if diff:
+            self.apply_info_changes(diff, new_data_model)
+
+        return new_data_model
+
+    def extract_main_info(self, invoice_json, given_supplier, infile):
         self.set_items(invoice_json, given_supplier)
 
         supplier = self.supplier
@@ -1097,12 +1223,13 @@ class PurchaseInvoice(Invoice):
                 "shipping": shipping,
             })
 
+        result = self.edit_data_model_manually(result, infile)
         return result
 
-    def parse_invoice_json(self, invoice_json, default_account=None, paid_by_submitter=False, given_supplier=None,
+    def parse_invoice_json(self, invoice_json, infile, default_account=None, paid_by_submitter=False, given_supplier=None,
                            is_test=False, check_dup=True):
         try:
-            self.extract_main_info(invoice_json, given_supplier)
+            self.extract_main_info(invoice_json, given_supplier, infile)
             self.compute_total()
         except Exception as e:
             if self.update_stock:
