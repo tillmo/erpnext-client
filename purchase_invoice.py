@@ -146,11 +146,8 @@ def get_float_number(float_str: str):
     return float(float_str.replace(' ', ''))
 
 
-def find_date(date_string: str, supplier: str):
-    if supplier and "Frappe Technologies" in supplier:
-        matches = list(datefinder.find_dates(date_string, first="day"))
-    else:
-        matches = list(datefinder.find_dates(date_string))
+def find_date(date_string: str):
+    matches = list(datefinder.find_dates(date_string))
     return matches[0].strftime('%Y-%m-%d') if matches else None
 
 
@@ -962,13 +959,9 @@ class PurchaseInvoice(Invoice):
         self.gross_total = get_element_with_high_confidence(invoice_json, 'total_amount')
         if self.gross_total:
             self.gross_total = get_float_number(self.gross_total)
-            if self.supplier and "Frappe Technologies" in self.supplier:
-                self.gross_total = round(self.gross_total * 0.87408, 2)
         net_amount = get_element_with_high_confidence(invoice_json, 'net_amount')
         if net_amount:
             self.totals[self.default_vat] = get_float_number(net_amount)
-            if self.supplier and "Frappe Technologies" in self.supplier:
-                self.totals[self.default_vat] = round(self.totals[self.default_vat] * 0.87408, 2)
         total_tax_amount = get_element_with_high_confidence(invoice_json, 'total_tax_amount')
         if total_tax_amount:
             self.vat[self.default_vat] = get_float_number(total_tax_amount)
@@ -976,20 +969,20 @@ class PurchaseInvoice(Invoice):
                 self.totals[self.default_vat] = round(self.gross_total - self.vat[self.default_vat], 2)
         else:
             if self.gross_total:
-                if (not net_amount or self.gross_total == self.totals[self.default_vat]) and not (self.supplier and "Frappe Technologies" in self.supplier):
+                if not net_amount or self.gross_total == self.totals[self.default_vat]:
                     self.vat[self.default_vat] = round(self.gross_total * 0.19 / 1.19, 2)
                     self.totals[self.default_vat] = round(self.gross_total - self.vat[self.default_vat], 2)
-            elif net_amount and not (self.supplier and "Frappe Technologies" in self.supplier):
+            elif net_amount:
                 self.gross_total = self.totals[self.default_vat]
                 self.vat[self.default_vat] = round(self.totals[self.default_vat] * 0.19 / 1.19, 2)
                 self.totals[self.default_vat] = round(self.gross_total - self.vat[self.default_vat], 2)
 
         due_date = get_element_with_high_confidence(invoice_json, 'due_date')
         if due_date:
-            due_date = find_date(due_date, self.supplier)
+            due_date = find_date(due_date)
         posting_date = get_element_with_high_confidence(invoice_json, 'posting_date')
         if posting_date:
-            posting_date = find_date(posting_date, self.supplier)
+            posting_date = find_date(posting_date)
         if due_date:
             if posting_date and self.supplier != 'Heckert Solar GmbH':
                 self.date = min(posting_date, due_date)
