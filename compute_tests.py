@@ -4,6 +4,7 @@ from jsonschema import validate
 
 import project
 import settings
+import utils
 from api import Api, LIMIT
 from purchase_invoice import PurchaseInvoice
 
@@ -164,7 +165,9 @@ def compute_json1_diff(inv):
         invoice_json = json.loads(json_str)
     update_stock = 'chance' in inv and inv['chance'] and project.project_type(inv['chance']) in settings.STOCK_PROJECT_TYPES
     old_json1 = json.loads(inv.get('json1'))
-    new_json1 = PurchaseInvoice(update_stock).extract_main_info(invoice_json, supplier)
+    pdf = Api.api.get_file(inv['pdf'])
+    file = utils.store_temp_file(pdf, ".pdf")
+    new_json1 = PurchaseInvoice(update_stock).extract_main_info(invoice_json, supplier, file)
 
     diff = jsondiff.diff(old_json1, new_json1, syntax='symmetric')
     return diff
