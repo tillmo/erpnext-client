@@ -127,7 +127,7 @@ def ask_if_to_continue(err, msg=""):
 
 
 def get_element_with_high_confidence(invoice_json, element_type):
-    elements = [el for el in invoice_json['entities'] if el.get('type') == element_type and el.get('confidence')]
+    elements = [el for el in invoice_json['entities'] if el.get('type') == element_type]
     sorted_list = sorted(elements, key=lambda k: -float(k['confidence']))
     best_elem = sorted_list[0]['value'] if len(sorted_list) > 0 else None
     if type(best_elem) == str:
@@ -136,9 +136,15 @@ def get_element_with_high_confidence(invoice_json, element_type):
 
 
 def get_float_number(float_str: str):
+    float_str = float_str.replace('USD', '').replace('EUR', '')
     if ',' in float_str:
         float_str = float_str.replace('.', '').replace(',', '.')
     return float(float_str.replace(' ', ''))
+
+
+def find_date(date_string: str):
+    matches = list(datefinder.find_dates(date_string))
+    return matches[0].strftime('%Y-%m-%d') if matches else None
 
 
 class SupplierItem:
@@ -948,7 +954,6 @@ class PurchaseInvoice(Invoice):
         self.order_id = get_element_with_high_confidence(invoice_json, 'order_id')
         self.gross_total = get_element_with_high_confidence(invoice_json, 'total_amount')
         if self.gross_total:
-            self.gross_total = self.gross_total.replace('USD', '')
             self.gross_total = get_float_number(self.gross_total)
         net_amount = get_element_with_high_confidence(invoice_json, 'net_amount')
         if net_amount:
@@ -959,18 +964,28 @@ class PurchaseInvoice(Invoice):
             if self.gross_total and (not net_amount or self.gross_total - self.vat[self.default_vat] > self.totals[self.default_vat]):
                 self.totals[self.default_vat] = round(self.gross_total - self.vat[self.default_vat], 2)
         else:
-            if self.gross_total == self.totals[self.default_vat]:
-                self.vat[self.default_vat] = round(self.gross_total * 0.19, 2)
+            if self.gross_total:
+                if not net_amount or self.gross_total == self.totals[self.default_vat]:
+                    self.vat[self.default_vat] = round(self.gross_total * 0.19 / 1.19, 2)
+                    self.totals[self.default_vat] = round(self.gross_total - self.vat[self.default_vat], 2)
+            elif net_amount:
+                self.gross_total = self.totals[self.default_vat]
+                self.vat[self.default_vat] = round(self.totals[self.default_vat] * 0.19 / 1.19, 2)
                 self.totals[self.default_vat] = round(self.gross_total - self.vat[self.default_vat], 2)
+
         due_date = get_element_with_high_confidence(invoice_json, 'due_date')
         if due_date:
-            matches = list(datefinder.find_dates(due_date))
-            due_date = matches[0].strftime('%Y-%m-%d') if matches else None
+            due_date = find_date(due_date)
         posting_date = get_element_with_high_confidence(invoice_json, 'posting_date')
         if posting_date:
-            matches = list(datefinder.find_dates(posting_date))
-            posting_date = matches[0].strftime('%Y-%m-%d') if matches else None
-        self.date = due_date if due_date else posting_date
+            posting_date = find_date(posting_date)
+        if due_date:
+            if posting_date and self.supplier != 'Heckert Solar GmbH':
+                self.date = min(posting_date, due_date)
+            else:
+                self.date = due_date
+        else:
+            self.date = posting_date
 
         if self.update_stock:
             line_items = [el for el in invoice_json['entities'] if el.get('type') in ['item', 'line_item']]
@@ -990,6 +1005,8 @@ class PurchaseInvoice(Invoice):
                         if quantity_str:
                             if 'STX' in quantity_str:
                                 quantity_str = quantity_str.replace('STX', '')
+                            if 'Stk' in quantity_str:
+                                quantity_str = quantity_str.replace('Stk', '')
                             if 'ST' in quantity_str:
                                 quantity_str = quantity_str.replace('ST', '')
                             if 'X' in quantity_str:
@@ -1017,7 +1034,7 @@ class PurchaseInvoice(Invoice):
                 if s_item.qty and s_item.amount:
                     if not s_item.rate:
                         s_item.rate = round(s_item.amount / s_item.qty, 2)
-                    rounding_error += s_item.amount - s_item.rate * s_item.qty
+                    # rounding_error += s_item.amount - s_item.rate * s_item.qty
                     sum_amount += s_item.amount
                     self.items.append(s_item)
                 elif s_item.description:
@@ -1040,20 +1057,11 @@ class PurchaseInvoice(Invoice):
 
         supplier = self.supplier
         bill_no = self.no
+        order_id = self.order_id
         shipping = self.shipping
         posting_date = self.date
         total = self.totals[self.default_vat] if self.totals[self.default_vat] else 0
         grand_total = self.gross_total if self.gross_total else 0
-
-        items = []
-        for s_item in self.items:
-            items.append({
-                "description": s_item.description,
-                "qty": s_item.qty,
-                "uom": s_item.qty_unit,
-                "rate": s_item.rate,
-                "amount": s_item.amount
-            })
 
         taxes = []
         if self.vat[self.default_vat]:
@@ -1069,6 +1077,10 @@ class PurchaseInvoice(Invoice):
             result.update({
                 "bill_no": bill_no,
             })
+        if order_id:
+            result.update({
+                "order_id": order_id,
+            })
         if posting_date:
             result.update({
                 "posting_date": posting_date,
@@ -1076,10 +1088,6 @@ class PurchaseInvoice(Invoice):
         if shipping > 0:
             result.update({
                 "shipping": shipping,
-            })
-        if items:
-            result.update({
-                "items": items,
             })
 
         return result
