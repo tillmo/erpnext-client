@@ -1178,7 +1178,7 @@ class PurchaseInvoice(Invoice):
 
         return new_data_model
 
-    def extract_main_info(self, invoice_json, given_supplier, infile):
+    def extract_main_info(self, invoice_json, given_supplier, infile, manual_edit=True):
         self.set_items(invoice_json, given_supplier)
 
         supplier = self.supplier
@@ -1192,6 +1192,16 @@ class PurchaseInvoice(Invoice):
         taxes = []
         if self.vat[self.default_vat]:
             taxes.append({"rate": 19, "tax_amount": self.vat[self.default_vat]})
+
+        items = []
+        for s_item in self.items:
+            items.append({
+                "description": s_item.description,
+                "qty": s_item.qty,
+                "uom": s_item.qty_unit,
+                "rate": s_item.rate,
+                "amount": s_item.amount
+            })
 
         result = {
             "supplier": supplier,
@@ -1215,8 +1225,12 @@ class PurchaseInvoice(Invoice):
             result.update({
                 "shipping": shipping,
             })
-
-        result = self.edit_data_model_manually(result, infile)
+        if items:
+            result.update({
+                "items": items,
+            })
+        if manual_edit:
+            result = self.edit_data_model_manually(result, infile)
         return result
 
     def parse_invoice_json(self, invoice_json, infile, default_account=None, paid_by_submitter=False, given_supplier=None,
