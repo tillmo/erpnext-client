@@ -1,8 +1,8 @@
 #!/usr/bin/python3
 
+from purchase_invoice_parser import PurchaseInvoiceParser, SupplierItem
 from settings import STANDARD_PRICE_LIST, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, \
-    DELIVERY_COST_DESCRIPTION, NKK_ACCOUNTS, KORNKRAFT_ACCOUNTS, SOMIKO_ACCOUNTS, STOCK_ITEM_GROUPS, \
-    AGGREGATE_ITEMS, AGGREGATE_ITEM_VALUE, DEFAULT_ITEMS
+    DELIVERY_COST_DESCRIPTION, SOMIKO_ACCOUNTS
 
 import os
 import utils
@@ -10,7 +10,7 @@ import PySimpleGUI as sg
 import easygui
 import subprocess
 import re
-from api import Api, WAREHOUSE, LIMIT
+from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
 import settings
 import doc
@@ -20,8 +20,6 @@ import stock
 from invoice import Invoice
 from collections import defaultdict
 import datefinder
-import random
-import string
 from pprint import pprint
 import jsondiff
 from jsondiff.symbols import insert, delete
@@ -151,152 +149,8 @@ def find_date(date_string: str):
     return matches[0].strftime('%Y-%m-%d') if matches else None
 
 
-class SupplierItem:
-    def __init__(self, inv):
-        self.purchase_invoice = inv
-        self.description = None
-        self.long_description = None
-        self.qty = None
-        self.qty_unit = None
-        self.rate = None
-        self.pos = None
-        self.amount = None
-        self.item_code = None
-
-    def search_item(self, supplier, check_dup=True):
-        if self.item_code:
-            if supplier in Api.item_code_translation:
-                trans_table_supplier = Api.item_code_translation[supplier]
-                if self.item_code in trans_table_supplier:
-                    e_item_code = trans_table_supplier[self.item_code]
-                    e_item = Api.items_by_code[e_item_code]
-                    return e_item
-        # look for most similar e_items
-        sim_items = []
-        for e_code, e_item in Api.items_by_code.items():
-            if e_code in DEFAULT_ITEMS:
-                sim = 1
-            elif self.description:
-                sim = utils.similar(e_item['item_name'], self.description)
-            else:
-                sim = 0
-            sim_items.append((sim, e_item))
-        top_items = sorted(sim_items, reverse=True, key=lambda x: x[0])[0:20]
-        # print(top_items)
-        texts = ['Neuen Artikel anlegen']
-        texts += [i[1]['item_code'] + ' ' + i[1]['item_name'] for i in top_items]
-        title = "Artikel wählen"
-        msg = "Artikel in Rechnung:\n{0}\n\nCode Lieferant: {1}\n\n".format(self.long_description, self.item_code)
-        msg += "Bitte passenden Artikel in ERPNext auswählen:"
-        if check_dup:
-            choice = easygui.choicebox(msg, title, texts)
-        else:
-            choice = 'Neuen Artikel anlegen'
-        if choice == None:
-            return None
-        if choice:
-            choice = texts.index(choice)
-        if choice:
-            e_item = top_items[choice - 1][1]
-            if self.item_code:
-                doc = gui_api_wrapper(Api.api.get_doc, 'Item',
-                                      e_item['item_code'])
-                doc['supplier_items'].append( \
-                    {'supplier': supplier,
-                     'supplier_part_no': self.item_code})
-                # print(doc['supplier_items'])
-                gui_api_wrapper(Api.api.update, doc)
-            return e_item
-        else:
-            title = "Artikelgruppe für Neuen Artikel in ERPNext wählen"
-            msg = self.long_description + "\n" if self.long_description else ""
-            if self.item_code:
-                msg += "Code Lieferant: " + self.item_code + "\n"
-            msg += "Einzelpreis: {0:.2f}€".format(self.rate)
-            groups = Api.api.get_list("Item Group", limit_page_length=LIMIT)
-            groups = [g['name'] for g in groups]
-            groups.sort()
-            if check_dup:
-                group = easygui.choicebox(msg, title, groups)
-            else:
-                group = settings.STANDARD_ITEM_GROUP
-            if group == None:
-                return None
-            msg += "\nArtikelgruppe: " + group
-            title = "Neuen Artikel in ERPNext eintragen"
-            msg += "\n\nDiesen Artikel eintragen?"
-            if check_dup:
-                choice = easygui.choicebox(msg, title, ["Ja", "Nein"])
-            else:
-                choice = "Ja"
-            if choice == "Ja":
-                item_code = "new" + ''.join(random.choices(string.ascii_uppercase + string.digits, k=8))
-                company_name = self.purchase_invoice.company_name
-                e_item = {'doctype': 'Item',
-                          'item_code': item_code,
-                          'item_name': self.description[:140] if self.description else None,
-                          'description': self.long_description,
-                          'item_group': group,
-                          'item_defaults': [{'company': company_name,
-                                             'default_warehouse': WAREHOUSE}],
-                          'stock_uom': self.qty_unit}
-                e_item = gui_api_wrapper(Api.api.insert, e_item)
-                return e_item
-        return None
-
-    def add_item_price(self, e_item, rate, uom, date):
-        docs = gui_api_wrapper(Api.api.get_list, 'Item Price',
-                               filters={'item_code': e_item['item_code']})
-        if docs:
-            doc = gui_api_wrapper(Api.api.get_doc, 'Item Price', docs[0]['name'])
-            if abs(float(doc['price_list_rate']) - rate) > 0.0005:
-                title = "Preis anpassen?"
-                msg = "Artikel: {0}\nAlter Preis: {1}\nNeuer Preis: {2:.2f}". \
-                    format(e_item['description'], doc['price_list_rate'], rate)
-                msg += "\n\nPreis anpassen?"
-                if easygui.ccbox(msg, title):
-                    doc['price_list_rate'] = rate
-                    gui_api_wrapper(Api.api.update, doc)
-        else:
-            price = {'doctype': 'Item Price',
-                     'item_code': e_item['item_code'],
-                     'selling': True,
-                     'buying': True,
-                     'price_list': STANDARD_PRICE_LIST,
-                     'valid_from': date,
-                     'uom': uom,
-                     'price_list_rate': rate}
-            # print(price,e_item)
-            doc = gui_api_wrapper(Api.api.insert, price)
-            # print(doc)
-
-    def process_item(self, supplier, date, check_dup=True):
-        e_item = self.search_item(supplier, check_dup)
-        if e_item:
-            if e_item['item_group'] in STOCK_ITEM_GROUPS:
-                self.add_item_price(e_item, self.rate, self.qty_unit, date)
-            else:
-                # convert into lump-sum aggregated item
-                code = AGGREGATE_ITEMS.get(e_item['item_group'])
-                if not code:
-                    code = AGGREGATE_ITEMS['default']
-                e_item['item_code'] = code
-                self.qty = self.qty * self.rate / AGGREGATE_ITEM_VALUE
-                self.rate = AGGREGATE_ITEM_VALUE
-            return {'item_code': e_item['item_code'],
-                    'qty': self.qty,
-                    'rate': self.rate,
-                    'desc': self.description}
-        else:
-            return None
-
-
 class PurchaseInvoice(Invoice):
     suppliers = {}
-
-    @classmethod
-    def get_amount_krannich(cls, lines):
-        return sum(map(lambda line: utils.read_float(line[-9:-1]), lines))
 
     def extract_order_id(self, str, line):
         if str in line:
@@ -307,477 +161,7 @@ class PurchaseInvoice(Invoice):
             except:
                 pass
 
-    def parse_krannich(self, lines):
-        items = []
-        item = []
-        for line in lines:
-            if line[0].isdigit():
-                items.append(item)
-                item = [line]
-            else:
-                item.append(line)
-        items.append(item)
-        self.date = None
-        self.no = None
-        for line in items[0]:
-            if (not self.date) and "echnung" in line:
-                self.no = line.split()[1]
-                self.date = utils.convert_date4(line.split()[2])
-            for s in ["Auftragsbestätigung", "Order confirmation", "Vorkasse zu AB"]:
-                self.extract_order_id(s, line)
-            # elif "Anzahlungsrechnung" in line:
-            #    print("Dies ist eine Anzahlungsrechnung")
-            #    return None
-        self.items = []
-        self.shipping = 0
-        rounding_error = 0
-        if self.update_stock:
-            mypos = 0
-            for item_lines in items[1:]:
-                # print("***",item_lines)
-                item_str = item_lines[0]
-                clutter = ['Einzelpreis', 'Krannich', 'IBAN', 'Rechnung', 'Übertrag']
-                s_item = SupplierItem(self)
-                s_item.description = ""
-                long_description_lines = \
-                    [l for l in item_lines[1:] \
-                     if utils.no_substr(clutter, l) and l.strip()]
-                if long_description_lines:
-                    s_item.description = " ".join(long_description_lines[0][0:82].split())
-                s_item.long_description = ""
-                for l in long_description_lines:
-                    if "Zwischensumme" in l:
-                        break
-                    s_item.long_description += l
-                try:
-                    pos = float(item_str[0:7].split()[0])
-                except Exception as e:
-                    print(e)
-                    continue
-                if pos > 1000:
-                    break
-                # if not (pos in [mypos,mypos+1,mypos+2]):
-                #    break
-                if "Vorkasse" in s_item.description:
-                    continue
-                mypos = pos
-                s_item.item_code = item_str.split()[1]
-                q = re.search("([0-9]+) *([A-Za-z]+)", item_str[73:99])
-                if not q:
-                    continue
-                s_item.qty = int(q.group(1))
-                s_item.qty_unit = q.group(2)
-                # print(item_str)
-                try:
-                    price = utils.read_float(item_str[130:142].split()[0])
-                except:
-                    price = utils.read_float(item_str[93:142].split()[0])
-                try:
-                    discount = utils.read_float(item_str[142:152].split()[0])
-                except Exception:
-                    discount = 0
-                s_item.amount = utils.read_float(item_str[157:].split()[0])
-                if s_item.qty_unit == "Rol":
-                    try:
-                        r1 = re.search('[0-9]+ *[mM]', s_item.description)
-                        r2 = re.search('[0-9]+', r1.group(0))
-                        s_item.qty_unit = "Meter"
-                        s_item.qty = int(r2.group(0))
-                    except Exception:
-                        pass
-                if s_item.qty:
-                    s_item.rate = round(s_item.amount / s_item.qty, 2)
-                    rounding_error += s_item.amount - s_item.rate * s_item.qty
-                    self.items.append(s_item)
-                    # print("--->",s_item)
-                # print(item_str,"--->",s_item)
-        vat_line = ""
-        for i in range(-1, -len(items) - 1, -1):
-            vat_lines = [line for line in items[i] if 'MwSt' in line]
-            if vat_lines:
-                vat_line = vat_lines[0]
-                if self.update_stock:
-                    self.shipping = PurchaseInvoice.get_amount_krannich \
-                        ([line for line in items[i] \
-                          if 'Insurance' in line or 'Freight' in line \
-                          or 'Neukundenrabatt' in line])
-                break
-        for i in range(-1, -len(items) - 1, -1):
-            gross_lines = [line for line in items[i] if 'Endsumme' in line]
-            if gross_lines:
-                self.gross_total = utils.read_float(gross_lines[0].split()[-1])
-                break
-        if not self.order_id:
-            for i in range(-1, -len(items) - 1, -1):
-                order_id_lines = [line for line in items[i] if 'Vorkasse zu AB' in line or 'Vorkasse zur AB' in line]
-                if order_id_lines:
-                    self.extract_order_id("Vorkasse zu AB", order_id_lines[0])
-                    self.extract_order_id("Vorkasse zur AB", order_id_lines[0])
-                    break
-        self.shipping += rounding_error
-        self.totals[self.default_vat] = utils.read_float(vat_line[146:162])
-        self.vat[self.default_vat] = PurchaseInvoice.get_amount_krannich([vat_line])
-        self.compute_total()
-        return self
-
-    def parse_pvxchange(self, lines):
-        items = []
-        item = []
-        preamble = True
-        self.date = None
-        self.no = None
-        for line in lines:
-            words = line.split()
-            for i in [1, 2]:
-                if len(words) > i:
-                    d = utils.convert_date4(words[i])
-                    if d:
-                        self.date = d
-            if line[0:8] == "Rechnung":
-                if len(words) > 1:
-                    self.no = words[2]
-            if preamble:
-                if len(line) >= 4 and line[0:4] == "Pos.":
-                    preamble = False
-                continue
-            if len(line) >= 5 and line[0:5] == "Seite":
-                preamble = True
-                continue
-            try:
-                pos_no = int(words[0])
-            except Exception:
-                pos_no = -1
-            if pos_no == 28219:
-                break
-            if pos_no >= 0 or 'Nettosumme' in line:
-                items.append(item)
-                item = [line]
-            else:
-                item.append(line)
-        items.append(item)
-        self.items = []
-        self.shipping = 0.0
-        if self.update_stock:
-            mypos = 0
-            for item_lines in items[1:-1]:
-                try:
-                    parts = " ".join(map(lambda s: s.strip(), item_lines)).split()
-                    s_item = SupplierItem(self)
-                    s_item.qty = int(parts[1])
-                    s_item.rate = utils.read_float(parts[-4])
-                    s_item.amount = utils.read_float(parts[-2])
-                    s_item.qty_unit = "Stk"
-                    s_item.description = " ".join(parts[2:-4])
-                    s_item.long_description = s_item.description
-                except Exception:
-                    continue
-                try:
-                    ind = parts.index('Artikelnummer:')
-                    s_item.item_code = parts[ind + 1]
-                except Exception:
-                    s_item.item_code = None
-                if s_item.description.strip() == "Transportkosten":
-                    self.shipping = s_item.amount
-                    continue
-                if not (s_item.description == "Selbstabholer" and s_item.amount == 0.0):
-                    self.items.append(s_item)
-        for i in range(-1, -5, -1):
-            try:
-                vat_line = [line for line in items[i] if 'MwSt' in line][0]
-                total_line = [line for line in items[i] if 'Nettosumme' in line][0]
-                break
-            except Exception:
-                pass
-        self.vat[self.default_vat] = utils.read_float(vat_line.split()[-2])
-        self.totals[self.default_vat] = utils.read_float(total_line.split()[-2])
-        self.compute_total()
-        return self
-
-    @classmethod
-    def get_amount_heckert(cls, lines):
-        return sum(map(lambda line: utils.read_float(line[-12:-4]), lines))
-
-    def parse_heckert(self, lines):
-        items = []
-        item = []
-        preamble = True
-        self.date = None
-        self.no = None
-        for line in lines:
-            words = line.split()
-            # print(words)
-            if "Belegdatum" in line:
-                d = utils.convert_date4(words[-1])
-                if d:
-                    self.date = d
-                    # print("Date",d)
-            if "Auftrag " in line:
-                self.order_id = line[120:].split()[0]
-            if "Belegnummer / Document Number" in line:
-                self.no = words[-1]
-                # print("No.",self.no)
-            if words and words[0] and words[0][0].isdigit():
-                # print(words)
-                items.append(item)
-                item = [line]
-            else:
-                item.append(line)
-        items.append(item)
-        # print(items)
-        self.items = []
-        self.shipping = 0.0
-        rounding_error = 0
-        if self.update_stock:
-            mypos = 0
-            for item_lines in items[1:]:
-                # print(item_lines)
-                item_str = item_lines[0]
-                # print("str:",item_str)
-                try:
-                    pos = int(item_str.split()[0])
-                except Exception:
-                    continue
-                # print("pos",pos)
-                if pos >= 28100:
-                    continue
-                clutter = ['Rabatt', 'Übertrag']
-                s_item = SupplierItem(self)
-                long_description_lines = \
-                    [l for l in item_lines[1:] \
-                     if utils.no_substr(clutter, l) and l.strip()]
-                s_item.description = " ".join(long_description_lines[0][0:82].split())
-                s_item.long_description = ""
-                for l in long_description_lines:
-                    if "Zwischensumme" in l:
-                        break
-                    s_item.long_description += l
-                # if not (pos in [mypos,mypos+1,mypos+2]):
-                #    break
-                if "Vorkasse" in s_item.description:
-                    continue
-                mypos = pos
-                s_item.item_code = item_str.split()[1]
-                # print("code",s_item.item_code)
-                q = re.search("([0-9]+) *([A-Za-z]+)", item_str[60:73])
-                # print("q",q)
-                if not q:
-                    continue
-                s_item.qty = int(q.group(1))
-                s_item.qty_unit = q.group(2)
-                if s_item.qty_unit == "ST":
-                    s_item.qty_unit = "Stk"
-                # print("qty ",s_item.qty)
-                # print("unit ",s_item.qty_unit)
-                # print("str ",item_str[98:113])
-                price = utils.read_float(item_str[98:114].split()[0])
-                try:
-                    price1 = utils.read_float(item_lines[1][98:114].split()[0])
-                except Exception:
-                    price1 = 0
-                if price1 > price:
-                    price = price1
-                # print("price ",price)
-                discount_line = ""
-                discount_lines = [line for line in item_lines if 'Rabatt' in line or 'Dieselzuschlag' in line]
-                discount = 0
-                for discount_line in discount_lines:
-                    # print("***"+discount_line+"xxx")
-                    # print(len(discount_line))
-                    discount += utils.read_float(discount_line[135:153].split()[0])
-                # print("discount ",discount)
-                # print("amount before discount ",utils.read_float(item_str[135:153].split()[0]))
-                s_item.amount = utils.read_float(item_str[135:153].split()[0]) + discount
-                # print("amount with discount ",s_item.amount)
-                if s_item.description.split()[0] == "Transportkosten":
-                    self.shipping = s_item.amount
-                    # print("shipping: ",self.shipping)
-                    continue
-                s_item.rate = round(s_item.amount / s_item.qty, 2)
-                # print("item rate",s_item.rate)
-                rounding_error += s_item.amount - s_item.rate * s_item.qty
-                self.items.append(s_item)
-        vat_line = ""
-        for i in range(-1, -len(items), -1):
-            vat_lines = [line for line in items[i] if 'MwSt' in line]
-            if vat_lines:
-                vat_line = vat_lines[0]
-                break
-        for i in range(-1, -len(items), -1):
-            total_lines = [line for line in items[i] if 'Zwischensumme' in line]
-            if total_lines:
-                total_line = total_lines[0]
-                break
-        # print("rounding_error ",rounding_error)
-        self.shipping += rounding_error
-        self.totals[self.default_vat] = utils.read_float(total_line[135:153])
-        self.vat[self.default_vat] = utils.read_float(
-            vat_line[135:153])  # PurchaseInvoice.get_amount_heckert([vat_line])
-        self.compute_total()
-        return self
-
-    def parse_wagner(self, lines):
-        items = []
-        item = []
-        is_rechnung = False
-        preamble = True
-        self.date = None
-        self.no = None
-        for line in lines:
-            words = line.split()
-            # print(words)
-            if not self.date and "Datum" in line:
-                d = utils.convert_date_written_month(" ".join(words[-3:]))
-                if d:
-                    self.date = d
-                    # print("Date",d)
-            if "Auftragsnummer" in line:
-                self.order_id = words[-1]
-                # print("Auftragsnummer",self.order_id)
-            if not self.no and ("Auftragsbestätigung" in line or "Vorkasserechnung" in line or "Rechnung" in line):
-                self.no = words[-1]
-                is_rechnung = "Rechnung" in line
-                # print("No.",self.no)
-            elif words and words[0] and words[0][0].isdigit():
-                # print("--->",words)
-                items.append(item)
-                item = [line]
-            else:
-                item.append(line)
-        items.append(item)
-        # print(items)
-        self.items = []
-        self.shipping = 0.0
-        rounding_error = 0
-        if self.update_stock:
-            mypos = 0
-            for item_lines in items[1:]:
-                # print(item_lines)
-                item_str = item_lines[0]
-                words = item_str.split()
-                # print(words)
-                # print("str:",item_str)
-                try:
-                    pos = int(words[0])
-                except Exception:
-                    continue
-                if pos >= 28100:
-                    continue
-                # print("pos",pos)
-                clutter = ['Rabatt', 'Übertrag']
-                s_item = SupplierItem(self)
-                long_description_lines = \
-                    [l for l in item_lines[1:] \
-                     if utils.no_substr(clutter, l) and l.strip()]
-                s_item.description = " ".join(long_description_lines[0][0:82].split())
-                # print("description: ",s_item.description)
-                s_item.long_description = ""
-                for l in long_description_lines:
-                    if "Zwischensumme" in l:
-                        break
-                    s_item.long_description += l
-                # print("long_description: ",s_item.long_description)
-                mypos = pos
-                if is_rechnung:
-                    s_item.item_code = words[1]
-                else:
-                    ind = words.index("Artikelnr.")
-                    s_item.item_code = words[ind + 1]
-                # print("code",s_item.item_code)
-                ind = words.index("Stück")
-                s_item.qty = int(words[ind - 1])
-                s_item.qty_unit = "Stk"
-                # print("qty ",s_item.qty)
-                # print("unit ",s_item.qty_unit)
-                s_item.amount = utils.read_float(words[-1])
-                # print("price ",s_item.amount)
-                discount = 0
-                if "Fracht" in s_item.description or "Fracht" in words:
-                    self.shipping = s_item.amount
-                    # print("shipping: ",self.shipping)
-                    continue
-                s_item.rate = round(s_item.amount / s_item.qty, 2)
-                # print("item rate",s_item.rate)
-                rounding_error += s_item.amount - s_item.rate * s_item.qty
-                self.items.append(s_item)
-        vat_line = ""
-        for i in range(len(items)):
-            vat_lines = [line for line in items[i] if 'MwSt' in line]
-            if vat_lines:
-                vat_line = vat_lines[0]
-                # print(vat_line)
-                break
-        for i in range(len(items)):
-            total_lines = [line for line in items[i] if 'Nettosumme' in line or 'Nettowarenwert' in line]
-            if total_lines:
-                total_line = total_lines[0]
-                break
-        # print("rounding_error ",rounding_error)
-        self.shipping += rounding_error
-        self.totals[self.default_vat] = utils.read_float(total_line.split()[-1])
-        self.vat[self.default_vat] = utils.read_float(vat_line.split()[-1])
-        # print("total ",self.totals[self.default_vat])
-        # print("vat ",self.vat[self.default_vat])
-        self.compute_total()
-        return self
-
-    def parse_nkk(self, lines):
-        self.date = None
-        self.no = None
-        for line in lines:
-            words = line.split()
-            if not self.date:
-                for i in range(len(words)):
-                    self.date = utils.convert_date4(words[i])
-                    if self.date:
-                        self.no = words[i - 1]
-                        break
-            elif words:
-                for vat in self.vat_rates:
-                    vatstr = "{:.2f}%".format(vat).replace(".", ",")
-                    if words[0] == vatstr:
-                        self.vat[vat] = utils.read_float(words[5])
-                        self.totals[vat] = utils.read_float(words[1]) + \
-                                           utils.read_float(words[3])
-        self.items = []
-        self.shipping = 0.0
-        self.compute_total()
-        self.assign_default_e_items(NKK_ACCOUNTS)
-        return self
-
-    def parse_kornkraft(self, lines):
-        self.date = None
-        self.no = None
-        for vat in self.vat_rates:
-            self.vat[vat] = 0
-            self.totals[vat] = 0
-        vat_rate_strs = ["{:.2f}".format(r).replace(".", ",") for r in self.vat_rates]
-        for line in lines:
-            words = line.split()
-            if not self.date:
-                for i in range(len(words)):
-                    self.date = utils.convert_date4(words[i])
-                    if self.date:
-                        self.no = words[i - 2]
-                        break
-            else:
-                if len(words) > 12:
-                    words = [w.replace('*', '') for w in words]
-                    for vat in vat_rate_strs:
-                        if vat in words[0:6]:
-                            # print(list(zip(words,range(len(words)))))
-                            vat = utils.read_float(vat)
-                            self.vat[vat] = utils.read_float(words[-4])
-                            self.totals[vat] = utils.read_float(words[-2]) - self.vat[vat]
-                            break
-        # print(self.date,self.no,self.vat,self.totals)
-        self.items = []
-        self.shipping = 0.0
-        self.compute_total()
-        self.assign_default_e_items(KORNKRAFT_ACCOUNTS)
-        return self
-
-    def parse_generic(self, lines, default_account=None, paid_by_submitter=False,
-                      is_test=False):
+    def parse_generic(self, lines, default_account=None, paid_by_submitter=False, is_test=False):
         self.parser = "generic"
         self.extract_items = False
         amount = ""
@@ -929,7 +313,8 @@ class PurchaseInvoice(Invoice):
                         if given_supplier and self.supplier != given_supplier:
                             print("abweichend von PreRechnung: ", given_supplier)
                         self.multi = info['multi']
-                        if not info['parser'](self, lines):
+                        purchase_invoice_parser = PurchaseInvoiceParser(self, info['parser'], lines)
+                        if not purchase_invoice_parser.set_purchase_info():
                             return None
                         return self
         except Exception as e:
@@ -1698,31 +1083,39 @@ class PurchaseInvoice(Invoice):
         return self
 
 
-heckert_info = {'parser': PurchaseInvoice.parse_heckert,
+heckert_info = {'parser': 'heckert',
                 'raw': False, 'multi': False,
                 'supplier': 'Heckert Solar GmbH'}
 
-PurchaseInvoice.suppliers = {'Krannich Solar GmbH & Co KG':
-         {'parser': PurchaseInvoice.parse_krannich,
-          'raw': False, 'multi': False},
-     'pvXchange Trading GmbH':
-         {'parser': PurchaseInvoice.parse_pvxchange,
-          'raw': True, 'multi': False},
-     'Schlußrechnung': heckert_info,
-     'Vorausrechnung': heckert_info,
-     'Teilrechnung': heckert_info,
-     'SOLARWATT':
-         {'parser': PurchaseInvoice.parse_generic,
-          'raw': False, 'multi': False,
-          'supplier': 'Solarwatt GmbH'},
-     'Seite':
-         {'parser': PurchaseInvoice.parse_wagner,
-          'raw': False, 'multi': False,
-          'supplier': 'Wagner Solar'},
-     'Rechnung':
-         {'parser': PurchaseInvoice.parse_nkk,
-          'raw': False, 'multi': False,
-          'supplier': 'Naturkost Kontor Bremen Gmbh'},
-     'Kornkraft Naturkost GmbH':
-         {'parser': PurchaseInvoice.parse_kornkraft,
-          'raw': False, 'multi': True}}
+PurchaseInvoice.suppliers = {
+    'Krannich Solar GmbH & Co KG': {
+        'parser': 'krannich',
+        'raw': False, 'multi': False
+    },
+    'pvXchange Trading GmbH': {
+        'parser': 'pvxchange',
+        'raw': True, 'multi': False
+    },
+    'Schlußrechnung': heckert_info,
+    'Vorausrechnung': heckert_info,
+    'Teilrechnung': heckert_info,
+    'SOLARWATT': {
+        'parser': 'generic',
+        'raw': False, 'multi': False,
+        'supplier': 'Solarwatt GmbH'
+    },
+    'Seite': {
+        'parser': 'wagner',
+        'raw': False, 'multi': False,
+        'supplier': 'Wagner Solar'
+    },
+    'Rechnung': {
+        'parser': 'nkk',
+        'raw': False, 'multi': False,
+        'supplier': 'Naturkost Kontor Bremen Gmbh'
+    },
+    'Kornkraft Naturkost GmbH': {
+        'parser': 'kornkraft',
+        'raw': False, 'multi': True
+    }
+}
