@@ -1225,12 +1225,11 @@ class PurchaseInvoice(Invoice):
             result.update({
                 "shipping": shipping,
             })
-
+        if items:
+            result.update({
+                "items": items,
+            })
         if manual_edit:
-            if items:
-                result.update({
-                    "items": items,
-                })
             result = self.edit_data_model_manually(result, infile)
         return result
 
