@@ -6,10 +6,20 @@ import company
 import traceback
 from compute_tests import compute_diff, validate_prerechnungs, compute_json1_diff
 import purchase_invoice
-from purchase_invoice import get_element_with_high_confidence
+from purchase_invoice import get_element_with_high_confidence, PurchaseInvoice
 import menu
 
 init()
+company.Company.init_companies()
+pr = Api.api.get_doc("PreRechnung",'PreR00604')
+invoice_json = json.loads(pr.get('json'))
+supplier = 'Krannich Solar GmbH & Co KG'
+json1 = PurchaseInvoice(True).extract_main_info(invoice_json, supplier, "", manual_edit=False)
+print(json1)
+
+exit(0)
+
+
 company.Company.init_companies()
 company.Company.current_load_data()
 

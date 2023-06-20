@@ -429,8 +429,7 @@ class PurchaseInvoice(Invoice):
 
         return new_data_model
 
-    def parse_invoice_json(self, invoice_json, default_account=None, paid_by_submitter=False, given_supplier=None,
-                           is_test=False, check_dup=True):
+    def parse_invoice_json(self, invoice_json, default_account=None, paid_by_submitter=False, given_supplier=None, is_test=False, check_dup=True):
         try:
             purchase_invoice_parser = PurchaseInvoiceGoogleParser(self, invoice_json, given_supplier)
             purchase_invoice_parser.set_purchase_info()
