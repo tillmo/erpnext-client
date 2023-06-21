@@ -2,7 +2,7 @@
 from purchase_invoice_google_parser import PurchaseInvoiceGoogleParser
 from purchase_invoice_parser import PurchaseInvoiceParser, SupplierItem
 from settings import STANDARD_PRICE_LIST, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, \
-    DELIVERY_COST_DESCRIPTION, SOMIKO_ACCOUNTS
+    DELIVERY_COST_DESCRIPTION, SOMIKO_ACCOUNTS, AGGREGATE_ITEMS
 
 import os
 import utils
@@ -644,7 +644,7 @@ class PurchaseInvoice(Invoice):
         for item in self.e_items:
             items[item['item_code']].append(item)  # group items by item_code
         for key in items.keys():
-            if key != MATERIAL_ITEM_CODE and len(items[key]) > 1:  # if there is more than one item in a group
+            if not key in AGGREGATE_ITEMS.values() and len(items[key]) > 1:  # if there is more than one item in a group
                 err += "Ein Artikel ist mehrfach in der Rechnung vorhanden:\n"
                 err += "\n".join(map(str, items[key]))
                 err += "\nVielleicht ist die Zuordnung falsch und dies sollten zwei verschiedene Artikel sein?"

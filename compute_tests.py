@@ -167,7 +167,7 @@ def compute_json1_diff(inv):
     old_json1 = json.loads(inv.get('json1'))
     pdf = Api.api.get_file(inv['pdf'])
     file = utils.store_temp_file(pdf, ".pdf")
-    new_json1 = PurchaseInvoice(update_stock).extract_main_info(invoice_json, supplier, file)
+    new_json1 = PurchaseInvoice(update_stock).extract_main_info(invoice_json, supplier, file, manual_edit=False)
 
     diff = jsondiff.diff(old_json1, new_json1, syntax='symmetric')
     return diff
