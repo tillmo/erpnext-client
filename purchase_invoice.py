@@ -113,7 +113,7 @@ def pdf_to_text(file, raw=False):
     if raw:
         cmd.append("-raw")
     else:
-        cmd.append("-table")
+        cmd.append("-layout")
     cmd += ["-enc", "UTF-8"]
     cmd += [file, "-"]
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
@@ -256,57 +256,6 @@ class PurchaseInvoice(Invoice):
         self.assign_default_e_items({self.default_vat: account})
         return self
 
-    def parse_invoice(self, invoice_json, infile, account=None, paid_by_submitter=False, given_supplier=None,
-                      is_test=False, check_dup=True):
-        if invoice_json:
-            print("Nutze Google invoice parser")
-            return self.parse_invoice_json(invoice_json, account, paid_by_submitter, given_supplier, is_test, check_dup)
-        print("Nutze internen Parser")
-        self.extract_items = False
-        lines = pdf_to_text(infile)
-        try:
-            if lines:
-                head = lines[0][0:140]
-                if not head[0:10].split():
-                    for line in lines[0:10]:
-                        if self.company.name != 'Bremer SolidarStrom' and len(line) > 2 and (
-                                line[-2] == '£' or line[-3] == '£'):
-                            head = "Kornkraft Naturkost GmbH"
-                            break
-                supps = dict(PurchaseInvoice.suppliers)
-                if self.company.name != 'Laden':
-                    del supps['Rechnung']
-                for supplier, info in supps.items():
-                    if supplier in head:
-                        self.parser = supplier
-                        self.extract_items = self.update_stock
-                        if info['raw']:
-                            self.raw = True
-                            lines = pdf_to_text(infile, True)
-                        if 'supplier' in info:
-                            self.supplier = info['supplier']
-                        else:
-                            self.supplier = supplier
-                        print("Verwende Rechnungsparser für ", self.supplier)
-                        if given_supplier and self.supplier != given_supplier:
-                            print("abweichend von PreRechnung: ", given_supplier)
-                        self.multi = info['multi']
-                        purchase_invoice_parser = PurchaseInvoiceParser(self, info['parser'], lines)
-                        if not purchase_invoice_parser.set_purchase_info():
-                            return None
-                        return self
-        except Exception as e:
-            # print(e)
-            if self.update_stock:
-                raise e
-            elif not is_test:
-                # raise e
-                print(e)
-                print("Rückfall auf Standard-Rechnungsbehandlung")
-        print("Verwende generischen Rechnungsparser")
-        self.supplier = given_supplier
-        return self.parse_generic(lines, account, paid_by_submitter, is_test)
-
     def apply_info_changes(self, diff, new_data_model):
         for key in diff.keys():
             value = diff[key]
@@ -338,7 +287,7 @@ class PurchaseInvoice(Invoice):
                     elif new_key == 'order_id':
                         self.order_id = value[new_key]
                     elif new_key == 'posting_date':
-                        self.posting_date = value[new_key]
+                        self.date = value[new_key]
                     elif new_key == 'shipping':
                         self.shipping = value[new_key]
             elif key == delete:
@@ -368,7 +317,7 @@ class PurchaseInvoice(Invoice):
                     elif deleted_key == 'order_id':
                         self.order_id = None
                     elif deleted_key == 'posting_date':
-                        self.posting_date = None
+                        self.date = None
                     elif deleted_key == 'shipping':
                         self.shipping = 0
             else:
@@ -406,7 +355,7 @@ class PurchaseInvoice(Invoice):
                 elif key == 'order_id':
                     self.order_id = value[1]
                 elif key == 'posting_date':
-                    self.posting_date = value[1]
+                    self.date = value[1]
                 elif key == 'shipping':
                     self.shipping = value[1]
 
@@ -429,19 +378,73 @@ class PurchaseInvoice(Invoice):
 
         return new_data_model
 
-    def parse_invoice_json(self, invoice_json, default_account=None, paid_by_submitter=False, given_supplier=None,
-                           is_test=False, check_dup=True):
+    def parse_invoice(self, invoice_json, infile, account=None, paid_by_submitter=False, given_supplier=None,
+                      is_test=False, check_dup=True, manual_edit=False):
+        normal_purchase_data = None
+        google_purchase_data = None
+        if invoice_json:
+            print("Nutze Google invoice parser")
+            purchase_invoice_google_parser = PurchaseInvoiceGoogleParser(self, invoice_json, given_supplier, is_test)
+            purchase_invoice_google_parser.set_purchase_info()
+            google_purchase_data = purchase_invoice_google_parser.get_purchase_data()
+        print("Nutze internen Parser")
+        self.extract_items = False
+        lines = pdf_to_text(infile)
         try:
-            purchase_invoice_parser = PurchaseInvoiceGoogleParser(self, invoice_json, given_supplier)
-            purchase_invoice_parser.set_purchase_info()
-            self.compute_total()
+            if lines:
+                head = lines[0][0:140]
+                if not head[0:10].split():
+                    for line in lines[0:10]:
+                        if self.company.name != 'Bremer SolidarStrom' and len(line) > 2 and (
+                                line[-2] == '£' or line[-3] == '£'):
+                            head = "Kornkraft Naturkost GmbH"
+                            break
+                supps = dict(PurchaseInvoice.suppliers)
+                if self.company.name != 'Laden':
+                    del supps['Rechnung']
+                for supplier, info in supps.items():
+                    if supplier in head:
+                        self.parser = supplier
+                        self.extract_items = self.update_stock
+                        if info['raw']:
+                            self.raw = True
+                            lines = pdf_to_text(infile, True)
+                        if 'supplier' in info:
+                            self.supplier = info['supplier']
+                        else:
+                            self.supplier = supplier
+                        print("Verwende Rechnungsparser für ", self.supplier)
+                        if given_supplier and self.supplier != given_supplier:
+                            print("abweichend von PreRechnung: ", given_supplier)
+                        self.multi = info['multi']
+                        purchase_invoice_parser = PurchaseInvoiceParser(self, info['parser'], lines)
+                        purchase_invoice_parser.set_purchase_info()
+                        normal_purchase_data = purchase_invoice_parser.get_purchase_data()
         except Exception as e:
-            if self.update_stock:
+            if google_purchase_data:
+                print(e)
+            elif self.update_stock:
                 raise e
             elif not is_test:
                 print(e)
                 print("Rückfall auf Standard-Rechnungsbehandlung")
+        if google_purchase_data:
+            if normal_purchase_data:
+                google_purchase_data.update(normal_purchase_data)
+                diff = jsondiff.diff(normal_purchase_data, google_purchase_data, syntax='symmetric')
+                self.apply_info_changes(diff, normal_purchase_data)
+            final_data = google_purchase_data
+            if manual_edit:
+                final_data = self.edit_data_model_manually(google_purchase_data, infile)
+            print("Final Data *************")
+            print(final_data)
+            return self.parse_invoice_json(account, paid_by_submitter, is_test, check_dup)
 
+        print("Verwende generischen Rechnungsparser")
+        self.supplier = given_supplier
+        return self.parse_generic(lines, account, paid_by_submitter, is_test)
+
+    def parse_invoice_json(self, default_account=None, paid_by_submitter=False, is_test=False, check_dup=True):
         if not check_dup:
             if not self.supplier:
                 self.supplier = "???"
@@ -453,8 +456,7 @@ class PurchaseInvoice(Invoice):
                 self.vat[self.default_vat] = 0.0
             if not self.gross_total:
                 self.gross_total = 0.0
-        if not check_dup or (
-                self.supplier and self.date and self.no and self.vat[self.default_vat] and self.gross_total):
+        if not check_dup or (self.supplier and self.date and self.no and self.vat[self.default_vat] and self.gross_total):
             self.compute_total()
             return self
 
@@ -564,7 +566,7 @@ class PurchaseInvoice(Invoice):
     def compute_total(self):
         self.total = sum([t for v, t in self.totals.items()])
         self.total_vat = sum([t for v, t in self.vat.items()])
-        self.gross_total = self.total + self.total_vat
+        self.gross_total = round(self.total + self.total_vat, 2)
         for vat in self.vat_rates:
             if (round(self.totals[vat] * vat / 100.0 + 0.00001, 2) - self.vat[vat]):
                 print(self.no, " Abweichung bei MWSt! ",
@@ -744,8 +746,8 @@ class PurchaseInvoice(Invoice):
         inv = None
         while one_more:
             one_more = False
-            inv_new = PurchaseInvoice(update_stock).read_pdf(invoice_json, infile, account, paid_by_submitter, supplier,
-                                                             check_dup=check_dup)
+            inv_new = PurchaseInvoice(update_stock).read_pdf(
+                invoice_json, infile, account, paid_by_submitter, supplier, check_dup=check_dup)
             if (inv is None) and inv_new and inv_new.is_duplicate:
                 return inv_new
             if inv_new and not inv_new.is_duplicate:

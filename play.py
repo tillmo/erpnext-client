@@ -6,12 +6,17 @@ import company
 import traceback
 from compute_tests import compute_diff, validate_prerechnungs, compute_json1_diff
 import purchase_invoice
-from purchase_invoice import get_element_with_high_confidence
+from purchase_invoice_google_parser import get_element_with_high_confidence
 import menu
 
 init()
 company.Company.init_companies()
 company.Company.current_load_data()
+pr = Api.api.get_list("PreRechnung", filters={'json1': ['is', 'set']}, limit_page_length=1)[0]
+pinv = prerechnung.read_and_transfer(pr, check_dup=False)
+pinv = Api.api.get_doc("Purchase Invoice", pinv.name)
+print(pinv)
+exit(0)
 
 good = 0
 bad = 0

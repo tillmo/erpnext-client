@@ -5,7 +5,7 @@ import project
 import doc
 import settings
 import purchase_invoice
-from purchase_invoice import get_element_with_high_confidence
+from purchase_invoice_google_parser import get_element_with_high_confidence
 from api import Api, LIMIT
 from itertools import groupby
 import json
