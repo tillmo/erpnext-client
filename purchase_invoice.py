@@ -139,6 +139,97 @@ class PurchaseInvoice(Invoice):
             except:
                 pass
 
+    def complete_data_by_gui(self, default_account=None, paid_by_submitter=False, amount=""):
+        """
+        This method is used to change some information about the purchase invoice object by GUI.
+        """
+        suppliers = gui_api_wrapper(Api.api.get_list, "Supplier", limit_page_length=LIMIT)
+        supplier_names = [supp['name'] for supp in suppliers]
+        supplier_names.sort()
+        supplier_names += ['neu']
+        def_supp = self.supplier if self.supplier in supplier_names else "neu"
+        def_new_supp = "" if self.supplier in supplier_names else self.supplier
+        layout = [
+            [sg.Text('Lieferant')],
+            [sg.OptionMenu(values=supplier_names, k='-supplier-',
+                           default_value=def_supp)],
+            [sg.Text('ggf. neuer Lieferant')],
+            [sg.Input(default_text=def_new_supp,
+                      k='-supplier-name-')],
+            [sg.Text('Rechnungsnr.')],
+            [sg.Input(default_text=self.no, k='-no-')],
+            [sg.Text('Datum')],
+            [sg.Input(key='-date-',
+                      default_text=utils.show_date4(self.date)),
+             sg.CalendarButton('Kalender', target='-date-',
+                               format='%d.%m.%Y',
+                               begin_at_sunday_plus=1)],
+            [sg.Text('MWSt')],
+            [sg.Input(default_text=str(self.vat[self.default_vat]),
+                      k='-vat-')],
+            [sg.Text('Brutto')],
+            [sg.Input(default_text=str(amount), k='-gross-')],
+            [sg.Text('Skonto')],
+            [sg.Input(k='-skonto-')],
+            [sg.Checkbox('Schon selbst bezahlt',
+                         default=paid_by_submitter, k='-paid-')],
+            [sg.Text('Kommentar')],
+            [sg.Input(k='-remarks-')],
+            [sg.Button('Speichern')]
+        ]
+        window1 = sg.Window("Einkaufsrechnung", layout, finalize=True)
+        window1.bring_to_front()
+        event, values = window1.read()
+        window1.close()
+        if values:
+            if '-supplier-' in values:
+                self.supplier = values['-supplier-']
+                if self.supplier == 'neu' and '-supplier-name-' in values:
+                    self.supplier = values['-supplier-name-']
+            if '-no-' in values:
+                self.no = values['-no-']
+            if '-date-' in values:
+                date = utils.convert_date4(values['-date-'])
+                if date:
+                    self.date = date
+            if '-vat-' in values:
+                self.vat[self.default_vat] = utils.read_float(values['-vat-'])
+            if '-gross-' in values:
+                self.totals[self.default_vat] = utils.read_float(values['-gross-']) - self.vat[self.default_vat]
+            if '-skonto-' in values and values['-skonto-']:
+                self.skonto = utils.read_float(values['-skonto-'])
+            if '-paid-' in values and values['-paid-']:
+                self.paid_by_submitter = True
+            if '-remarks-' in values:
+                self.remarks = values['-remarks-']
+        else:
+            return False
+        self.compute_total()
+        account = None
+        accounts = self.company.leaf_accounts_for_credit
+        account_names = [acc['name'] for acc in accounts]
+        if default_account:
+            for acc in account_names:
+                if default_account in acc:
+                    account = acc
+        if not account:
+            pinvs = self.company.purchase_invoices[self.supplier]
+            paccs = [pi['expense_account'] for pi in pinvs if 'expense_account' in pi]
+            paccs = list(set(paccs))
+            for acc in paccs:
+                try:
+                    account_names.remove(acc)
+                except Exception:
+                    pass
+            account_names = paccs + account_names
+            title = 'Buchungskonto wählen'
+            msg = 'Bitte ein Buchungskonto wählen\n'
+            account = easygui.choicebox(msg, title, account_names)
+            if not account:
+                return False
+        self.assign_default_e_items({self.default_vat: account})
+        return True
+
     def parse_generic(self, lines, default_account=None, paid_by_submitter=False, is_test=False):
         self.parser = "generic"
         self.extract_items = False
@@ -156,107 +247,61 @@ class PurchaseInvoice(Invoice):
             self.no = extract_no(lines)
             if not self.supplier:
                 self.supplier = extract_supplier(lines)
-        if lines and amount:
-            self.vat[self.default_vat] = vat
-            self.totals[self.default_vat] = amount - self.vat[self.default_vat]
-            self.shipping = 0.0
-            if not is_test:
-                if self.check_if_present():
-                    return self
+            if amount:
+                self.vat[self.default_vat] = vat
+                self.totals[self.default_vat] = amount - self.vat[self.default_vat]
+                self.shipping = 0.0
+                if not is_test:
+                    if self.check_if_present():
+                        return self
         if is_test:
             return self
-        suppliers = gui_api_wrapper(Api.api.get_list, "Supplier",
-                                    limit_page_length=LIMIT)
-        supplier_names = [supp['name'] for supp in suppliers]
-        supplier_names.sort()
-        supplier_names += ['neu']
-        def_supp = self.supplier if self.supplier in supplier_names else "neu"
-        def_new_supp = "" if self.supplier in supplier_names else self.supplier
-        layout = [[sg.Text('Lieferant')],
-                  [sg.OptionMenu(values=supplier_names, k='-supplier-',
-                                 default_value=def_supp)],
-                  [sg.Text('ggf. neuer Lieferant')],
-                  [sg.Input(default_text=def_new_supp,
-                            k='-supplier-name-')],
-                  [sg.Text('Rechnungsnr.')],
-                  [sg.Input(default_text=self.no, k='-no-')],
-                  [sg.Text('Datum')],
-                  [sg.Input(key='-date-',
-                            default_text=utils.show_date4(self.date)),
-                   sg.CalendarButton('Kalender', target='-date-',
-                                     format='%d.%m.%Y',
-                                     begin_at_sunday_plus=1)],
-                  [sg.Text('MWSt')],
-                  [sg.Input(default_text=str(self.vat[self.default_vat]),
-                            k='-vat-')],
-                  [sg.Text('Brutto')],
-                  [sg.Input(default_text=str(amount), k='-gross-')],
-                  [sg.Text('Skonto')],
-                  [sg.Input(k='-skonto-')],
-                  [sg.Checkbox('Schon selbst bezahlt',
-                               default=paid_by_submitter, k='-paid-')],
-                  [sg.Text('Kommentar')],
-                  [sg.Input(k='-remarks-')],
-                  [sg.Button('Speichern')]]
-        window1 = sg.Window("Einkaufsrechnung", layout, finalize=True)
-        window1.bring_to_front()
-        event, values = window1.read()
-        # print(event, values)
-        window1.close()
-        if values:
-            if '-supplier-' in values:
-                self.supplier = values['-supplier-']
-                if self.supplier == 'neu' and '-supplier-name-' in values:
-                    self.supplier = values['-supplier-name-']
-            if '-no-' in values:
-                self.no = values['-no-']
-            if '-date-' in values:
-                date = utils.convert_date4(values['-date-'])
-                if date:
-                    self.date = date
-            if '-vat-' in values:
-                self.vat[self.default_vat] = \
-                    utils.read_float(values['-vat-'])
-            if '-gross-' in values:
-                self.totals[self.default_vat] = \
-                    utils.read_float(values['-gross-']) \
-                    - self.vat[self.default_vat]
-            if '-skonto-' in values and values['-skonto-']:
-                self.skonto = utils.read_float(values['-skonto-'])
-            if '-paid-' in values and values['-paid-']:
-                self.paid_by_submitter = True
-            if '-remarks-' in values:
-                self.remarks = values['-remarks-']
-        else:
-            return None
-        self.compute_total()
-        account = None
-        accounts = self.company.leaf_accounts_for_credit
-        account_names = [acc['name'] for acc in accounts]
-        if default_account:
-            for acc in account_names:
-                if default_account in acc:
-                    account = acc
-        if not account:
-            pinvs = self.company.purchase_invoices[self.supplier]
-            paccs = [pi['expense_account'] \
-                     for pi in pinvs if 'expense_account' in pi]
-            paccs = list(set(paccs))
-            for acc in paccs:
-                try:
-                    account_names.remove(acc)
-                except Exception:
-                    pass
-            account_names = paccs + account_names
-            title = 'Buchungskonto wählen'
-            msg = 'Bitte ein Buchungskonto wählen\n'
-            account = easygui.choicebox(msg, title, account_names)
-            if not account:
-                return None
-        self.assign_default_e_items({self.default_vat: account})
-        return self
+        if self.complete_data_by_gui(default_account, paid_by_submitter, amount):
+            return self
+
+    def complete_missing_data(self, default_account=None, paid_by_submitter=False, is_test=False, check_dup=True):
+        """
+         This method is used to complete the missing information of the purchase invoice object
+        """
+        if not check_dup:
+            if not self.supplier:
+                self.supplier = "???"
+            if not self.date:
+                self.date = "1970-01-01"
+            if not self.no:
+                self.no = "???"
+            if not self.vat[self.default_vat]:
+                self.vat[self.default_vat] = 0.0
+            if not self.gross_total:
+                self.gross_total = 0.0
+        if not check_dup or (self.supplier and self.date and self.no and self.vat[self.default_vat] and self.gross_total):
+            self.compute_total()
+            return self
+
+        if is_test or self.check_if_present(check_dup):
+            self.compute_total()
+            return self
+
+        if not self.supplier:
+            print("Lieferant nicht erkannt")
+        if not self.date:
+            print("Datum nicht erkannt")
+        if not self.no:
+            print("Rechnungsnr. nicht erkannt")
+        if not self.vat[self.default_vat]:
+            print("MWSt nicht erkannt")
+        if not self.gross_total:
+            print("Bruttobetrag nicht erkannt")
+        print("Rückfall auf manuelle Eingabe")
+
+        if self.complete_data_by_gui(default_account, paid_by_submitter):
+            return self
 
     def apply_info_changes(self, diff, new_data_model):
+        """
+        Whenever we want to change the information obtained from parsers' purchase data,
+         it is necessary to call this method so that the changes are also applied to the purchase invoice object.
+        """
         for key in diff.keys():
             value = diff[key]
             if key == insert:
@@ -360,6 +405,9 @@ class PurchaseInvoice(Invoice):
                     self.shipping = value[1]
 
     def edit_data_model_manually(self, data_model, infile):
+        """
+        This method is used to manually change the information obtained from the parsers' purchase data.
+        """
         diff = None
         new_data_model = None
 
@@ -382,6 +430,7 @@ class PurchaseInvoice(Invoice):
                       is_test=False, check_dup=True, manual_edit=False):
         normal_purchase_data = None
         google_purchase_data = None
+        final_data = None
         if invoice_json:
             print("Nutze Google invoice parser")
             purchase_invoice_google_parser = PurchaseInvoiceGoogleParser(self, invoice_json, given_supplier, is_test)
@@ -428,140 +477,25 @@ class PurchaseInvoice(Invoice):
             elif not is_test:
                 print(e)
                 print("Rückfall auf Standard-Rechnungsbehandlung")
+
         if google_purchase_data:
             if normal_purchase_data:
                 google_purchase_data.update(normal_purchase_data)
                 diff = jsondiff.diff(normal_purchase_data, google_purchase_data, syntax='symmetric')
                 self.apply_info_changes(diff, normal_purchase_data)
             final_data = google_purchase_data
+        elif normal_purchase_data:
+            final_data = normal_purchase_data
+        if final_data:
             if manual_edit:
                 final_data = self.edit_data_model_manually(google_purchase_data, infile)
-            print("Final Data *************")
+            print("Final Data ...")
             print(final_data)
-            return self.parse_invoice_json(account, paid_by_submitter, is_test, check_dup)
+            return self.complete_missing_data(account, paid_by_submitter, is_test, check_dup)
 
         print("Verwende generischen Rechnungsparser")
         self.supplier = given_supplier
         return self.parse_generic(lines, account, paid_by_submitter, is_test)
-
-    def parse_invoice_json(self, default_account=None, paid_by_submitter=False, is_test=False, check_dup=True):
-        if not check_dup:
-            if not self.supplier:
-                self.supplier = "???"
-            if not self.date:
-                self.date = "1970-01-01"
-            if not self.no:
-                self.no = "???"
-            if not self.vat[self.default_vat]:
-                self.vat[self.default_vat] = 0.0
-            if not self.gross_total:
-                self.gross_total = 0.0
-        if not check_dup or (self.supplier and self.date and self.no and self.vat[self.default_vat] and self.gross_total):
-            self.compute_total()
-            return self
-
-        if is_test or self.check_if_present(check_dup):
-            self.compute_total()
-            return self
-
-        if not self.supplier:
-            print("Lieferant nicht erkannt")
-        if not self.date:
-            print("Datum nicht erkannt")
-        if not self.no:
-            print("Rechnungsnr. nicht erkannt")
-        if not self.vat[self.default_vat]:
-            print("MWSt nicht erkannt")
-        if not self.gross_total:
-            print("Bruttobetrag nicht erkannt")
-        print("Rückfall auf manuelle Eingabe")
-
-        suppliers = gui_api_wrapper(Api.api.get_list, "Supplier", limit_page_length=LIMIT)
-        supplier_names = [supp['name'] for supp in suppliers]
-        supplier_names.sort()
-        supplier_names += ['neu']
-        def_supp = self.supplier if self.supplier in supplier_names else "neu"
-        def_new_supp = "" if self.supplier in supplier_names else self.supplier
-        layout = [
-            [sg.Text('Lieferant')],
-            [sg.OptionMenu(values=supplier_names, k='-supplier-',
-                           default_value=def_supp)],
-            [sg.Text('ggf. neuer Lieferant')],
-            [sg.Input(default_text=def_new_supp,
-                      k='-supplier-name-')],
-            [sg.Text('Rechnungsnr.')],
-            [sg.Input(default_text=self.no, k='-no-')],
-            [sg.Text('Datum')],
-            [sg.Input(key='-date-',
-                      default_text=utils.show_date4(self.date)),
-             sg.CalendarButton('Kalender', target='-date-',
-                               format='%d.%m.%Y',
-                               begin_at_sunday_plus=1)],
-            [sg.Text('MWSt')],
-            [sg.Input(default_text=str(self.vat[self.default_vat]),
-                      k='-vat-')],
-            [sg.Text('Brutto')],
-            [sg.Input(default_text="", k='-gross-')],
-            [sg.Text('Skonto')],
-            [sg.Input(k='-skonto-')],
-            [sg.Checkbox('Schon selbst bezahlt',
-                         default=paid_by_submitter, k='-paid-')],
-            [sg.Text('Kommentar')],
-            [sg.Input(k='-remarks-')],
-            [sg.Button('Speichern')]
-        ]
-        window1 = sg.Window("Einkaufsrechnung", layout, finalize=True)
-        window1.bring_to_front()
-        event, values = window1.read()
-        window1.close()
-        if values:
-            if '-supplier-' in values:
-                self.supplier = values['-supplier-']
-                if self.supplier == 'neu' and '-supplier-name-' in values:
-                    self.supplier = values['-supplier-name-']
-            if '-no-' in values:
-                self.no = values['-no-']
-            if '-date-' in values:
-                date = utils.convert_date4(values['-date-'])
-                if date:
-                    self.date = date
-            if '-vat-' in values:
-                self.vat[self.default_vat] = utils.read_float(values['-vat-'])
-            if '-gross-' in values:
-                self.totals[self.default_vat] = utils.read_float(values['-gross-']) - self.vat[self.default_vat]
-            if '-skonto-' in values and values['-skonto-']:
-                self.skonto = utils.read_float(values['-skonto-'])
-            if '-paid-' in values and values['-paid-']:
-                self.paid_by_submitter = True
-            if '-remarks-' in values:
-                self.remarks = values['-remarks-']
-        else:
-            return None
-        self.compute_total()
-        account = None
-        accounts = self.company.leaf_accounts_for_credit
-        account_names = [acc['name'] for acc in accounts]
-        if default_account:
-            for acc in account_names:
-                if default_account in acc:
-                    account = acc
-        if not account:
-            pinvs = self.company.purchase_invoices[self.supplier]
-            paccs = [pi['expense_account'] for pi in pinvs if 'expense_account' in pi]
-            paccs = list(set(paccs))
-            for acc in paccs:
-                try:
-                    account_names.remove(acc)
-                except Exception:
-                    pass
-            account_names = paccs + account_names
-            title = 'Buchungskonto wählen'
-            msg = 'Bitte ein Buchungskonto wählen\n'
-            account = easygui.choicebox(msg, title, account_names)
-            if not account:
-                return None
-        self.assign_default_e_items({self.default_vat: account})
-        return self
 
     def compute_total(self):
         self.total = sum([t for v, t in self.totals.items()])
