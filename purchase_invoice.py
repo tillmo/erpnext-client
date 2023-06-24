@@ -478,6 +478,8 @@ class PurchaseInvoice(Invoice):
                 print(e)
                 print("Rückfall auf Standard-Rechnungsbehandlung")
 
+        print("Google parser data ...",google_purchase_data)
+        print("Internal parser data ...",normal_purchase_data)                
         if google_purchase_data:
             if normal_purchase_data:
                 google_purchase_data.update(normal_purchase_data)
