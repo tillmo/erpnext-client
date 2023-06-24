@@ -6,9 +6,9 @@ import os
 from urllib.parse import quote
 
 try:
-	from StringIO import StringIO
+	from BytesIO import BytesIO
 except:
-	from io import StringIO
+	from io import BytesIO
 
 try:
     unicode
@@ -207,15 +207,16 @@ class FrappeClient(object):
 		}
 		return self.post_request(params)
 
-	def get_pdf(self, doctype, name, print_format='Standard', letterhead=True):
+	def get_pdf(self, doctype, name, print_format='Standard', letterhead=True,language='de'):
 		params = {
 			'doctype': doctype,
 			'name': name,
 			'format': print_format,
+                        '_lang':language,
 			'no_letterhead': int(not bool(letterhead))
 		}
 		response = self.session.get(
-			self.url + '/api/method/frappe.templates.pages.print.download_pdf',
+			self.url + '/api/method/frappe.utils.print_format.download_pdf',
 			params=params, stream=True)
 
 		return self.post_process_file_stream(response)
@@ -342,9 +343,10 @@ class FrappeClient(object):
 
 	def post_process_file_stream(self, response):
 		if response.ok:
-			output = StringIO()
+			output = BytesIO()
 			for block in response.iter_content(1024):
 				output.write(block)
+			output.seek(0)
 			return output
 
 		else:

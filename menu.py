@@ -630,6 +630,7 @@ def event_handler(event,window):
     elif event == 'USt-Voranmeldung':
         comp = user_settings['-company-']
         q = utils.last_quarter(datetime.today())
+        print("USt-Voranmeldung für Quartal ",q)
         journal.vat_declaration(comp,q)
     elif event == 'USt-Rechnungen zusammenstellen':
         comp = user_settings['-company-']
