@@ -113,7 +113,7 @@ def pdf_to_text(file, raw=False):
     if raw:
         cmd.append("-raw")
     else:
-        cmd.append("-table")
+        cmd.append("-layout")
     cmd += ["-enc", "UTF-8"]
     cmd += [file, "-"]
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
@@ -426,6 +426,31 @@ class PurchaseInvoice(Invoice):
 
         return new_data_model
 
+    def merge_items(self, items1, items2):
+        if not items1:
+            return items2
+        dict1 = {item.get("item_code", 0): item for item in items1}
+        dict2 = {item.get("item_code", 0): item for item in items2}
+        for item_code, item in dict1.items():
+            if dict2.get(item_code):
+                description = dict2.get(item_code).get('description')
+                if description:
+                    item['description'] = description
+        for item_code, item in dict2.items():
+            if not dict1.get(item_code):
+                dict1[item_code] = item
+        merged_list = []
+        all_items = [item for item in dict1.values() if item.get('item_code')]
+        for item_code, item in dict1.items():
+            if item_code == 0:
+                for data in all_items:
+                    if data.get('description') and item.get('description') in data.get('description'):
+                        merged_list.append(data)
+                        continue
+            merged_list.append(item)
+        print("Merged list of items .......", merged_list)
+        return merged_list
+
     def parse_invoice(self, invoice_json, infile, account=None, paid_by_submitter=False, given_supplier=None,
                       is_test=False, check_dup=True, manual_edit=False):
         normal_purchase_data = None
@@ -478,10 +503,12 @@ class PurchaseInvoice(Invoice):
                 print(e)
                 print("Rückfall auf Standard-Rechnungsbehandlung")
 
-        print("Google parser data ...",google_purchase_data)
-        print("Internal parser data ...",normal_purchase_data)                
+        print("Google parser data ...", google_purchase_data)
+        print("Internal parser data ...", normal_purchase_data)
         if google_purchase_data:
             if normal_purchase_data:
+                if google_purchase_data.get('items'):
+                    normal_purchase_data['items'] = self.merge_items(normal_purchase_data.get('items'), google_purchase_data.get('items'))
                 google_purchase_data.update(normal_purchase_data)
                 diff = jsondiff.diff(normal_purchase_data, google_purchase_data, syntax='symmetric')
                 self.apply_info_changes(diff, normal_purchase_data)

@@ -46,6 +46,7 @@ class PurchaseInvoiceGoogleParser:
         items = []
         for s_item in self.purchase_invoice.items:
             items.append({
+                "item_code": s_item.item_code,
                 "description": s_item.description,
                 "qty": s_item.qty,
                 "uom": s_item.qty_unit,
