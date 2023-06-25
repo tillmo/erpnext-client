@@ -113,7 +113,7 @@ def pdf_to_text(file, raw=False):
     if raw:
         cmd.append("-raw")
     else:
-        cmd.append("-layout")
+        cmd.append("-table")
     cmd += ["-enc", "UTF-8"]
     cmd += [file, "-"]
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
