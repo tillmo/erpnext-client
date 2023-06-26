@@ -223,6 +223,8 @@ def to_pay(company_name):
 
 
 def read_and_transfer(inv, check_dup=True):
+    if not inv['processed']:
+        process_inv(inv)
     print("Lese ein {} {}:".format(inv['name'], inv['pdf']))
     json_str = inv.get('json')
     json_object = None
