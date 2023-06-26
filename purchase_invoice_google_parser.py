@@ -178,7 +178,6 @@ class PurchaseInvoiceGoogleParser:
                     if s_item.qty and s_item.amount:
                         if not s_item.rate:
                             s_item.rate = round(s_item.amount / s_item.qty, 2)
-                        # rounding_error += s_item.amount - s_item.rate * s_item.qty
                         sum_amount += s_item.amount
                         self.purchase_invoice.items.append(s_item)
                     elif s_item.description:
@@ -186,11 +185,7 @@ class PurchaseInvoiceGoogleParser:
                 if self.purchase_invoice.gross_total and self.purchase_invoice.vat[self.purchase_invoice.default_vat]:
                     diff = self.purchase_invoice.gross_total - self.purchase_invoice.vat[self.purchase_invoice.default_vat] - sum_amount
                     if diff >= 1:
-                        s_item = SupplierItem(self)
-                        s_item.qty = 1
-                        s_item.amount = round(diff, 2)
-                        s_item.rate = round(s_item.amount, 2)
-                        self.purchase_invoice.items.append(s_item)
+                        rounding_error = diff
             self.purchase_invoice.shipping += rounding_error
             self.purchase_invoice.shipping = round(self.purchase_invoice.shipping, 2)
             if self.purchase_invoice.shipping and self.purchase_invoice.totals[self.purchase_invoice.default_vat]:
@@ -204,3 +199,4 @@ class PurchaseInvoiceGoogleParser:
                 print(e)
                 print("Rückfall auf Standard-Rechnungsbehandlung")
         return self.purchase_invoice
+
