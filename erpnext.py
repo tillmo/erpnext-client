@@ -12,6 +12,7 @@ from api import Api, LIMIT
 import menu
 import easygui
 import PySimpleGUI as sg
+import prerechnung
 
 
 if __name__ == '__main__':
@@ -45,7 +46,7 @@ if __name__ == '__main__':
         if not infile:
             easygui.msgbox(infile+" existiert nicht")
             exit(1)
-        purchase_invoice.PurchaseInvoice.read_and_transfer(infile,args.update_stock)    
+        prerechnung.read_and_transfer_pdf(infile,args.update_stock)    
     elif args.k:
         menu.initial_loads()
         if args.k=="-":

@@ -10,6 +10,8 @@ from api import Api, LIMIT
 from itertools import groupby
 import json
 import traceback
+import args
+import company
 
 from google.cloud import documentai_v1beta3 as documentai
 from google.api_core.client_options import ClientOptions
@@ -248,4 +250,17 @@ def read_and_transfer(inv, check_dup=True):
         inv_doc.update()
     if f:
         os.remove(f)
+    return pinv
+
+
+def read_and_transfer_pdf(file, update_stock = True, account=None, paid_by_submitter=False,project=None,supplier=None,check_dup=True):
+    args.init()
+    company.Company.init_companies()
+    with open(file,"rb") as f:
+        contents = f.read()
+    myjson = extract_invoice_info(contents)
+    pinv = purchase_invoice.PurchaseInvoice.read_and_transfer(
+        myjson, file, update_stock,
+        account=account, paid_by_submitter=paid_by_submitter,
+        project=project, supplier=supplier, check_dup=check_dup)
     return pinv
