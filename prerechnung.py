@@ -5,7 +5,7 @@ import project
 import doc
 import settings
 import purchase_invoice
-from purchase_invoice import get_element_with_high_confidence
+from purchase_invoice_google_parser import get_element_with_high_confidence
 from api import Api, LIMIT
 from itertools import groupby
 import json
@@ -223,6 +223,8 @@ def to_pay(company_name):
 
 
 def read_and_transfer(inv, check_dup=True):
+    if not inv['processed']:
+        process_inv(inv)
     print("Lese ein {} {}:".format(inv['name'], inv['pdf']))
     json_str = inv.get('json')
     json_object = None
