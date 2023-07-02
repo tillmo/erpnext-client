@@ -207,6 +207,12 @@ class FrappeClient(object):
 		}
 		return self.post_request(params)
 
+	def get_background_jobs(self):
+		response = self.session.get(
+			self.url + '/api/method/frappe.core.page.background_jobs.background_jobs.get_info')
+		return self.post_process(response)
+
+        
 	def get_pdf(self, doctype, name, print_format='Standard', letterhead=True,language='de'):
 		params = {
 			'doctype': doctype,
