@@ -149,6 +149,8 @@ class PurchaseInvoice(Invoice):
         supplier_names += ['neu']
         def_supp = self.supplier if self.supplier in supplier_names else "neu"
         def_new_supp = "" if self.supplier in supplier_names else self.supplier
+        if not amount:
+            amount = self.totals[self.default_vat]+self.vat[self.default_vat]
         layout = [
             [sg.Text('Lieferant')],
             [sg.OptionMenu(values=supplier_names, k='-supplier-',
@@ -168,7 +170,7 @@ class PurchaseInvoice(Invoice):
             [sg.Input(default_text=str(self.vat[self.default_vat]),
                       k='-vat-')],
             [sg.Text('Brutto')],
-            [sg.Input(default_text=str(amount), k='-gross-')],
+            [sg.Input(default_text=str(amount).replace(".",","), k='-gross-')],
             [sg.Text('Skonto')],
             [sg.Input(k='-skonto-')],
             [sg.Checkbox('Schon selbst bezahlt',
