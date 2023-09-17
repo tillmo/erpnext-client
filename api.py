@@ -38,14 +38,7 @@ class Api(object):
             for item in items:
                 print(".",end="")
                 item_code = item["item_code"]
-                doc = None
-                while not doc:
-                    try:
-                        doc = Api.api.get_doc('Item', item_code)
-                    except requests.exceptions.ConnectionError as e:
-                        # too many API calls can cause problems
-                        print("Warnung: API-Verbindungsproblem")
-                        time.sleep(1)
+                doc = Api.api.get_doc('Item', item_code)
                 Api.items_by_code[item_code] = doc
                 if not doc['item_defaults']:
                     doc['item_defaults'] = [{'company': company_name,

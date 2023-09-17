@@ -589,14 +589,7 @@ def general_ledger(company_name):
     accounts = [account['name'] for account in comp.leaf_accounts]
     accounts.sort()
     for account in accounts:
-        report = None
-        while not report:
-            try:
-                report = journal.get_gl(company_name,start_date_str,end_date_str,[account])
-            except requests.exceptions.ConnectionError as e:
-                # too many API calls can cause problems
-                print("Warnung: API-Verbindungsproblem")
-                time.sleep(1)
+        report = journal.get_gl(company_name,start_date_str,end_date_str,[account])
         #if len(report)<4:
         #    print(report)
         if not report or (len(report)<4 and (not report[0]['balance'] or not report[2]['balance'])):

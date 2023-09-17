@@ -2,6 +2,7 @@ import requests
 import json
 from base64 import b64encode
 import os
+import time
 
 from urllib.parse import quote
 
@@ -68,7 +69,7 @@ class FrappeClient(object):
 		self.session.headers.update(auth_header)
 
 	def logout(self):
-		self.session.get(self.url, params={
+		self.session_get(self.url, params={
 			'cmd': 'logout',
 		})
 
@@ -87,7 +88,7 @@ class FrappeClient(object):
 		if order_by:
 			params['order_by'] = order_by
 
-		res = self.session.get(self.url + "/api/resource/" + doctype, params=params,
+		res = self.session_get(self.url + "/api/resource/" + doctype, params=params,
 			verify=self.verify, headers=self.headers)
 		return self.post_process(res)
 
@@ -188,7 +189,7 @@ class FrappeClient(object):
 		if fields:
 			params["fields"] = json.dumps(fields)
 
-		res = self.session.get(self.url + '/api/resource/' + doctype + '/' + name,
+		res = self.session_get(self.url + '/api/resource/' + doctype + '/' + name,
 							   params=params)
 
 		return self.post_process(res)
@@ -208,7 +209,7 @@ class FrappeClient(object):
 		return self.post_request(params)
 
 	def get_background_jobs(self):
-		response = self.session.get(
+		response = self.session_get(
 			self.url + '/api/method/frappe.core.page.background_jobs.background_jobs.get_info')
 		return self.post_process(response)
 
@@ -221,7 +222,7 @@ class FrappeClient(object):
                         '_lang':language,
 			'no_letterhead': int(not bool(letterhead))
 		}
-		response = self.session.get(
+		response = self.session_get(
 			self.url + '/api/method/frappe.utils.print_format.download_pdf',
 			params=params, stream=True)
 
@@ -234,7 +235,7 @@ class FrappeClient(object):
 			'format': print_format,
 			'no_letterhead': int(not bool(letterhead))
 		}
-		response = self.session.get(
+		response = self.session_get(
 			self.url + '/print', params=params, stream=True
 		)
 		return self.post_process_file_stream(response)
@@ -256,7 +257,7 @@ class FrappeClient(object):
 			'all_doctypes': 'Yes'
 		}
 
-		request = self.session.get(
+		request = self.session_get(
 			self.url + '/api/method/frappe.core.page.data_import_tool.exporter.get_template',
 			params=params
 		)
@@ -288,7 +289,7 @@ class FrappeClient(object):
 
 	def get_file(self, path):
 		'''Returns a file from the file system'''
-		return self.session.get(self.url + path).content
+		return self.session_get(self.url + path).content
 
 	def get_attachments(self, doctype, name):
 		'''Returns attachments to a document'''
@@ -296,17 +297,17 @@ class FrappeClient(object):
 			'doctype': doctype,
 			'name' : name,
 		}
-		res = self.session.get(self.url + "/api/resource/" + doctype + "/" + name + "?run_method=frappe.core.doctype.file.file.get_attached_images",
+		res = self.session_get(self.url + "/api/resource/" + doctype + "/" + name + "?run_method=frappe.core.doctype.file.file.get_attached_images",
 			params=params)
 		return self.post_process(res)
 
 	def get_unreconciled_entries(self,name):
-		res = self.session.get(self.url + '/api/resource/' + 'Payment Reconciliation' + '/' + name)
+		res = self.session_get(self.url + '/api/resource/' + 'Payment Reconciliation' + '/' + name)
 
 		return self.post_process(res)
 
 	def get_api(self, method, params={}):
-		res = self.session.get(self.url + '/api/method/' + method, params=params)
+		res = self.session_get(self.url + '/api/method/' + method, params=params)
 		return self.post_process(res)
 
 	def post_api(self, method, params={}):
@@ -314,7 +315,7 @@ class FrappeClient(object):
 		return self.post_process(res)
 
 	def get_request(self, params):
-		res = self.session.get(self.url, params=self.preprocess(params))
+		res = self.session_get(self.url, params=self.preprocess(params))
 		res = self.post_process(res)
 		return res
 
@@ -322,6 +323,18 @@ class FrappeClient(object):
 		res = self.session.post(self.url, data=self.preprocess(data))
 		res = self.post_process(res)
 		return res
+
+	def session_get(self,*args,**kwargs):
+		res = None
+		while not res:
+			try:
+				res = self.session.get(*args,**kwargs)
+			except requests.exceptions.ConnectionError as e:
+				# too many API calls can cause problems
+				print("Warnung: API-Verbindungsproblem")
+				time.sleep(1)
+		return res
+
 
 	def preprocess(self, params):
 		'''convert dicts, lists to json'''
