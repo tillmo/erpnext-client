@@ -6,6 +6,8 @@ from collections import defaultdict
 from settings import WAREHOUSE, DEFAULT_SUPPLIER_GROUP
 import itertools
 import PySimpleGUI as sg
+import requests
+import time
 
 LIMIT = 100000 # limit_page_length
 
@@ -36,7 +38,14 @@ class Api(object):
             for item in items:
                 print(".",end="")
                 item_code = item["item_code"]
-                doc = Api.api.get_doc('Item', item_code)
+                doc = None
+                while not doc:
+                    try:
+                        doc = Api.api.get_doc('Item', item_code)
+                    except requests.exceptions.ConnectionError as e:
+                        # too many API calls can cause problems
+                        print("Warnung: API-Verbindungsproblem")
+                        time.sleep(1)
                 Api.items_by_code[item_code] = doc
                 if not doc['item_defaults']:
                     doc['item_defaults'] = [{'company': company_name,
