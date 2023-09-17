@@ -51,6 +51,9 @@ class Table:
         self.child = child
         self.child_title = child_title # button display
         self.landscape = landscape
+        self.set_format()
+
+    def set_format(self):    
         self.page_height = A4[0] if self.landscape else A4[1]
         self.page_width = A4[1] if self.landscape else A4[0]
 
@@ -86,7 +89,9 @@ class Table:
         elements.append(t)
         return elements
     
-    def pdf_export(self,with_child=False):
+    def pdf_export(self,with_child=False,landscape=False):
+        self.landscape = (self.landscape or landscape)
+        self.set_format()
         doc = pl.SimpleDocTemplate(self.filename,
                                    pagesize=(self.page_width,self.page_height))
         elements = self.pdf_elements()
@@ -107,6 +112,8 @@ class Table:
                    sg.SaveAs(button_text = 'CSV', k = 'CSV', target='CSV',
                              default_extension = 'csv',enable_events=True),
                    sg.SaveAs(button_text = 'PDF', k = 'PDF', target='PDF',
+                             default_extension = 'pdf',enable_events=True),
+                   sg.SaveAs(button_text = 'PDF quer', k = 'PDFl', target='PDFl',
                              default_extension = 'pdf',enable_events=True)]
         if self.child_title:
             text = 'PDF'+self.child_title
@@ -141,11 +148,11 @@ class Table:
                     self.filename = values['CSV']
                     self.csv_export()
                 continue
-            elif event == 'PDF':
-                if values['PDF']:
-                    self.filename = values['PDF']
+            elif event in ['PDF','PDFl']:
+                if values[event]:
+                    self.filename = values[event]
                 if self.filename:    
-                    self.pdf_export()
+                    self.pdf_export(landscape=event=='PDFl')
                 continue
             elif event == 'PDF+':
                 if values['PDF+']:
