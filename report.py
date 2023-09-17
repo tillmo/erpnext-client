@@ -571,9 +571,10 @@ def format_gl(gle):
             gle['bold'] = 3
         elif gle['account'] == "'Closing (Opening + Total)'":
             gle['posting_date'] = 'Abschluss'
-    if 'remarks' in gle:
-        if gle['remarks'] in['Keine Anmerkungen','No Remarks']:
-            gle['remarks'] = gle['against']
+            gle['bold'] = 3
+    if not 'remarks' in gle or gle['remarks'].strip() in ['','Keine Anmerkungen','No Remarks']:
+        gle['remarks'] = gle.get('against')
+    if gle.get('remarks'):
         gle['remarks'] = gle['remarks'][:75]
     return gle
 
