@@ -562,20 +562,27 @@ def balkonmodule_csv(company):
     
 
 def format_gl(gle):
+    if not 'remarks' in gle or gle['remarks'].strip() in ['','Keine Anmerkungen','No Remarks']:
+        gle['remarks'] = gle.get('against')
+    if gle.get('remarks'):
+        gle['remarks'] = gle['remarks'][:70]
     if 'account' in gle:
         if gle['account'] == "'Opening'":
             gle['posting_date'] = 'Eröffnung'
             gle['bold'] = 3
+            gle['account'] = ""
         elif gle['account'] == "'Total'":
             gle['posting_date'] = 'Total'
             gle['bold'] = 3
+            gle['account'] = ""
         elif gle['account'] == "'Closing (Opening + Total)'":
             gle['posting_date'] = 'Abschluss'
             gle['bold'] = 3
-    if not 'remarks' in gle or gle['remarks'].strip() in ['','Keine Anmerkungen','No Remarks']:
-        gle['remarks'] = gle.get('against')
-    if gle.get('remarks'):
-        gle['remarks'] = gle['remarks'][:75]
+            gle['account'] = ""
+        else:
+            gle['account'] = gle['account'][:5]
+    if 'against' in gle:
+            gle['against'] = gle['against'][:5]
     return gle
 
 
@@ -593,11 +600,11 @@ def general_ledger(company_name):
         report = journal.get_gl(company_name,start_date_str,end_date_str,[account])
         #if len(report)<4:
         #    print(report)
-        if not report or (len(report)<4 and (not report[0]['balance'] or not report[2]['balance'])):
+        if not report or (len(report)<4 and (not report[0]['balance'] or (len(report) > 2 and not report[2]['balance']))):
             continue
-        col_fields = ['posting_date', 'debit', 'credit', 'balance', 'voucher_no', 'remarks']
+        col_fields = ['posting_date', 'account', 'against', 'debit', 'credit', 'balance', 'voucher_no', 'remarks']
         title = "{}   {}   {}".format(start_date.strftime('%Y'),company_name,account)
-        header = ['Datum','Soll','Haben','Stand','Beleg','Bemerkung']
+        header = ['Datum','Konto','Gegen','Soll','Haben','Stand','Beleg','Bemerkung']
         filename = "{}/{:03d}.pdf".format(dir,i)
         i += 1
         tbl = table.Table([format_gl(r) for r in report],col_fields,header,title,
