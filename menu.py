@@ -653,6 +653,8 @@ def event_handler(event,window):
         report.balkonmodule(user_settings['-company-'])
     elif event == 'Balkonmodulverkauf (csv)':
         report.balkonmodule_csv(user_settings['-company-'])
+    elif event == 'Kontenblätter':
+        report.general_ledger(user_settings['-company-'])
     elif event in ['Projekte']:
         while True:
             tbl = report.projects()
@@ -692,7 +694,7 @@ def menus():
     menu_def = [['&Einlesen', ['&Kontoauszug', '&Einkaufsrechnung', '&Einkaufsrechnung Lager']],
                 ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Unzugeordnete (An)Zahlungen (Summen)','Prerechnungen','Prerechnungen Anzahlung','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen','Banktransaktionen einzeln','Prerechnungen vorprozessieren']],
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
-                ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte','Balkonmodulverkauf (grafisch)','Balkonmodulverkauf (csv)','zu bezahlende Prerechnungen']], 
+                ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte','Balkonmodulverkauf (grafisch)','Balkonmodulverkauf (csv)','zu bezahlende Prerechnungen','Kontenblätter']], 
                 ['Bereich', company.Company.all()], 
                 ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen','USt-Rechnungen zusammenstellen']], 
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Google', 'Update']], 

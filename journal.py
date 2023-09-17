@@ -123,10 +123,12 @@ def get_gl(company_name,start_date,end_date,accounts):
              'from_date' : start_date,
              'to_date' : end_date,
              'group_by':'Group by Voucher (Consolidated)'}
-    report = gui_api_wrapper(Api.api.query_report,
-                             report_name='General ledger',
-                             filters=filters)
-    return report['result']
+    try:
+        report = Api.api.query_report(report_name='General ledger',
+                                      filters=filters)
+        return report['result']
+    except Exception as e:
+        raise e
 
 def get_gl_total(company_name,start_date,end_date,accounts):
     gl = get_gl(company_name,start_date,end_date,accounts)

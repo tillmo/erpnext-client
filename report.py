@@ -4,6 +4,7 @@ from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
 import table
 import utils
+import time
 from datetime import datetime, date
 from dateutil import rrule
 from dateutil.relativedelta import relativedelta
@@ -12,6 +13,10 @@ from collections import defaultdict
 import PySimpleGUI as sg
 import plotly.express as px
 import csv
+import journal
+import tempfile
+import os
+import requests
 
 def get_dates():
     year = sg.UserSettings()['-year-'] 
@@ -555,3 +560,57 @@ def balkonmodule_csv(company):
         w.writerows(full_items)
     print("Projekt {} - exportiert nach balkon.csv".format(project['name']))
     
+
+def format_gl(gle):
+    if 'account' in gle:
+        if gle['account'] == "'Opening'":
+            gle['posting_date'] = 'Eröffnung'
+            gle['bold'] = 3
+        elif gle['account'] == "'Total'":
+            gle['posting_date'] = 'Total'
+            gle['bold'] = 3
+        elif gle['account'] == "'Closing (Opening + Total)'":
+            gle['posting_date'] = 'Abschluss'
+    if 'remarks' in gle:
+        if gle['remarks'] in['Keine Anmerkungen','No Remarks']:
+            gle['remarks'] = gle['against']
+        gle['remarks'] = gle['remarks'][:75]
+    return gle
+
+
+def general_ledger(company_name):
+    start_date,end_date = get_dates()
+    start_date_str = start_date.strftime('%Y-%m-%d')
+    end_date_str = end_date.strftime('%Y-%m-%d')
+    comp = company.Company.get_company(company_name)
+    comp.load_data()
+    i = 0
+    dir = tempfile.mkdtemp()
+    accounts = [account['name'] for account in comp.leaf_accounts]
+    accounts.sort()
+    for account in accounts:
+        report = None
+        while not report:
+            try:
+                report = journal.get_gl(company_name,start_date_str,end_date_str,[account])
+            except requests.exceptions.ConnectionError as e:
+                # too many API calls can cause problems
+                print("Warnung: API-Verbindungsproblem")
+                time.sleep(1)
+        #if len(report)<4:
+        #    print(report)
+        if not report or (len(report)<4 and (not report[0]['balance'] or not report[2]['balance'])):
+            continue
+        col_fields = ['posting_date', 'debit', 'credit', 'balance', 'voucher_no', 'remarks']
+        title = "{}   {}   {}".format(start_date.strftime('%Y'),company_name,account)
+        header = ['Datum','Soll','Haben','Stand','Beleg','Bemerkung']
+        filename = "{}/{:03d}.pdf".format(dir,i)
+        i += 1
+        tbl = table.Table([format_gl(r) for r in report],col_fields,header,title,
+                          filename=filename,enable_events=True,
+                          landscape=True)
+        tbl.pdf_export()
+    filename = "Kontenblätter-{}-{}.pdf".format(company_name,start_date.strftime('%Y'))
+    filename = filename.replace(" ","-")
+    os.system("pdftk {}/* cat output {}".format(dir,filename))
+    print("In {} zusammengefasst".format(filename))

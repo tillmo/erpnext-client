@@ -3,7 +3,7 @@ import csv
 import report
 import utils
 from reportlab.lib import colors
-from reportlab.lib.pagesizes import letter
+from reportlab.lib.pagesizes import A4
 import reportlab.platypus as pl
 from reportlab.rl_config import defaultPageSize
 from reportlab.lib.units import inch
@@ -11,26 +11,28 @@ PAGE_HEIGHT=defaultPageSize[1]
 PAGE_WIDTH=defaultPageSize[0]
 
 
-def myFirstPage(title):
+def myFirstPage(title,page_height,page_width):
     def myPage(canvas, doc):
         canvas.saveState()
         canvas.setTitle(title)
         canvas.setFont('Helvetica-Bold',16)
-        canvas.drawCentredString(PAGE_WIDTH/2.0, PAGE_HEIGHT-108, title)
+        canvas.drawCentredString(page_width/2.0, page_height-108, title)
         canvas.setFont('Helvetica',9)
-        canvas.drawString(PAGE_WIDTH/2.0, 0.75 * inch, " %d " % doc.page)
+        canvas.drawString(page_width/2.0, 0.75 * inch, " %d " % doc.page)
         canvas.restoreState()
     return myPage    
 
-def myLaterPages(canvas, doc):
-    canvas.saveState()
-    canvas.setFont('Helvetica',9)
-    canvas.drawString(PAGE_WIDTH/2.0, 0.75 * inch, " %d " % doc.page)
-    canvas.restoreState()
+def myLaterPages(page_height,page_width):
+    def myPage(canvas, doc):
+        canvas.saveState()
+        canvas.setFont('Helvetica',9)
+        canvas.drawString(page_width/2.0, 0.75 * inch, " %d " % doc.page)
+        canvas.restoreState()
+    return myPage    
     
 class Table:
     def __init__(self,entries,keys,headings,title,enable_events=False,max_col_width=60,
-                 display_row_numbers=False,filename=None,child=None,child_title=None,just='left'):
+                 display_row_numbers=False,filename=None,child=None,child_title=None,just='left',landscape=False):
         # table data, as list of dicts
         self.entries = entries
         # column headings for display
@@ -48,6 +50,9 @@ class Table:
         # for display of several tables in one PDF
         self.child = child
         self.child_title = child_title # button display
+        self.landscape = landscape
+        self.page_height = A4[0] if self.landscape else A4[1]
+        self.page_width = A4[1] if self.landscape else A4[0]
 
     def csv_export(self):
         with open(self.filename, mode='w') as f:
@@ -82,14 +87,15 @@ class Table:
         return elements
     
     def pdf_export(self,with_child=False):
-        doc = pl.SimpleDocTemplate(self.filename)
+        doc = pl.SimpleDocTemplate(self.filename,
+                                   pagesize=(self.page_width,self.page_height))
         elements = self.pdf_elements()
         if with_child and self.child:
             elements += self.child.pdf_elements()
         ## write document to disk
         doc.build(elements,
-                  onFirstPage=myFirstPage(self.title),
-                  onLaterPages=myLaterPages)
+                  onFirstPage=myFirstPage(self.title,self.page_height,self.page_width),
+                  onLaterPages=myLaterPages(self.page_height,self.page_width))
         print(self.filename," exportiert")    
 
     def window(self):
