@@ -7,6 +7,7 @@ from settings import TAX_ACCOUNTS, INCOME_DIST_ACCOUNTS, PAYABLE_ACCOUNTS, \
 from datetime import date, datetime, timedelta
 import csv
 import os
+import report
 
 def invoice_for_payment(payment_entry):
     pe = Api.api.get_doc('Payment Entry',payment_entry)
@@ -326,4 +327,30 @@ def vat_declaration(company_name,quarter):
     pretaxes['Summe'] = sum(pretaxes.values())
     print("\nVorsteuer")
     utils.print_dict(pretaxes)
+
+def save_purchase_invoices(company_name,account):
+    start_date,end_date = report.get_dates()
+    start_date_str = start_date.strftime('%Y-%m-%d')
+    end_date_str = end_date.strftime('%Y-%m-%d')
+    suffix = "-{}-{}-{}".format(company_name.replace(" ","_"),start_date.year,account[:5].strip())
+    dir = "EK-Rechnungen"+suffix
+    os.makedirs(dir,exist_ok=True)
+    gles = get_gl(company_name,start_date_str,end_date_str,[account])
+    for gle in gles:
+        if gle.get('voucher_type') != 'Purchase Invoice':
+            continue
+        inv_name = gle['voucher_no']
+        pretty_inv_name = inv_name.replace(" ","_")
+        try:
+            print(inv_name,end=" ")
+            inv = Api.api.get_doc("Purchase Invoice",inv_name)
+            inv_file = inv['supplier_invoice']
+            print("Hole {}".format(inv_file))
+            pdf = Api.api.get_file(inv_file)
+            with open(dir + "/" + pretty_inv_name + ".pdf", 'wb') as f:
+                f.write(pdf)
+        except Exception as e:
+            print(e)
+    print("Expoertiert nach {}".format(dir))
+    return dir    
     

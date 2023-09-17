@@ -655,6 +655,18 @@ def event_handler(event,window):
         report.balkonmodule_csv(user_settings['-company-'])
     elif event == 'Kontenblätter':
         report.general_ledger(user_settings['-company-'])
+    elif event == 'EK-Rechnungen nach Konto':
+        comp_name = user_settings['-company-']
+        comp = company.Company.get_company(comp_name)
+        accounts = comp.leaf_accounts
+        account_names = [acc['name'] for acc in accounts]
+        account_names.sort()
+        title = 'Buchungskonto wählen'
+        msg = 'Bitte ein Buchungskonto wählen\n'
+        account = easygui.choicebox(msg, title, account_names)
+        if account:
+            journal.save_purchase_invoices(comp_name,account)
+
     elif event in ['Projekte']:
         while True:
             tbl = report.projects()
@@ -696,7 +708,7 @@ def menus():
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte','Balkonmodulverkauf (grafisch)','Balkonmodulverkauf (csv)','zu bezahlende Prerechnungen','Kontenblätter']], 
                 ['Bereich', company.Company.all()], 
-                ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen','USt-Rechnungen zusammenstellen']], 
+                ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen','USt-Rechnungen zusammenstellen','EK-Rechnungen nach Konto']], 
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Google', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
 
