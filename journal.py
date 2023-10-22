@@ -39,6 +39,8 @@ def add_party(account_entries,ref_je=None):
 
 def journal_entry(company,account,against_account,debit,credit,title,
                   remark,date,cheque_no=None):
+    #print("company;account;against_account;debit;credit;title;remark;date;cheque_no\n{};{};{};{};{};{};{};{};{}".format(company.name,account,against_account,str(debit).replace(".",","),str(credit).replace(".",","),title,remark.replace("\n"," "),date,cheque_no))
+    #return
     account_entries = [{'account': account,
          'cost_center': company.cost_center,
          'debit': debit,
@@ -175,6 +177,9 @@ def create_income_dist_journal_entries(company_name,quarter):
     expenses = {tax: get_gl_total_acc(acc) for tax, acc in expense_accs.items()}
     total_expenses = sum(expenses.values())
     rel_expenses = {tax: exp/total_expenses for tax, exp in expenses.items()}
+    #print("expenses: ",expenses)
+    #print("total_expenses: ",total_expenses)
+    #print("rel_expenses: ",rel_expenses)
     base_title = 'Aufteilung nach Steuersätzen {}'.format(quarter)
     descr = "Relative Aufteilung nach Steuersätzen der Ausgaben\n"
     for tax, rel_exp in rel_expenses.items():
