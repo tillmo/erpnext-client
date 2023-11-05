@@ -185,18 +185,21 @@ def create_income_dist_journal_entries(company_name,quarter):
     for tax, rel_exp in rel_expenses.items():
       descr += "{}% USt: {:.4f}% Anteil\n".format(tax,rel_exp*100)
     print(descr)
+    entries = []
     for accs in income_accs:
         unclear = -get_gl_total_acc(accs['unclear'])
         for tax, rel_exp in rel_expenses.items():
             if abs(unclear)>1e-06:
                 net_amount = round(rel_exp*unclear/(1+tax/100),2)
                 tax_amount = round(rel_exp*unclear-net_amount,2)
-                journal_entry(this_company,accs['unclear'],accs[tax],
-                              net_amount,0,
-                              base_title,descr,end_date)
-                journal_entry(this_company,accs['unclear'],tax_accs[tax],
-                              tax_amount,0,
-                              base_title,descr,end_date)
+                entries.append(journal_entry(this_company,accs['unclear'],
+                                             accs[tax],net_amount,0,
+                                             base_title,descr,end_date))
+                entries.append(journal_entry(this_company,accs['unclear'],
+                                             tax_accs[tax],
+                                             tax_amount,0,
+                                             base_title,descr,end_date))
+    return entries
 
 def create_advance_payment_journal_entry(payment_entry,tax_rate,revert=False):
     print("Erstelle {}buchungssatz für {}".format("Rück" if revert else "Um",
