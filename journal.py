@@ -210,7 +210,8 @@ def create_advance_payment_journal_entry(payment_entry,tax_rate,revert=False):
     this_company = company.Company.companies_by_name[company_name]
     party_type = pe['party_type']
     party = pe['party']
-    tax_amount = round(amount/100.0*tax_rate,2)
+    tax_factor = tax_rate/100.0
+    tax_amount = round(amount/(1+tax_factor)*tax_factor,2)
     net_amount = amount - tax_amount
     if pe['payment_type'] == 'Receive':
         tax_ind = 'tax_accounts'

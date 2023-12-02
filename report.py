@@ -581,7 +581,7 @@ def format_gl(gle):
             gle['account'] = ""
         else:
             gle['account'] = gle['account'][:5]
-    if 'against' in gle:
+    if 'against' in gle and gle['against']:
             gle['against'] = gle['against'][:5]
     return gle
 

@@ -550,6 +550,7 @@ class PurchaseInvoice(Invoice):
                      'rate': self.totals[vat],
                      'cost_center': self.company.cost_center}
                 )
+                self.update_stock = False
         if not self.update_stock and self.vat_rates:
             self.e_items[0]['expense_account'] = accounts[self.vat_rates[0]]
 
