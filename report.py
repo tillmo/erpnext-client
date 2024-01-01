@@ -17,6 +17,7 @@ import journal
 import tempfile
 import os
 import requests
+from settings import PLANNING_ITEM
 
 def get_dates():
     year = sg.UserSettings()['-year-'] 
@@ -441,6 +442,12 @@ def opportunities(company_name,balkon=False):
     return table.Table(opps,columns,headings,'Chancen für '+company_name)
     
 def projects():
+    # for efficiency reasons, store all invoices containing PLANNING_ITEM
+    planning_sis = defaultdict(lambda: [])
+    for si in Api.api.get_list("Sales Invoice",
+                        filters=[["Sales Invoice Item","item_code","=",PLANNING_ITEM]]):
+        si1 = Api.api.get_doc("Sales Invoice",si['name'])
+        planning_sis[si['name']] = [item for item in si1['items'] if item['item_code'] == PLANNING_ITEM]
     projects = []
     for p in Api.api.get_list("Project",
                     fields=["name","project_name","creation","status",'project_type'],
@@ -452,14 +459,17 @@ def projects():
         typ = p['project_type'] if 'project_type' in p else ''
         sis = Api.api.get_list('Sales Invoice',
                     filters={'project':pname,'status': ['!=','Cancelled']},
-                    fields=['total'],limit_page_length=LIMIT)
+                    fields=['name','total'],limit_page_length=LIMIT)
         pis = Api.api.get_list('Purchase Invoice',
                     filters={'project':pname,'status': ['!=','Cancelled']},
                     fields=['total'],limit_page_length=LIMIT)
+        plan = 0
+        for si in sis:
+            plan += sum([item['amount'] for item in planning_sis[si['name']]])
         ssum = sum([si['total'] for si in sis])
         psum = sum([pi['total'] for pi in pis])
-        projects.append({'Name':pname,'Datum':pdate,'Titel':ptitle,'Typ':typ,'Status':p['status'],'Einkauf':psum,'Verkauf':ssum,'Marge':ssum-psum})
-    columns = ['Name','Titel','Typ','Einkauf','Verkauf','Marge','Status']
+        projects.append({'Name':pname,'Datum':pdate,'Titel':ptitle,'Typ':typ,'Status':p['status'],'Einkauf':psum,'Verkauf':ssum,'Marge':ssum-psum,'Planung':plan})
+    columns = ['Name','Titel','Typ','Einkauf','Verkauf','Marge','Planung','Status']
     return table.Table(projects,columns,columns,'Projekte',just='right',enable_events=True)
 
 def adapt(e,factor):
