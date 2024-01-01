@@ -240,7 +240,7 @@ def read_and_transfer(inv, check_dup=True):
                    project.project_type(inv['chance']) in settings.STOCK_PROJECT_TYPES
     pinv = purchase_invoice.PurchaseInvoice.read_and_transfer(
         json_object, f, update_stock,
-        account=inv.get('buchungskonto'), paid_by_submitter=inv.get('selbst_bezahlt', False),
+        account_abbrv=inv.get('buchungskonto'), paid_by_submitter=inv.get('selbst_bezahlt', False),
         project=inv.get('chance'), supplier=inv.get('lieferant'), check_dup=check_dup
     )
     if pinv and not inv.get('purchase_invoice'):
@@ -261,6 +261,6 @@ def read_and_transfer_pdf(file, update_stock = True, account=None, paid_by_submi
     myjson = extract_invoice_info(contents)
     pinv = purchase_invoice.PurchaseInvoice.read_and_transfer(
         myjson, file, update_stock,
-        account=account, paid_by_submitter=paid_by_submitter,
+        account_abbrv=account, paid_by_submitter=paid_by_submitter,
         project=project, supplier=supplier, check_dup=check_dup)
     return pinv

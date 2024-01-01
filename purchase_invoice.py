@@ -139,7 +139,7 @@ class PurchaseInvoice(Invoice):
             except:
                 pass
 
-    def complete_data_by_gui(self, default_account=None, paid_by_submitter=False, amount=""):
+    def complete_data_by_gui(self, account=None, paid_by_submitter=False, amount=""):
         """
         This method is used to change some information about the purchase invoice object by GUI.
         """
@@ -207,17 +207,12 @@ class PurchaseInvoice(Invoice):
         else:
             return False
         self.compute_total()
-        account = None
-        accounts = self.company.leaf_accounts_for_credit
-        account_names = [acc['name'] for acc in accounts]
-        if default_account:
-            for acc in account_names:
-                if default_account in acc:
-                    account = acc
         if not account:
             pinvs = self.company.purchase_invoices[self.supplier]
             paccs = [pi['expense_account'] for pi in pinvs if 'expense_account' in pi]
             paccs = list(set(paccs))
+            accounts = self.company.leaf_accounts_for_credit
+            account_names = [acc['name'] for acc in accounts]
             for acc in paccs:
                 try:
                     account_names.remove(acc)
@@ -232,7 +227,7 @@ class PurchaseInvoice(Invoice):
         self.assign_default_e_items({self.default_vat: account})
         return True
 
-    def parse_generic(self, lines, default_account=None, paid_by_submitter=False, is_test=False):
+    def parse_generic(self, lines, account=None, paid_by_submitter=False, is_test=False):
         self.parser = "generic"
         self.extract_items = False
         amount = ""
@@ -258,13 +253,16 @@ class PurchaseInvoice(Invoice):
                         return self
         if is_test:
             return self
-        if self.complete_data_by_gui(default_account, paid_by_submitter, amount):
+        if self.complete_data_by_gui(account, paid_by_submitter, amount):
             return self
 
-    def complete_missing_data(self, default_account=None, paid_by_submitter=False, is_test=False, check_dup=True):
+    def complete_missing_data(self, account=None, paid_by_submitter=False, is_test=False, check_dup=True):
         """
          This method is used to complete the missing information of the purchase invoice object
         """
+        if account:            
+            self.assign_default_e_items({self.default_vat: account})
+
         if not check_dup:
             if not self.supplier:
                 self.supplier = "???"
@@ -296,7 +294,7 @@ class PurchaseInvoice(Invoice):
             print("Bruttobetrag nicht erkannt")
         print("Rückfall auf manuelle Eingabe")
 
-        if self.complete_data_by_gui(default_account, paid_by_submitter):
+        if self.complete_data_by_gui(account, paid_by_submitter):
             return self
 
     def apply_info_changes(self, diff, new_data_model):
@@ -453,8 +451,16 @@ class PurchaseInvoice(Invoice):
         print("Merged list of items .......", merged_list)
         return merged_list
 
-    def parse_invoice(self, invoice_json, infile, account=None, paid_by_submitter=False, given_supplier=None,
+    def parse_invoice(self, invoice_json, infile, account_abbrv=None, paid_by_submitter=False, given_supplier=None,
                       is_test=False, check_dup=True, manual_edit=False):
+        account = None
+        if account_abbrv:
+            accounts = self.company.leaf_accounts_for_credit
+            account_names = [acc['name'] for acc in accounts]
+            for acc in account_names:
+                if account_abbrv in acc:
+                    account = acc
+
         normal_purchase_data = None
         google_purchase_data = None
         final_data = None
@@ -700,20 +706,20 @@ class PurchaseInvoice(Invoice):
 
     # for testing
     @classmethod
-    def parse_and_dump(cls, infile, update_stock, account=None, paid_by_submitter=False):
-        inv = PurchaseInvoice(update_stock).parse_invoice(infile, account, paid_by_submitter)
+    def parse_and_dump(cls, infile, update_stock, account_abbrv=None, paid_by_submitter=False):
+        inv = PurchaseInvoice(update_stock).parse_invoice(infile, account_abbrv, paid_by_submitter)
         pprint(vars(inv))
         pprint(list(map(lambda x: pprint(vars(x)), inv.items)))
 
     @classmethod
-    def read_and_transfer(cls, invoice_json, infile, update_stock, account=None, paid_by_submitter=False, project=None,
+    def read_and_transfer(cls, invoice_json, infile, update_stock, account_abbrv=None, paid_by_submitter=False, project=None,
                           supplier=None, check_dup=True):
         one_more = True
         inv = None
         while one_more:
             one_more = False
             inv_new = PurchaseInvoice(update_stock).read_pdf(
-                invoice_json, infile, account, paid_by_submitter, supplier, check_dup=check_dup)
+                invoice_json, infile, account_abbrv, paid_by_submitter, supplier, check_dup=check_dup)
             if (inv is None) and inv_new and inv_new.is_duplicate:
                 return inv_new
             if inv_new and not inv_new.is_duplicate:
@@ -734,9 +740,9 @@ class PurchaseInvoice(Invoice):
             print("Keine Einkaufsrechnung angelegt")
         return inv
 
-    def read_pdf(self, invoice_json, infile, account=None, paid_by_submitter=False, supplier=None, check_dup=True):
+    def read_pdf(self, invoice_json, infile, account_abbrv=None, paid_by_submitter=False, supplier=None, check_dup=True):
         self.infiles = [infile]
-        if not self.parse_invoice(invoice_json, infile, account, paid_by_submitter, supplier, check_dup=check_dup):
+        if not self.parse_invoice(invoice_json, infile, account_abbrv, paid_by_submitter, supplier, check_dup=check_dup):
             return None
         print("Prüfe auf doppelte Rechung")
         if self.check_if_present(check_dup):
