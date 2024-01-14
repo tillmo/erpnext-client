@@ -109,7 +109,7 @@ class Company(Doc):
     def init_companies(cls):
         if not Company.companies_by_name:
             print("Lade Firmendaten",end="")
-            for comp in gui_api_wrapper(Api.api.get_list,'Company'):
+            for comp in Api.api.get_list('Company'):
                 print(".",end="")
                 Company(comp)
             print()

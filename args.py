@@ -82,5 +82,5 @@ def init():
         settings['-invoice-processor-'] = args.invoice_processor
     if args.google_credentials:
         set_google_credentials(args.google_credentials)
-    settings['-setup-'] = not api_wrapper_test(Api.initialize)
+    settings['-setup-'] = not Api.initialize()
     return args
