@@ -30,19 +30,35 @@ class NotUploadableException(FrappeException):
 		self.message = "The doctype `{1}` is not uploadable, so you can't download the template".format(doctype)
 
 
-class FrappeClient(object):
-	def __init__(self, url=None, username=None, password=None, api_key=None, api_secret=None, verify=True):
-		self.headers = dict(Accept='application/json')
-		self.session = requests.Session()
-		self.can_download = []
+class FrappeClient:
+	def __init__(
+		self,
+		url,
+		username=None,
+		password=None,
+		verify=True,
+		api_key=None,
+		api_secret=None,
+		frappe_authorization_source=None,
+	):
+		import requests
+
+		self.headers = {
+			"Accept": "application/json",
+			"content-type": "application/x-www-form-urlencoded",
+		}
 		self.verify = verify
+		self.session = requests.session()
 		self.url = url
+		self.api_key = api_key
+		self.api_secret = api_secret
+		self.frappe_authorization_source = frappe_authorization_source
 
+		self.setup_key_authentication_headers()
+
+		# login if username/password provided
 		if username and password:
-			self.login(username, password)
-
-		if api_key and api_secret:
-			self.authenticate(api_key, api_secret)
+			self._login(username, password)
 
 	def __enter__(self):
 		return self
@@ -50,46 +66,70 @@ class FrappeClient(object):
 	def __exit__(self, *args, **kwargs):
 		self.logout()
 
-	def login(self, username, password):
-		r = self.session.post(self.url, data={
-			'cmd': 'login',
-			'usr': username,
-			'pwd': password
-		}, verify=self.verify, headers=self.headers)
+	def _login(self, username, password):
+		"""Login/start a sesion. Called internally on init"""
+		r = self.session.post(
+			self.url,
+			params={"cmd": "login", "usr": username, "pwd": password},
+			verify=self.verify,
+			headers=self.headers,
+		)
 
-		if r.json().get('message') == "Logged In":
-			self.can_download = []
+		if r.status_code == 200 and r.json().get("message") in ("Logged In", "No App"):
 			return r.json()
+		elif r.status_code == 502:
+			raise SiteUnreachableError
 		else:
+			try:
+				error = json.loads(r.text)
+				if error.get("exc_type") == "SiteExpiredError":
+					raise SiteExpiredError
+			except json.decoder.JSONDecodeError:
+				error = r.text
+				print(error)
 			raise AuthError
 
-	def authenticate(self, api_key, api_secret):
-		token = b64encode('{}:{}'.format(api_key, api_secret).encode()).decode()
-		auth_header = {'Authorization': 'Basic {}'.format(token)}
-		self.session.headers.update(auth_header)
+	def setup_key_authentication_headers(self):
+		if self.api_key and self.api_secret:
+			token = b64encode((f"{self.api_key}:{self.api_secret}").encode()).decode("utf-8")
+			auth_header = {
+				"Authorization": f"Basic {token}",
+			}
+			self.headers.update(auth_header)
+
+			if self.frappe_authorization_source:
+				auth_source = {"Frappe-Authorization-Source": self.frappe_authorization_source}
+				self.headers.update(auth_source)
 
 	def logout(self):
-		self.session_get(self.url, params={
-			'cmd': 'logout',
-		})
+		"""Logout session"""
+		self.session.get(
+			self.url,
+			params={
+				"cmd": "logout",
+			},
+			verify=self.verify,
+			headers=self.headers,
+		)
 
-	def get_list(self, doctype, fields='["*"]', filters=None, limit_start=0, limit_page_length=0, order_by=None):
-		'''Returns list of records of a particular type'''
-		if not isinstance(fields, unicode):
+
+	def get_list(
+		self, doctype, fields='["name"]', filters=None, limit_start=0, limit_page_length=None
+	):
+		"""Returns list of records of a particular type"""
+		if not isinstance(fields, str):
 			fields = json.dumps(fields)
 		params = {
 			"fields": fields,
 		}
 		if filters:
 			params["filters"] = json.dumps(filters)
-		if limit_page_length:
+		if limit_page_length is not None:
 			params["limit_start"] = limit_start
 			params["limit_page_length"] = limit_page_length
-		if order_by:
-			params['order_by'] = order_by
-
-		res = self.session_get(self.url + "/api/resource/" + doctype, params=params,
-			verify=self.verify, headers=self.headers)
+		res = self.session.get(
+			self.url + "/api/resource/" + doctype, params=params, verify=self.verify, headers=self.headers
+		)
 		return self.post_process(res)
 
 	def insert(self, doc):

@@ -19,10 +19,12 @@ class Api(object):
     @classmethod
     def initialize(cls):
         settings = sg.UserSettings()
-        Api.api = FrappeClient(settings['-server-'])
-        if not Api.api.authenticate(settings['-key-'], settings['-secret-']):
-            print(f"Anmeldung bei {settings['-server-']} fehlgeschlagen")
-            exit(1)
+        Api.api = FrappeClient(settings['-server-'],
+                               api_key=settings['-key-'],
+                               api_secret=settings['-secret-'])
+#        if not Api.api.authenticate(settings['-key-'], settings['-secret-']):
+#            print(f"Anmeldung bei {settings['-server-']} fehlgeschlagen")
+#            exit(1)
         Api.api.get_list("Company")
     @classmethod
     def initialize_with_settings(cls):
