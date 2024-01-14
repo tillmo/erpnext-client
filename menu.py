@@ -558,6 +558,8 @@ def event_handler(event,window):
         headings = ['Datum','Offen','Betrag','Stand','Bemerkung']
         while True:
             bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
+                              fields=['name','deposit','withdrawal',
+                                      'status'],
                               filters={'bank_account':event,
                                        'docstatus': ['!=', 2],
                                        'status': ['!=', 'Cancelled']},

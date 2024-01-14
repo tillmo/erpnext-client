@@ -24,11 +24,11 @@ class Company(Doc):
     def __init__(self,doc):
         self.doctype = "Company"
         super().__init__(doc=doc)
-        self.cost_center = doc['cost_center']
-        self.expense_account = doc['default_expense_account']
-        self.payable_account = doc['default_payable_account']
-        self.receivable_account = doc['default_receivable_account']
-        self.default_finance_book = doc['default_finance_book']
+        self.cost_center = doc.get('cost_center')
+        self.expense_account = doc.get('default_expense_account')
+        self.payable_account = doc.get('default_payable_account')
+        self.receivable_account = doc.get('default_receivable_account')
+        self.default_finance_book = doc.get('default_finance_book')
         self.taxes = {}
         self.default_vat = None
         Company.companies_by_name[self.name] = self

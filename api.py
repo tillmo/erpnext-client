@@ -59,7 +59,10 @@ class Api(object):
     @classmethod
     def load_account_data(cls):
         if not Api.accounts_by_company:
-            accounts = Api.api.get_list('Account',limit_page_length=LIMIT)
+            accounts = Api.api.get_list('Account',
+                                        fields=['name','account_name','company',
+                                                'is_group','root_type'],
+                                        limit_page_length=LIMIT)
             accounts.sort(key=lambda acc:acc["company"])
             for c, accs in itertools.groupby(accounts, key=lambda acc:acc["company"]):
                 Api.accounts_by_company[c] = list(accs)
