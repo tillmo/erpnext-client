@@ -102,9 +102,9 @@ def show_data():
             num_sis = len(comp.get_sales_invoices(True))
             if num_sis:
                 print("{} offene Verkaufsrechnungen".format(num_sis))
-            num_bg_jobs = len(Api.api.get_background_jobs())
-            if num_bg_jobs:
-                print("{} offene Hintergrund-Jobs".format(num_bg_jobs))
+            # num_bg_jobs = len(Api.api.get_background_jobs())
+            # if num_bg_jobs:
+            #     print("{} offene Hintergrund-Jobs".format(num_bg_jobs))
 
 # ------ Process menu choices ------ #
 def event_handler(event,window):
@@ -558,8 +558,7 @@ def event_handler(event,window):
         headings = ['Datum','Offen','Betrag','Stand','Bemerkung']
         while True:
             bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
-                              fields=['name','deposit','withdrawal',
-                                      'status'],
+                              fields=bank.BT_FIELDS,
                               filters={'bank_account':event,
                                        'docstatus': ['!=', 2],
                                        'status': ['!=', 'Cancelled']},

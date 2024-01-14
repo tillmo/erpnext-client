@@ -395,7 +395,7 @@ class FrappeClient:
 
 	def session_get(self,*args,**kwargs):
 		res = None
-		while not res:
+		while res is None:
 			try:
 				res = self.session.get(*args,**kwargs)
 			except requests.exceptions.ConnectionError as e:

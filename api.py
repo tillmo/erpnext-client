@@ -25,7 +25,7 @@ class Api(object):
 #        if not Api.api.authenticate(settings['-key-'], settings['-secret-']):
 #            print(f"Anmeldung bei {settings['-server-']} fehlgeschlagen")
 #            exit(1)
-        Api.api.get_list("Company")
+        return Api.api.get_list("Company")
     @classmethod
     def initialize_with_settings(cls):
         sg.user_settings_filename(filename='erpnext.json')
@@ -37,7 +37,8 @@ class Api(object):
             Api.items_by_code = {}
             Api.item_code_translation = defaultdict(lambda: {})
             company_name = sg.UserSettings()['-company-']
-            items = Api.api.get_list('Item',limit_page_length=LIMIT)
+            items = Api.api.get_list('Item',limit_page_length=LIMIT,
+                                     fields=['item_code','item_name'])
             print("Lese alle {} ERPNext-Artikel ein".format(len(items)),end="")
             for item in items:
                 print(".",end="")

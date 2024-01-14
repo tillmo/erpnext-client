@@ -135,7 +135,7 @@ def get_gl(company_name,start_date,end_date,accounts):
 
 def get_gl_total(company_name,start_date,end_date,accounts):
     gl = get_gl(company_name,start_date,end_date,accounts)
-    total = [gle for gle in gl if gle['account'] == "'Total'"]
+    total = [gle for gle in gl if gle['account'] in ["'Total'","'Summe'"]]
     return total[0]['balance']
 
 def create_tax_journal_entries(company_name,quarter):

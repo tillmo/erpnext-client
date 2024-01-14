@@ -12,6 +12,9 @@ from numpy import sign
 from collections import defaultdict
 import urllib
 
+BT_FIELDS = ['name','deposit','withdrawal','status','date','description',
+             'bank_account','company','unallocated_amount']
+
 class BankAccount(Doc):
     baccounts_by_iban = {}
     baccounts_by_name = {}
@@ -34,8 +37,7 @@ class BankAccount(Doc):
                               filters={'bank_account':self.name,
                                        'docstatus': ['!=', 2],
                                        'status': ['!=','Cancelled']},
-                              fields=['name','deposit','withdrawal',
-                                      'status'],
+                              fields=BT_FIELDS,
                               limit_page_length=LIMIT)
         self.balance = sum([bt['deposit']-bt['withdrawal'] for bt in bts])
     @classmethod
@@ -214,6 +216,7 @@ class BankTransaction(Doc):
                    side:['>',0],
                    'unallocated_amount':abs(self.amount)}
         bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
+                              fields=BT_FIELDS,
                               filters=filters,limit_page_length=LIMIT)
         bt_texts = list(map(lambda bt: utils.showlist([bt['name'],bt['deposit'] if bt['deposit'] else -bt['withdrawal'],bt['description'],bt['unallocated_amount']]),bts))
         # let the user choose between all these
@@ -256,7 +259,9 @@ class BankTransaction(Doc):
     def submit_entry(cls,doc_name,is_journal=True):
         doctype = "Journal Entry" if is_journal else "Payment Entry"
         doctype_name = "Buchungssatz" if is_journal else "Zahlung"
-        bts = gui_api_wrapper(Api.api.get_list,"Bank Transaction",filters=
+        bts = gui_api_wrapper(Api.api.get_list,"Bank Transaction",
+                              fields=BT_FIELDS,
+                              filters=
                               [["Bank Transaction Payments",
                                 "payment_entry","=",doc_name]])
         for bt in bts:
@@ -271,7 +276,9 @@ class BankTransaction(Doc):
     def delete_entry(cls,doc_name,is_journal=True):
         doctype = "Journal Entry" if is_journal else "Payment Entry"
         doctype_name = "Buchungssatz" if is_journal else "Zahlung"
-        bts = gui_api_wrapper(Api.api.get_list,"Bank Transaction",filters=
+        bts = gui_api_wrapper(Api.api.get_list,"Bank Transaction",
+                              fields=BT_FIELDS,
+                              filters=
                               [["Bank Transaction Payments",
                                 "payment_entry","=",doc_name]])
         if bts:
@@ -300,6 +307,7 @@ class BankTransaction(Doc):
             total = -total
         bts = gui_api_wrapper(Api.api.get_list,
                           'Bank Transaction',
+                          fields=BT_FIELDS,
                           filters={'company':comp_name,
                                    key:total,
                                    'description':['like','%'+bill_no+'%'],
@@ -441,7 +449,8 @@ class BankStatement:
             bt1['status'] = ['!=','Cancelled']
             bt1['docstatus'] = ['!=',2]
             #todo: relax the filter wrt the date (which sometimes is adapted by the bank)
-            bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',filters=bt1)
+            bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
+                                  fields=BT_FIELDS,filters=bt1)
             if not bts:
                 gui_api_wrapper(Api.api.insert,bt)
                 b.transactions.append(bt)

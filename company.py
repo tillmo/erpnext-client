@@ -158,6 +158,8 @@ class Company(Doc):
                 filters={'eingepflegt':False,
                          'typ':typ,
                          'company':self.name},
+                fields= ['datum','name','chance','lieferant','pdf',
+                         'lager','selbst_bezahlt','vom_konto_überwiesen','typ'],
                 limit_page_length=LIMIT)
 
     def reconcile(self,bt):
@@ -172,6 +174,7 @@ class Company(Doc):
         sinvs = self.get_sales_invoices(True)
         pinvs = self.get_purchase_invoices(True)
         bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
+                              fields=bank.BT_FIELDS,
                               filters={'company':self.name,
                                        'status':'Pending'})
         for bt in bts:
@@ -180,6 +183,7 @@ class Company(Doc):
                 bank.BankTransaction(bt).transfer(sinvs,pinvs)
     def open_bank_transactions(self):
         bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
+                              fields=bank.BT_FIELDS,
                               filters={'company':self.name,
                                        'status':'Pending',
                                        'unallocated_amount':['>',0]},
@@ -187,19 +191,23 @@ class Company(Doc):
         return bts
     def open_journal_entries(self):
         return gui_api_wrapper(Api.api.get_list,'Journal Entry',
-                                                filters={'company':self.name,
-                                                         'docstatus':0},
-                                                limit_page_length=LIMIT)
+                               filters={'company':self.name,
+                                        'docstatus':0},
+                               limit_page_length=LIMIT)
     def unbooked_payment_entries(self):
         return gui_api_wrapper(Api.api.get_list,'Payment Entry',
                                filters={'company':self.name,
                                         'docstatus':0},
+                               fields=['payment_type','unallocated_amount',
+                                       'party','posting_date'],
                                         limit_page_length=LIMIT)
     def unassigned_payment_entries(self):
         return gui_api_wrapper(Api.api.get_list,'Payment Entry',
                                filters={'company':self.name,
                                         'docstatus':1,
                                         'unallocated_amount':['>',0]},
+                               fields=['payment_type','unallocated_amount',
+                                       'party','posting_date'],
                                         limit_page_length=LIMIT)
     def pre_tax_templates(self):
         return gui_api_wrapper(Api.api.get_list,

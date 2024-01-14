@@ -1,3 +1,5 @@
+import json
+
 def as_unicode(text: str, encoding: str = "utf-8") -> str:
 	"""Convert to unicode if required"""
 	if isinstance(text, str):

@@ -215,6 +215,9 @@ def to_pay(company_name):
     prs = Api.api.get_list("PreRechnung", filters={'company': company_name,
                                                    'vom_konto_überwiesen': False,
                                                    'zu_zahlen_am': ['>', '01-01-1980']},
+                           fields=['zu_zahlen_am','name','lieferant',
+                                   'auftragsnr','betrag','typ',
+                                   'datum','kommentar'],
                            limit_page_length=LIMIT)
     prs.sort(key=lambda pr: pr['zu_zahlen_am'])
     sum = 0.0
