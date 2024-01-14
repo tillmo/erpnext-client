@@ -132,9 +132,16 @@ class Company(Doc):
             filters['status'] = ['in',['Draft','Unpaid','Overdue','Partly Paid']]
         else:    
             filters['status'] = ['in',['Paid']]
+        fields = ['name','status','posting_date','grand_total',
+                  'outstanding_amount']
+        if is_sales:
+            fields.append('customer')
+        else:
+            fields += ['supplier','bill_no']
         invs = gui_api_wrapper(\
                 Api.api.get_list,inv_type,
                 filters=filters,
+                fields=fields,               
                 limit_page_length=LIMIT)
         return list(map(lambda inv: Invoice(inv,is_sales),invs))
     def get_sales_invoices(self,open_invs):

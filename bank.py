@@ -44,7 +44,9 @@ class BankAccount(Doc):
             print("Lade Kontodaten",end="")
             for bacc in gui_api_wrapper(Api.api.get_list,
                                         'Bank Account',
-                                        fields=['name','company','iban','account']):
+                                        fields=['name','company','iban',
+                                                'account',
+                                                'last_integration_date']):
                 print(".",end="")
                 BankAccount(bacc)
             print()

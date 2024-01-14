@@ -116,7 +116,7 @@ class FrappeClient:
 
 
 	def get_list(
-		self, doctype, fields='["name"]', filters=None, limit_start=0, limit_page_length=None
+		self, doctype, fields='["name"]', filters=None, limit_start=0, limit_page_length=None, order_by=None
 	):
 		"""Returns list of records of a particular type"""
 		if not isinstance(fields, str):
@@ -129,6 +129,8 @@ class FrappeClient:
 		if limit_page_length is not None:
 			params["limit_start"] = limit_start
 			params["limit_page_length"] = limit_page_length
+		if order_by:
+			params['order_by'] = order_by
 		res = self.session.get(
 			self.url + "/api/resource/" + doctype, params=params, verify=self.verify, headers=self.headers
 		)
