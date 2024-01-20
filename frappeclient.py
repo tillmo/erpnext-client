@@ -250,6 +250,22 @@ class FrappeClient:
 
 		return self.post_process(res)
 
+	def load_doc(self, doctype, name=""):
+		"""Returns a single remote document with all fields
+
+		:param doctype: DocType of the document to be returned
+		:param name: (optional) `name` of the document to be returned"""
+		params = {'doctype' : doctype, 'name' : name,"_" : 1705687665217, 'url' : "https://erpnext.bremer-solidarstrom.de/app/lead/CRM-LEAD-2024-00351"}
+		res = self.session_get(
+			self.url + "/api/method/frappe.desk.form.load.getdoc",
+			params=params,
+			verify=self.verify,
+			headers=self.headers,
+		)
+
+		return self.post_process(res)
+		
+        
 	def rename_doc(self, doctype, old_name, new_name):
 		"""Rename remote document
 
@@ -266,9 +282,10 @@ class FrappeClient:
 
 
 	def get_background_jobs(self):
-		response = self.session_get(
-			self.url + '/api/method/frappe.core.page.background_jobs.background_jobs.get_info')
-		return self.post_process(response)
+                return self.get_request(
+			{
+				"cmd": "frappe.core.page.background_jobs.background_jobs.get_info",
+			})
 
         
 	def get_pdf(self, doctype, name, print_format='Standard', letterhead=True,language='de'):
@@ -358,6 +375,15 @@ class FrappeClient:
 			params=params)
 		return self.post_process(res)
 
+	def get_open_activities(self, doctype, name):
+		'''Returns open activities of a document'''
+		return self.get_request(
+			{
+				"cmd": "erpnext.crm.utils.get_open_activities",
+				"ref_doctype": doctype,
+				"ref_docname": name,
+			})
+
 	def get_unreconciled_entries(self,name):
 		res = self.session_get(self.url + '/api/resource/' + 'Payment Reconciliation' + '/' + name)
 
@@ -432,6 +458,8 @@ class FrappeClient:
 			return rjson["message"]
 		elif "data" in rjson:
 			return rjson["data"]
+		elif "docs" in rjson:
+			return rjson
 		else:
 			return None
 
