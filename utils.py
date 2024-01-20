@@ -211,3 +211,16 @@ def print_dict2(dic):
         print (x)
         for y in dic[x]:
             print("{} : {:.2f}".format(y,dic[x][y]))
+
+
+from bs4 import BeautifulSoup
+import re
+
+def html_to_text(html):
+    soup = BeautifulSoup(html, features="html.parser")
+    for tag in soup.find_all('style'):
+        tag.decompose()
+    text = soup.get_text()
+    text = re.sub(r"[\t ]*\n\s*","\n",text)
+    text = re.sub(r"[\t ]+"," ",text)
+    return text

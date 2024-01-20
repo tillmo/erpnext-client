@@ -19,6 +19,7 @@ VAT_DESCRIPTION = 'Umsatzsteuer'
 DELIVERY_COST_ACCOUNT = '3800 - Bezugsnebenkosten - SoMiKo'
 DELIVERY_COST_DESCRIPTION = 'Bezugsnebenkosten'
 VALIDITY_DATE = '2020-10-01'
+LEAD_OWNERS = ['Chris','Paul','Henrik']
 
 NKK_ACCOUNTS = {19.0: '3401 - NKK 19% Vorsteuer - Laden',
                 7.0: '3301 - NKK 7% Vorsteuer - Laden'}

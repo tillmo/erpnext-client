@@ -8,6 +8,7 @@ import bank
 from invoice import Invoice
 import purchase_invoice
 import project
+import lead
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper, api_wrapper_test, api_wrapper
 import table
@@ -667,7 +668,8 @@ def event_handler(event,window):
         account = easygui.choicebox(msg, title, account_names)
         if account:
             journal.save_purchase_invoices(comp_name,account)
-
+    elif event == 'Leads bearbeiten':
+        lead.process_open_leads()    
     elif event in ['Projekte']:
         while True:
             tbl = report.projects()
@@ -709,7 +711,8 @@ def menus():
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte','Balkonmodulverkauf (grafisch)','Balkonmodulverkauf (csv)','zu bezahlende Prerechnungen','Kontenblätter']], 
                 ['Bereich', company.Company.all()], 
-                ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen','USt-Rechnungen zusammenstellen','EK-Rechnungen nach Konto']], 
+                ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen','USt-Rechnungen zusammenstellen','EK-Rechnungen nach Konto']],
+                ['Lead', 'Leads bearbeiten'],
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Google', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
 
