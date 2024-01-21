@@ -158,8 +158,9 @@ class Company(Doc):
                 filters={'eingepflegt':False,
                          'typ':typ,
                          'company':self.name},
-                fields= ['datum','name','chance','lieferant','pdf',
-                         'lager','selbst_bezahlt','vom_konto_überwiesen','typ'],
+                fields= ['datum','name','chance','lieferant','pdf','json',
+                         'lager','selbst_bezahlt','vom_konto_überwiesen','typ',
+                         'processed', 'balkonmodule', 'buchungskonto'],
                 limit_page_length=LIMIT)
 
     def reconcile(self,bt):

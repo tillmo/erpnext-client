@@ -56,6 +56,7 @@ def process(company_name):
     prs = Api.api.get_list(
         "PreRechnung",
         filters={'company': company_name, 'processed': False},
+        fields=['name','pdf'],
         limit_page_length=LIMIT
     )
     for pr in prs:

@@ -307,7 +307,10 @@ class FrappeClient:
 		}
 		response = self.session_get(
 			self.url + '/api/method/frappe.utils.print_format.download_pdf',
-			params=params, stream=True)
+			params=params,
+                        verify=self.verify,
+			headers=self.headers,
+                        stream=True)
 
 		return self.post_process_file_stream(response)
 
@@ -372,7 +375,9 @@ class FrappeClient:
 
 	def get_file(self, path):
 		'''Returns a file from the file system'''
-		return self.session_get(self.url + path).content
+		return self.session_get(self.url + path,
+                                        verify=self.verify,
+			                headers=self.headers).content
 
 	def get_attachments(self, doctype, name):
 		'''Returns attachments to a document'''
