@@ -25,7 +25,7 @@ def process_open_leads():
         title = "Bitte Lead Owner wählen"
         texts = [utils.html_to_text(comm['content']) for comm in comms]
         text = "\n--------------------\n".join(texts)
-        text = text[:750]
+        text = "\n".join(text.split("\n")[:35])
         msg = f"{doc['name']}   {doc['lead_name']}\n\n{text}"
         choice = easygui.choicebox(msg, title, choices)
         if choice is None:
