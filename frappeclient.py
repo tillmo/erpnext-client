@@ -255,7 +255,7 @@ class FrappeClient:
 
 		:param doctype: DocType of the document to be returned
 		:param name: (optional) `name` of the document to be returned"""
-		params = {'doctype' : doctype, 'name' : name,"_" : 1705687665217, 'url' : "https://erpnext.bremer-solidarstrom.de/app/lead/CRM-LEAD-2024-00351"}
+		params = {'doctype' : doctype, 'name' : name}
 		res = self.session_get(
 			self.url + "/api/method/frappe.desk.form.load.getdoc",
 			params=params,
@@ -263,6 +263,15 @@ class FrappeClient:
 			headers=self.headers,
 		)
 
+		return self.post_process(res)
+		
+        
+	def reportview_get(self, doctype, filters = None, fields = None, params = {}):
+		if filters:
+			params["filters"] = json.dumps(filters)
+		if fields:
+			params["fields"] = json.dumps(fields)
+		res = self.post_api("frappe.desk.reportview.get",params)
 		return self.post_process(res)
 		
         
@@ -388,6 +397,13 @@ class FrappeClient:
 		res = self.session_get(self.url + '/api/resource/' + 'Payment Reconciliation' + '/' + name)
 
 		return self.post_process(res)
+
+	def assign_to(self,doctype,name,assign_to):
+		params = {"assign_to" : json.dumps(assign_to),
+		          "doctype" : doctype,
+		          "name" : name,
+		         }
+		return self.post_api('frappe.desk.form.assign_to.add',params)
 
 	def get_api(self, method, params=None):
 		if params is None:
