@@ -73,8 +73,7 @@ class PurchaseInvoiceParser:
             self.set_basic_info()
             self.purchase_invoice.items = []
             self.purchase_invoice.shipping = 0
-            if self.purchase_invoice.update_stock:
-                self.set_items()
+            self.set_items()
             self.set_totals()
         return self.purchase_invoice
 
