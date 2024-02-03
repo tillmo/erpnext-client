@@ -29,6 +29,7 @@ class PurchaseInvoiceGoogleParser:
         self.invoice_json = invoice_json
         self.supplier = supplier
         self.is_test = is_test
+        self.company_name = purchase_invoice.company_name
 
     def get_purchase_data(self):
         supplier = self.purchase_invoice.supplier

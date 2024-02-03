@@ -167,7 +167,7 @@ class PurchaseInvoice(Invoice):
                                format='%d.%m.%Y',
                                begin_at_sunday_plus=1)],
             [sg.Text('MWSt')],
-            [sg.Input(default_text=str(self.vat[self.default_vat]),
+            [sg.Input(default_text=str(self.vat[self.default_vat]).replace(".",","),
                       k='-vat-')],
             [sg.Text('Brutto')],
             [sg.Input(default_text=str(amount).replace(".",","), k='-gross-')],
@@ -469,7 +469,7 @@ class PurchaseInvoice(Invoice):
             purchase_invoice_google_parser.set_purchase_info()
             google_purchase_data = purchase_invoice_google_parser.get_purchase_data()
         print("Nutze internen Parser")
-        self.extract_items = False
+        self.extract_items = self.update_stock
         lines = pdf_to_text(infile)
         try:
             if lines:
