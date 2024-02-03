@@ -234,7 +234,6 @@ class PurchaseInvoice(Invoice):
         self.vat[self.default_vat] = ""
         self.totals[self.default_vat] = ""
         self.shipping = 0.0
-        self.date = ""
         self.no = ""
         if not self.supplier:
             self.supplier = ""
@@ -656,6 +655,7 @@ class PurchaseInvoice(Invoice):
         # because there is no doc in ERPNext yet
         self.update_stock = update_stock
         self.order_id = None
+        self.date = None
         self.company_name = sg.UserSettings()['-company-']
         # print("Company: ",self.company_name)
         self.company = company.Company.get_company(self.company_name)
