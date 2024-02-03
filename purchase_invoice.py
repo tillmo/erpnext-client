@@ -224,7 +224,8 @@ class PurchaseInvoice(Invoice):
             account = easygui.choicebox(msg, title, account_names)
             if not account:
                 return False
-        self.assign_default_e_items({self.default_vat: account})
+        if not self.update_stock:
+            self.assign_default_e_items({self.default_vat: account})
         return True
 
     def parse_generic(self, lines, account=None, paid_by_submitter=False, is_test=False):
@@ -259,7 +260,7 @@ class PurchaseInvoice(Invoice):
         """
          This method is used to complete the missing information of the purchase invoice object
         """
-        if account:            
+        if account and not self.update_stock:
             self.assign_default_e_items({self.default_vat: account})
 
         if not check_dup:
