@@ -85,6 +85,9 @@ def no_substr(l1,l2):
     return True    
 
 def read_float(s,sign="H"):
+    if not s:
+        return 0.0
+    s = s.replace("*","")
     try:
         english = len(s.split()[0].split('.')[-1])==2
     except:
