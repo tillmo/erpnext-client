@@ -11,3 +11,4 @@ jsondiff
 datefinder
 jsonschema==4.17.3
 jsoneditor==1.5.1
+bs4
