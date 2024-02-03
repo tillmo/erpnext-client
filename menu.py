@@ -61,7 +61,7 @@ def purchase_inv(update_stock):
     filename = utils.get_file('Einkaufsrechnung als PDF')
     if filename:
         print("Lese {} ein ...".format(filename))
-        return purchase_invoice.PurchaseInvoice.read_and_transfer(filename,update_stock)
+        return purchase_invoice.PurchaseInvoice.read_and_transfer(None,filename,update_stock)
     return False
 
 def show_data():
