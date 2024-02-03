@@ -199,16 +199,18 @@ class Company(Doc):
         return gui_api_wrapper(Api.api.get_list,'Payment Entry',
                                filters={'company':self.name,
                                         'docstatus':0},
-                               fields=['payment_type','unallocated_amount',
-                                       'party','posting_date'],
+                               fields=['name','payment_type',
+                                       'unallocated_amount',
+                                       'paid_amount','party','posting_date'],
                                         limit_page_length=LIMIT)
     def unassigned_payment_entries(self):
         return gui_api_wrapper(Api.api.get_list,'Payment Entry',
                                filters={'company':self.name,
                                         'docstatus':1,
                                         'unallocated_amount':['>',0]},
-                               fields=['payment_type','unallocated_amount',
-                                       'party','posting_date'],
+                               fields=['name','payment_type',
+                                       'unallocated_amount',
+                                       'paid_amount','party','posting_date'],
                                         limit_page_length=LIMIT)
     def pre_tax_templates(self):
         return gui_api_wrapper(Api.api.get_list,

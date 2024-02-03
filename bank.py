@@ -13,7 +13,7 @@ from collections import defaultdict
 import urllib
 
 BT_FIELDS = ['name','deposit','withdrawal','status','date','description',
-             'bank_account','company','unallocated_amount']
+             'bank_account','company','allocated_amount','unallocated_amount']
 
 class BankAccount(Doc):
     baccounts_by_iban = {}
