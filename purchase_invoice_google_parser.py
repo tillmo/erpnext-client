@@ -181,7 +181,7 @@ class PurchaseInvoiceGoogleParser:
                         sum_amount += s_item.amount
                         self.purchase_invoice.items.append(s_item)
                     elif s_item.description:
-                        print("Keine Mengenangabe gefunden für", s_item.description)
+                        print("Keine Mengen- oder Wertangabe gefunden für", s_item.description)
                 if self.purchase_invoice.gross_total and self.purchase_invoice.vat[self.purchase_invoice.default_vat]:
                     diff = self.purchase_invoice.gross_total - self.purchase_invoice.vat[self.purchase_invoice.default_vat] - sum_amount
                     if diff >= 1:
