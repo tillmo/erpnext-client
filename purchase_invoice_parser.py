@@ -19,13 +19,10 @@ class PurchaseInvoiceParser:
         order_id = self.purchase_invoice.order_id
         shipping = self.purchase_invoice.shipping
         posting_date = self.purchase_invoice.date
-        total = self.purchase_invoice.totals[self.purchase_invoice.default_vat] if self.purchase_invoice.totals[
-            self.purchase_invoice.default_vat] else 0
+        total = self.purchase_invoice.total
         grand_total = self.purchase_invoice.gross_total if self.purchase_invoice.gross_total else 0
 
-        taxes = []
-        if self.purchase_invoice.vat[self.purchase_invoice.default_vat]:
-            taxes.append({"rate": 19, "tax_amount": self.purchase_invoice.vat[self.purchase_invoice.default_vat]})
+        taxes = [{"rate":r,"tax_amount":t} for r, t in self.purchase_invoice.vat.items()]
 
         items = []
         for s_item in self.purchase_invoice.items:
@@ -104,23 +101,24 @@ class PurchaseInvoiceParser:
             for vat in self.purchase_invoice.vat_rates:
                 self.purchase_invoice.vat[vat] = 0
                 self.purchase_invoice.totals[vat] = 0
-            vat_rate_strs = ["{:.2f}".format(r).replace(".", ",") for r in self.purchase_invoice.vat_rates]
+            vat_rate_strs = ["{:.1f}".format(r).replace(".", ",") for r in self.purchase_invoice.vat_rates]
             for line in self.lines:
                 words = line.split()
-                if not self.purchase_invoice.date:
+                if not self.purchase_invoice.no and "Rechnung" in words:
+                    self.purchase_invoice.no = words[-1]
+                elif not self.purchase_invoice.date:
                     for i in range(len(words)):
                         self.purchase_invoice.date = utils.convert_date4(words[i])
                         if self.purchase_invoice.date:
-                            self.purchase_invoice.no = words[i - 2]
                             break
                 else:
-                    if len(words) > 12:
+                    if len(words) > 4:
                         words = [w.replace('*', '') for w in words]
                         for vat in vat_rate_strs:
-                            if vat in words[0:6]:
+                            if vat in words[0:3]:
                                 vat = utils.read_float(vat)
-                                self.purchase_invoice.vat[vat] = utils.read_float(words[-4])
-                                self.purchase_invoice.totals[vat] = utils.read_float(words[-2]) - self.purchase_invoice.vat[vat]
+                                self.purchase_invoice.vat[vat] = utils.read_float(words[-2])
+                                self.purchase_invoice.totals[vat] = utils.read_float(words[-1]) - self.purchase_invoice.vat[vat]
                                 break
         elif self.supplier == 'krannich':
             for line in self.lines:

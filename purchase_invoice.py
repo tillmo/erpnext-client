@@ -917,6 +917,13 @@ PurchaseInvoice.suppliers = {
     },
     'Kornkraft Naturkost GmbH': {
         'parser': 'kornkraft',
+        'supplier': 'Kornkraft Naturkost GmbH',
+        'raw': False, 'multi': True
+    },
+    'Verein für Soziales, Ökologie': {
+        'parser': 'kornkraft',
+        'supplier': 'Kornkraft Naturkost GmbH',
         'raw': False, 'multi': True
     }
 }
+ 
