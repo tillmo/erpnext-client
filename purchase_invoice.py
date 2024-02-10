@@ -549,16 +549,17 @@ class PurchaseInvoice(Invoice):
     def assign_default_e_items(self, accounts):
         self.e_items = []
         for vat in self.vat_rates:
-            if vat in accounts.keys() and self.totals[vat] is not None:
+            if vat in accounts.keys() and self.totals[vat]:
                 self.e_items.append(
                     {'item_code': settings.DEFAULT_ITEM_CODE,
-                     'qty': 1,
-                     'rate': self.totals[vat],
+                     'qty': 1 if self.totals[vat] >= 0 else -1,
+                     'rate': abs(self.totals[vat]),
+                     'expense_account' : accounts[vat],
                      'cost_center': self.company.cost_center}
                 )
                 self.update_stock = False
-        if not self.update_stock and self.vat_rates:
-            self.e_items[0]['expense_account'] = accounts[self.vat_rates[0]]
+#        if not self.update_stock and self.vat_rates:
+#            self.e_items[0]['expense_account'] = accounts[self.vat_rates[0]]
 
     def create_taxes(self):
         self.taxes = []

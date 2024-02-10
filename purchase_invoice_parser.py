@@ -70,8 +70,8 @@ class PurchaseInvoiceParser:
             self.set_basic_info()
             self.purchase_invoice.items = []
             self.purchase_invoice.shipping = 0
-            self.set_items()
             self.set_totals()
+            self.set_items()
         return self.purchase_invoice
 
     def set_generic_info(self):

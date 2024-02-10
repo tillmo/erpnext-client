@@ -129,7 +129,7 @@ class Company(Doc):
         is_sales = (inv_type=='Sales Invoice')
         filters={'company':self.name}
         if open_invs:
-            filters['status'] = ['in',['Draft','Unpaid','Overdue','Partly Paid']]
+            filters['status'] = ['in',['Draft','Unpaid','Overdue','Partly Paid','Return']]
         else:    
             filters['status'] = ['in',['Paid']]
         fields = ['name','status','posting_date','grand_total',
