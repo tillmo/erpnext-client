@@ -590,7 +590,8 @@ class PurchaseInvoice(Invoice):
             'taxes': self.taxes,
             'items': self.e_items,
             'update_stock': 1 if self.update_stock else 0,
-            'cost_center': self.company.cost_center
+            'cost_center': self.company.cost_center,
+            'is_return' : self.total < 0
         }
         if self.skonto:
             self.doc['apply_discount_on'] = 'Grand Total'
@@ -681,29 +682,6 @@ class PurchaseInvoice(Invoice):
         self.skonto = 0
         self.parser = None
 
-    def merge(self, inv):
-        if not inv:
-            return
-        if self.company_name != inv.company_name:
-            print("Kann nicht Rechnungen verschiedener Firmen verschmelzen: {} {}".format(self.company_name,
-                                                                                          inv.company_name))
-        if self.supplier != inv.supplier:
-            print("Kann nicht Rechnungen verschiedener Lieferanten verschmelzen: {} {}".format(self.supplier,
-                                                                                               inv.supplier))
-        self.no += " " + inv.no
-        self.taxes += inv.taxes
-        self.e_items += inv.e_items
-        self.infiles += inv.infiles
-        self.shipping += inv.shipping
-        if self.remarks:
-            self.remarks += inv.remarks
-        else:
-            self.remarks = inv.remarks
-        self.total += inv.total
-        self.gross_total += inv.gross_total
-        self.total_vat += inv.total_vat
-        # note that self.compute_total() would give a wrong result here,
-        # because self.totals and self.vat are not merged
 
     # for testing
     @classmethod
@@ -715,25 +693,10 @@ class PurchaseInvoice(Invoice):
     @classmethod
     def read_and_transfer(cls, invoice_json, infile, update_stock, account_abbrv=None, paid_by_submitter=False, project=None,
                           supplier=None, check_dup=True):
-        one_more = True
-        inv = None
-        while one_more:
-            one_more = False
-            inv_new = PurchaseInvoice(update_stock).read_pdf(
+        inv = PurchaseInvoice(update_stock).read_pdf(
                 invoice_json, infile, account_abbrv, paid_by_submitter, supplier, check_dup=check_dup)
-            if (inv is None) and inv_new and inv_new.is_duplicate:
-                return inv_new
-            if inv_new and not inv_new.is_duplicate:
-                inv_new.merge(inv)
-                inv = inv_new
-                if inv.total < 0:
-                    one_more = True
-                    easygui.msgbox('Negativer Gesamtbetrag. Eine weitere Rechnung muss eingelesen werden.')
-                elif inv.multi:
-                    title = "Mit einer weiteren Rechnung verschmelzen?"
-                    one_more = easygui.buttonbox(title, title, ["Ja", "Nein"]) == "Ja"
-                if one_more:
-                    infile = utils.get_file('Weitere Einkaufsrechnung als PDF')
+        if inv.is_duplicate:
+            return inv
         if inv and not inv.is_duplicate:
             inv.project = project
             inv = inv.send_to_erpnext(not check_dup)
