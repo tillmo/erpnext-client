@@ -481,6 +481,9 @@ def event_handler(event,window):
                             inv_doc['bt'] = bt
                             inv_doc['btname'] = bt.name
                     inv_doc['disabled'] = not bt 
+                elif inv_doc['custom_ebay']:
+                    inv_doc['btname'] = 'EBay'
+                    inv_doc['disabled'] = False                    
                 else:
                     inv_doc['disabled'] = not (inv_doc['status'] == 'Draft')
                 inv_docs.append(inv_doc)
@@ -499,27 +502,31 @@ def event_handler(event,window):
             details = utils.format_entry(inv_doc,keys,headings)
             msg = "{} {}\n{} ".\
                       format(event[:-2],inv_doc['name'],details)
-            choices = ["Buchen","Löschen","Buchungskonto bearbeiten",
-                       "Nichts tun"]
-            if 'bt' in inv_doc:
+            choices = []
+            if inv_doc['status'] == 'Draft':
+                choices = ["Buchen","Löschen","Buchungskonto bearbeiten",
+                           "Nichts tun"]
+            elif inv_doc['custom_ebay']:
+                choices = ["Zahlung erstellen"]    
+            elif 'bt' in inv_doc:
                 bt = inv_doc['bt']
                 msg += "\n\nZugehörige Bank-Transaktion gefunden: {}\n".\
                          format(bt.description)
                 choices[0] = "Sofort buchen und zahlen"
-            elif inv_doc['custom_ebay']:
-                choices = ["Buchen","Nichts tun"]
             else:
                 bt = None
-            if bt or inv_doc['status'] == 'Draft':    
+            if choices:
                 choice = easygui.buttonbox(msg,
                                            event[:-2],
                                            choices)
                 #print(choice)
+                inv = Invoice(inv_doc,inv_type=='Sales Invoice')
+                if choice == "Zahlung erstellen":
+                    inv.payment(settings.EBAY_ACCOUNT,inv.amount,inv.date)
                 if choice == "Buchen" or choice == "Sofort buchen und zahlen":
                     gui_api_wrapper(Api.submit_doc,inv_type,inv_doc['name'])
                     show_company_data = True
                     if choice == "Sofort buchen und zahlen":
-                        inv = Invoice(inv_doc,inv_type=='Sales Invoice')
                         inv.payment_from_bank_transaction(bt)
                 elif choice == "Löschen":
                     gui_api_wrapper(Api.api.delete,inv_type,inv_doc['name'])

@@ -9,6 +9,7 @@ class Invoice(Doc):
         super().__init__(doc=doc)
         self.is_sales = is_sales
         self.company = doc['company']
+        self.date = doc['posting_date']
         self.status = doc['status']
         self.amount = doc['grand_total']
         self.outstanding = doc['outstanding_amount']

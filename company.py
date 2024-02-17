@@ -135,7 +135,7 @@ class Company(Doc):
         fields = ['name','status','posting_date','grand_total',
                   'outstanding_amount','company']
         if is_sales:
-            fields.append('customer')
+            fields += ['customer','custom_ebay']
         else:
             fields += ['supplier','bill_no']
         invs = gui_api_wrapper(\
