@@ -454,7 +454,7 @@ def event_handler(event,window):
                                       name)
                 if not 'bill_no' in inv_doc:
                     inv_doc['bill_no'] = name
-                if open_invs and inv_doc['status'] != 'Draft':
+                if open_invs and inv_doc['status'] != 'Draft' and not inv_doc['custom_ebay']:
                     accounts = list(set(map(lambda i:i['expense_account'],
                                         inv_doc['items'])))
                     inv_doc['account'] = accounts[0]
@@ -506,6 +506,8 @@ def event_handler(event,window):
                 msg += "\n\nZugehörige Bank-Transaktion gefunden: {}\n".\
                          format(bt.description)
                 choices[0] = "Sofort buchen und zahlen"
+            elif inv_doc['custom_ebay']:
+                choices = ["Buchen","Nichts tun"]
             else:
                 bt = None
             if bt or inv_doc['status'] == 'Draft':    
@@ -518,7 +520,7 @@ def event_handler(event,window):
                     show_company_data = True
                     if choice == "Sofort buchen und zahlen":
                         inv = Invoice(inv_doc,inv_type=='Sales Invoice')
-                        inv.payment(bt)
+                        inv.payment_from_bank_transaction(bt)
                 elif choice == "Löschen":
                     gui_api_wrapper(Api.api.delete,inv_type,inv_doc['name'])
                     show_company_data = True

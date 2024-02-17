@@ -133,7 +133,7 @@ class Company(Doc):
         else:    
             filters['status'] = ['in',['Paid']]
         fields = ['name','status','posting_date','grand_total',
-                  'outstanding_amount']
+                  'outstanding_amount','company']
         if is_sales:
             fields.append('customer')
         else:

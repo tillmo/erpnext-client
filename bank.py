@@ -6,6 +6,7 @@ from api_wrapper import gui_api_wrapper
 import settings
 import PySimpleGUI as sg
 import company
+import payment
 from journal import journal_entry
 import easygui
 from numpy import sign
@@ -123,59 +124,19 @@ class BankTransaction(Doc):
                 bt.link_to('Journal Entry',j['name'],amount)
                 bt.update()
 
-    def payment(self,inv,is_adv=False):
-        if is_adv:
-            party = inv['party']
-            party_type = inv['party_type']
-            is_recv = inv['is_recv']
-            allocated = abs(self.doc['unallocated_amount'])
-            references = []
-            ref = utils.find_ref(self.description)
+    def payment(self,inv,is_recv=None,party=None,party_type=None):
+        amount = abs(self.doc['unallocated_amount'])
+        if inv:
+            amount = min([amount,inv.outstanding])
+            p = inv.payment(self.baccount.e_account,amount,self.date)
         else:
-            is_recv = inv.is_sales
-            party = inv.party
-            party_type = inv.party_type
-            allocated = min([abs(self.doc['unallocated_amount']),
-                             inv.outstanding])
-            references =  \
-                [{'reference_doctype' : 'Sales Invoice' if inv.is_sales else 'Purchase Invoice',
-                  'reference_name' : inv.name,
-                  'allocated_amount' : allocated}]
-            ref = inv.reference if inv.reference else ""
-        if is_recv:
-            paid_from = self.company.receivable_account
-            paid_to = self.baccount.e_account
-            payment_type = 'Receive'
-        else:
-            paid_from = self.baccount.e_account
-            paid_to = self.company.payable_account
-            payment_type = 'Pay'
-        entry = {'doctype' : 'Payment Entry',
-                 'title' : party+" "+ref,
-                 'payment_type': payment_type,
-                 'posting_date': self.date,
-                 'reference_no': ref,
-                 'reference_date': self.date,
-                 'party' : party,
-                 'party_type' : party_type,
-                 'company': self.company_name,
-                 'finance_book' : self.company.default_finance_book,
-                 'paid_from' : paid_from,
-                 'paid_to': paid_to,
-                 'paid_amount' : allocated,
-                 'received_amount' : allocated,
-                 'source_exchange_rate': 1.0,
-                 'target_exchange_rate': 1.0,
-                 'exchange_rate': 1.0,
-                 'references' : references}
-        p = gui_api_wrapper(Api.api.insert,entry)
+            p = payment.create_payment(is_recv,self.company,
+                                       self.baccount.e_account,amount,
+                                       self.date,party,party_type,
+                                       utils.find_ref(self.description),[])
         if p:
-            print("Zahlung {} erstellt".format(p['name']))
-            if sg.UserSettings()['-buchen-']:
-                gui_api_wrapper(Api.submit_doc,"Payment Entry",p['name'])
-                print("Zahlung {} gebucht".format(p['name']))
             self.doc['doctype'] = 'Bank Transaction'
-            self.link_to('Payment Entry',p['name'],allocated)
+            self.link_to('Payment Entry',p['name'],amount)
             self.update()
             return p
         else:
@@ -242,10 +203,8 @@ class BankTransaction(Doc):
             msg = title
             choice = easygui.choicebox(msg, title, party_names)
             if choice:
-                self.payment({'party_type':party_type,
-                              'party':choice,
-                              'is_recv':is_recv},
-                             True)
+                self.payment(None,is_recv=recv,party=choice,
+                             party_type=party_type)
         elif choice in inv_texts:
             inv = invs[inv_texts.index(choice)]
             self.payment(inv)
