@@ -512,7 +512,7 @@ def event_handler(event,window):
                 bt = inv_doc['bt']
                 msg += "\n\nZugehörige Bank-Transaktion gefunden: {}\n".\
                          format(bt.description)
-                choices[0] = "Sofort buchen und zahlen"
+                choices = ["Sofort buchen und zahlen","Löschen","Buchungskonto bearbeiten","Nichts tun"]
             else:
                 bt = None
             if choices:
