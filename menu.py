@@ -9,6 +9,7 @@ from invoice import Invoice
 import purchase_invoice
 import project
 import lead
+import sales_invoice
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper, api_wrapper_test, api_wrapper
 import table
@@ -678,7 +679,10 @@ def event_handler(event,window):
         if account:
             journal.save_purchase_invoices(comp_name,account)
     elif event == 'Leads bearbeiten':
-        lead.process_open_leads()    
+        lead.process_open_leads()
+    elif event == 'Zahlungen für EBay-Rechnungen':
+        sales_invoice.ebay_sales(user_settings['-company-'],
+                                 user_settings['-buchen-'])
     elif event in ['Projekte']:
         while True:
             tbl = report.projects()
@@ -716,7 +720,7 @@ def menus():
 
     # ------ Menu Definition ------ #
     menu_def = [['&Einlesen', ['&Kontoauszug', '&Einkaufsrechnung', '&Einkaufsrechnung Lager']],
-                ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Unzugeordnete (An)Zahlungen (Summen)','Prerechnungen','Prerechnungen Anzahlung','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen','Banktransaktionen einzeln','Prerechnungen vorprozessieren']],
+                ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Unzugeordnete (An)Zahlungen (Summen)','Prerechnungen','Prerechnungen Anzahlung','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen','Banktransaktionen einzeln','Prerechnungen vorprozessieren','Zahlungen für EBay-Rechnungen']],
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte','Balkonmodulverkauf (grafisch)','Balkonmodulverkauf (csv)','zu bezahlende Prerechnungen','Kontenblätter']], 
                 ['Bereich', company.Company.all()], 

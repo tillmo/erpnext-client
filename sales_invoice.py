@@ -3,6 +3,8 @@ import utils
 from collections import defaultdict
 import os
 import csv
+from settings import EBAY_ACCOUNT
+import invoice
 
 def get_items(sinvs):
     Api.load_item_data()
@@ -59,3 +61,23 @@ def get_sales_invoices(company_name,quarter,tax_rates=[]):
                          str(net_sum).replace(".",",")])
         print()
     return dir    
+
+def ebay_sales(company_name,submit=False):
+    invs = Api.api.get_list("Sales Invoice",
+                            filters={'company':company_name,
+                                     'outstanding_amount':['>',2],
+                                     'custom_ebay':1,
+                                     'status': ['not in',['Cancelled','Paid','Draft']]},
+                            fields=['name','total','status','company',
+                                    'posting_date','grand_total',
+                                    'outstanding_amount','customer'],
+                            limit_page_length=LIMIT)
+    for doc in invs:
+        inv1 = invoice.Invoice(doc,True)
+        pay = inv1.payment(EBAY_ACCOUNT,inv1.amount,inv1.date)
+        if submit:
+            pay1 = Api.api.get_doc('Payment Entry',pay['name'])
+            pay1['doctype'] = 'Payment Entry'
+            Api.api.submit(pay1)
+    if not submit:
+        print("Bitte noch buchen")
