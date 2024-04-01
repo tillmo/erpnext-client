@@ -1,6 +1,6 @@
 requests>=2.3.0
 easygui
-PySimpleGUI>=4.47.0
+PySimpleGUI>=4.47.0, <5.0.0
 numpy
 reportlab
 anytree
