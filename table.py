@@ -119,7 +119,7 @@ class Table:
             text = 'PDF'+self.child_title
             buttons += [sg.SaveAs(button_text = text, k = 'PDF+', target='PDF+',
                                   default_extension = 'pdf',enable_events=True)]
-        num_rows = max([5,min([30,len(self.entries)])])
+        num_rows = max([5,min([20,len(self.entries)])])
         layout = [buttons,
                   [sg.Table(values=self.data, headings=self.headings,
                    max_col_width=self.max_col_width,

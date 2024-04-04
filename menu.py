@@ -680,6 +680,8 @@ def event_handler(event,window):
             journal.save_purchase_invoices(comp_name,account)
     elif event == 'Leads bearbeiten':
         lead.process_open_leads()
+    elif event == 'Leadübersicht':
+        lead.show_open_leads()
     elif event == 'Zahlungen für EBay-Rechnungen':
         sales_invoice.ebay_sales(user_settings['-company-'],
                                  user_settings['-buchen-'])
@@ -725,7 +727,7 @@ def menus():
                 ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte','Balkonmodulverkauf (grafisch)','Balkonmodulverkauf (csv)','zu bezahlende Prerechnungen','Kontenblätter']], 
                 ['Bereich', company.Company.all()], 
                 ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen','USt-Rechnungen zusammenstellen','EK-Rechnungen nach Konto']],
-                ['Lead', 'Leads bearbeiten'],
+                ['Lead',['Leads bearbeiten', 'Leadübersicht']],
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Google', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
 

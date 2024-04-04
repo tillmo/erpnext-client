@@ -3,13 +3,33 @@ from settings import LEAD_OWNERS
 import utils
 import easygui
 import json
+import table
 
 def is_change_into_not_contact(v):
     if 'data' in v:
         j = json.loads(v['data'])
         if j.get('changed') == [['status', 'Open', 'Do Not Contact']]:
             return True
-    return False    
+    return False
+
+def format(lead):
+    lead['creation'] = lead['creation'].split()[0]
+    return lead
+
+def show_open_leads():
+    leads = Api.api.get_list("Lead",
+                             filters={'status':'Open'},
+                             fields=['name','status','lead_name', 'creation'],
+                             limit_page_length=LIMIT)
+    
+    print()
+    leads = [format(lead) for lead in leads]
+    keys = ['name','status','lead_name', 'creation']
+    headings = ['name','status','lead_name', 'creation']
+    title = f'offene Leads: {len(leads)}'
+    tbl = table.Table(leads,keys,headings,title,display_row_numbers=True)
+    tbl.display()
+
 
 def process_open_leads():
     cleanup_leads()
