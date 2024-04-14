@@ -8,7 +8,7 @@ class Invoice(Doc):
         self.doctype = 'Sales Invoice' if is_sales else 'Purchase Invoice'
         super().__init__(doc=doc)
         self.is_sales = is_sales
-        self.company = doc['company']
+        self.company_name = doc['company']
         self.date = doc['posting_date']
         self.status = doc['status']
         self.amount = doc['grand_total']
@@ -38,7 +38,7 @@ class Invoice(Doc):
             [{'reference_doctype' : 'Sales Invoice' if self.is_sales else 'Purchase Invoice',
               'reference_name' : self.name,
               'allocated_amount' : amount}]
-        comp = company.Company.get_company(self.company)
+        comp = company.Company.get_company(self.company_name)
         return payment.create_payment(self.is_sales,comp,account,
                                       amount,date,self.party,self.party_type,
                                       ref,references)

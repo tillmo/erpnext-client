@@ -455,7 +455,7 @@ def event_handler(event,window):
                                       name)
                 if not 'bill_no' in inv_doc:
                     inv_doc['bill_no'] = name
-                if open_invs and inv_doc['status'] != 'Draft' and not inv_doc['custom_ebay']:
+                if open_invs and inv_doc['status'] != 'Draft' and not inv_doc.get('custom_ebay'):
                     accounts = list(set(map(lambda i:i['expense_account'],
                                         inv_doc['items'])))
                     inv_doc['account'] = accounts[0]
@@ -482,7 +482,7 @@ def event_handler(event,window):
                             inv_doc['bt'] = bt
                             inv_doc['btname'] = bt.name
                     inv_doc['disabled'] = not bt 
-                elif inv_doc['custom_ebay']:
+                elif inv_doc.get('custom_ebay'):
                     inv_doc['btname'] = 'EBay'
                     inv_doc['disabled'] = False                    
                 else:

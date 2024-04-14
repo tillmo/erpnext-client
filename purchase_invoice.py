@@ -696,7 +696,7 @@ class PurchaseInvoice(Invoice):
                           supplier=None, check_dup=True):
         inv = PurchaseInvoice(update_stock).read_pdf(
                 invoice_json, infile, account_abbrv, paid_by_submitter, supplier, check_dup=check_dup)
-        if inv.is_duplicate:
+        if inv and inv.is_duplicate:
             return inv
         if inv and not inv.is_duplicate:
             inv.project = project
@@ -844,7 +844,7 @@ class PurchaseInvoice(Invoice):
                 self.use_advance_payment(py)
             self.submit()
             if bt:
-                self.payment(bt)
+                self.payment_from_bank_transaction(bt)
         return self
 
 
