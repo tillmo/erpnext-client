@@ -719,8 +719,8 @@ class PurchaseInvoice(Invoice):
             self.e_items = [item.process_item(self.supplier, yesterd, check_dup) for item in self.items]  # if item.description]
             if None in self.e_items:
                 print(
-                    "Nicht alle Artikel wurden eingetragen.\n Deshalb kann keine Einkaufsrechnung in ERPNext erstellt werden.")
-                return None
+                    "Nicht alle Artikel wurden eingetragen.\n Bitte Einkaufsrechnung in ERPNext weiter bearbeiten.")
+                self.e_items = [item for item in self.e_items if item]
             if not ask_if_to_continue(self.check_total(check_dup), "Fortsetzen?"):
                 return None
             if not ask_if_to_continue(self.check_duplicates()):
