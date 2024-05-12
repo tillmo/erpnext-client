@@ -4,11 +4,11 @@ from doc import Doc
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
 import settings
-import PySimpleGUI as sg
+import PySimpleGUI as sg # type: ignore
 import company
 import payment
 from journal import journal_entry
-import easygui
+import easygui # type: ignore
 from numpy import sign
 from collections import defaultdict
 import urllib
@@ -203,7 +203,7 @@ class BankTransaction(Doc):
             msg = title
             choice = easygui.choicebox(msg, title, party_names)
             if choice:
-                self.payment(None,is_recv=recv,party=choice,
+                self.payment(None,is_recv=is_recv,party=choice,
                              party_type=party_type)
         elif choice in inv_texts:
             inv = invs[inv_texts.index(choice)]
