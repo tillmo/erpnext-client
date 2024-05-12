@@ -68,7 +68,7 @@ class PurchaseInvoiceParser:
             self.set_generic_info()
         else:
             self.set_basic_info()
-            self.purchase_invoice.items = []
+            self.purchase_invoice.items  : list [SupplierItem] = []
             self.purchase_invoice.shipping = 0
             self.set_totals()
             self.set_items()
