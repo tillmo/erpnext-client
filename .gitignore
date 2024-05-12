@@ -19,4 +19,12 @@ erpnext-*
 erpnext.png
 Rechnungen*
 samples
+train-data/*
+output/*
+VorSt/*
+Vor*
+EK-*
+helpers/*
+
+
 
