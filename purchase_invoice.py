@@ -274,7 +274,8 @@ class PurchaseInvoice(Invoice):
                 self.vat[self.default_vat] = 0.0
             if not self.gross_total:
                 self.gross_total = 0.0
-        if not check_dup or (self.supplier and self.date and self.no and self.vat[self.default_vat] and self.gross_total):
+        if not check_dup or (self.supplier and self.date and self.no and self.totals[self.default_vat]
+                             and self.vat[self.default_vat] and self.gross_total):
             self.compute_total()
             return self
 
@@ -290,6 +291,8 @@ class PurchaseInvoice(Invoice):
             print("Rechnungsnr. nicht erkannt")
         if not self.vat[self.default_vat]:
             print("MWSt nicht erkannt")
+        if not self.totals[self.default_vat]:
+            print("Nettobetrag nicht erkannt")
         if not self.gross_total:
             print("Bruttobetrag nicht erkannt")
         print("Rückfall auf manuelle Eingabe")
