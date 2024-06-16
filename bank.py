@@ -142,7 +142,7 @@ class BankTransaction(Doc):
         else:
             return None
 
-    # find an account, bank transaction of invoice that matches
+    # find an account, bank transaction or invoice that matches
     # the current bank transaction and link it
     def transfer(self,sinvs,pinvs):
         if self.deposit:
