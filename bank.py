@@ -11,7 +11,7 @@ from journal import journal_entry
 import easygui # type: ignore
 from numpy import sign
 from collections import defaultdict
-import urllib
+import invoice
 
 BT_FIELDS = ['name','deposit','withdrawal','status','date','description',
              'bank_account','company','allocated_amount','unallocated_amount']
@@ -278,6 +278,46 @@ class BankTransaction(Doc):
         else:
             return None
 
+    def reconcile_pre_invoice(self):
+        pre_no = utils.extract_prnr(self.description)
+        if pre_no:
+            pre_no = 'PreR'+pre_no.zfill(5)
+            # get PreRechnung
+            pre = gui_api_wrapper(Api.api.get_doc,'PreRechnung',pre_no)
+            if pre:
+                print("Bank-Transaktion",self.name,"  PreRechnung",pre_no,pre.get('typ'))
+                inv_name = pre.get('purchase_invoice')
+                if inv_name:
+                    # get purchase invoice 
+                    pinv = gui_api_wrapper(Api.api.get_doc,'Purchase Invoice',inv_name)
+                    if pinv:
+                        if pinv['docstatus']==2:
+                            print("Rechnung {} ist abgebrochen".format(pinv['name']))
+                            return
+                        pinv=invoice.Invoice(pinv,False)
+                        print("Zahle Rechnung ",pinv.name)
+                        self.payment(pinv)
+                    else:
+                        print("PreRechnung {} hat keine Eingangsrechnung".format(pre_no))    
+                else:
+                    print("PreRechnung {} hat keinen Eingangsrechnungs-Namen".format(pre_no))        
+            else:
+                print("PreRechnung {} nicht gefunden".format(pre_no))            
+
+    @classmethod            
+    def reconcile_pre_invoices(cls):
+        # get all bank transactions that are not reconciled
+        bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
+                              fields=BT_FIELDS,
+                              filters={'status':'Pending',
+                                       'docstatus': ['!=', 2],
+                                       'description':['like','Pre%']},
+                              limit_page_length=LIMIT)
+        for bt in bts:
+            bt = BankTransaction(bt)
+            bt.reconcile_pre_invoice()
+
+
 class BankStatementEntry:
     def __init__(self,bank_statement):
         self.bank_statement = bank_statement
@@ -420,3 +460,4 @@ class BankStatement:
             b.baccount.statement_balance = b.ebal
         b.baccount.get_balance()
         return b
+

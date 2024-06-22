@@ -227,3 +227,10 @@ def html_to_text(html):
     text = re.sub(r"[\t ]*\n\s*","\n",text)
     text = re.sub(r"[\t ]+"," ",text)
     return text
+
+# extract no. of PreRechnung
+def extract_prnr(text):
+    prnr = re.search(r"Pre(\d+)",text)
+    if prnr:
+        return prnr.group(1)
+    return None

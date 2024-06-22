@@ -685,6 +685,8 @@ def event_handler(event,window):
     elif event == 'Zahlungen für EBay-Rechnungen':
         sales_invoice.ebay_sales(user_settings['-company-'],
                                  user_settings['-buchen-'])
+    elif event == 'PreRechnungs-Überweisungen zuordnen': 
+        bank.BankTransaction.reconcile_pre_invoices()   
     elif event in ['Projekte']:
         while True:
             tbl = report.projects()
@@ -722,7 +724,11 @@ def menus():
 
     # ------ Menu Definition ------ #
     menu_def = [['&Einlesen', ['&Kontoauszug', '&Einkaufsrechnung', '&Einkaufsrechnung Lager']],
-                ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen','Unzugeordnete (An)Zahlungen (Summen)','Prerechnungen','Prerechnungen Anzahlung','offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen','Banktransaktionen einzeln','Prerechnungen vorprozessieren','Zahlungen für EBay-Rechnungen']],
+                ['&Offene Dokumente', ['Buchungssätze','Unverbuchte (An)Zahlungen','Unzugeordnete (An)Zahlungen',
+                                       'Unzugeordnete (An)Zahlungen (Summen)','Prerechnungen','Prerechnungen Anzahlung',
+                                       'offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen',
+                                       'Banktransaktionen einzeln','Prerechnungen vorprozessieren',
+                                       'Zahlungen für EBay-Rechnungen','PreRechnungs-Überweisungen zuordnen']],
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte','Balkonmodulverkauf (grafisch)','Balkonmodulverkauf (csv)','zu bezahlende Prerechnungen','Kontenblätter']], 
                 ['Bereich', company.Company.all()], 

@@ -33,6 +33,9 @@ class Invoice(Doc):
             Api.submit_doc('Payment Entry',p['name'])
             
     def payment(self,account,amount,date):
+        if not amount:
+            print("Ausstehender Betrag ist 0")
+            return
         ref = self.reference if self.reference else ""
         references =  \
             [{'reference_doctype' : 'Sales Invoice' if self.is_sales else 'Purchase Invoice',
