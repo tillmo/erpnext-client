@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import utils
 import PySimpleGUI as sg
-import doc
 import report
 import company
 import bank
@@ -11,11 +10,10 @@ import project
 import lead
 import sales_invoice
 from api import Api, LIMIT
-from api_wrapper import gui_api_wrapper, api_wrapper_test, api_wrapper
+from api_wrapper import gui_api_wrapper, api_wrapper
 import table
 from version import VERSION 
 import traceback
-import tkinter
 import os
 import tempfile
 import easygui
