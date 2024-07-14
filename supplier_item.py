@@ -61,6 +61,7 @@ class SupplierItem:
                 doc['supplier_items'].append( \
                     {'supplier': supplier,
                      'supplier_part_no': self.item_code})
+                Api.item_code_translation[supplier][self.item_code] = e_item['item_code']
                 # print(doc['supplier_items'])
                 gui_api_wrapper(Api.api.update, doc)
             return e_item
@@ -97,6 +98,10 @@ class SupplierItem:
                           'item_defaults': [{'company': company_name,
                                              'default_warehouse': WAREHOUSE}],
                           'stock_uom': self.qty_unit}
+                if self.item_code:
+                    e_item['supplier_items'] = [{'supplier': supplier,
+                                                 'supplier_part_no': self.item_code}]
+                    Api.item_code_translation[supplier][self.item_code] = item_code
                 e_item = gui_api_wrapper(Api.api.insert, e_item)
                 return e_item
         return None
