@@ -12,11 +12,13 @@ def get_element_with_high_confidence(invoice_json, element_type):
 
 
 def get_float_number(float_str: str):
-    float_str = float_str.replace('USD', '').replace('EUR', '')
-    if ',' in float_str:
-        float_str = float_str.replace('.', '').replace(',', '.')
-    return float(float_str.replace(' ', ''))
-
+    try:
+        float_str = float_str.replace('USD', '').replace('EUR', '')
+        if ',' in float_str:
+            float_str = float_str.replace('.', '').replace(',', '.')
+        return float(float_str.replace(' ', ''))
+    except ValueError:
+        return 0
 
 def find_date(date_string: str):
     matches = list(datefinder.find_dates(date_string))
@@ -169,7 +171,7 @@ class PurchaseInvoiceGoogleParser:
                             if s_item.qty and not s_item.amount:
                                 s_item.amount = round(s_item.rate * s_item.qty, 2) if prop['value'] else 0
                             elif not s_item.qty and s_item.amount:
-                                s_item.qty = s_item.amount / s_item.rate if prop['value'] else 0
+                                s_item.qty = s_item.amount / s_item.rate if s_item.rate and prop['value'] else 0
                     if s_item.description and "Vorkasse" in s_item.description:
                         continue
                     if s_item.description and (
