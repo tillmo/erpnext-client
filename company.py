@@ -143,7 +143,7 @@ class Company(Doc):
                 filters=filters,
                 fields=fields,               
                 limit_page_length=LIMIT)
-        return list(map(lambda inv: Invoice(inv,is_sales),invs))
+        return [Invoice(inv,is_sales) for inv in invs if (not open_invs) or inv['outstanding_amount']]
     def get_sales_invoices(self,open_invs):
         return self.get_invoices_of_type('Sales Invoice',open_invs)
     def get_purchase_invoices(self,open_invs):
