@@ -185,11 +185,10 @@ def process_inv(pr):
             print(str(e)+"\n"+traceback.format_exc())
     else:
         inv = purchase_invoice.PurchaseInvoice(pr['lager'])
-        tmpfile = tempfile.TemporaryFile(suffix=".pdf")
-        with open(tmpfile, "wb") as f:
-            f.write(contents)
+        tmpfile,tmpfilename = tempfile.mkstemp(suffix=".pdf")
+        tempfile.write(contents)
         try:
-            inv.parse_invoice(None, tmpfile,
+            inv.parse_invoice(None, tmpfilename,
                               account=pr['buchungskonto'],
                               paid_by_submitter=pr['selbst_bezahlt'],
                               given_supplier=pr['lieferant'],
