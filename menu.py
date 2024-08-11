@@ -79,6 +79,10 @@ def show_data():
             if bacc.statement_balance:
                 print(", laut Auszug: {:.2f}".format(bacc.statement_balance),
                       end="")
+            if bacc.balance and bacc.statement_balance and bacc.balance-bacc.statement_balance:
+                print("\n********* Differenz: {:.2f}".format(bacc.balance-bacc.statement_balance),
+                      " *********")
+                print("Bitte Kontoauszug und ERPNext-Banktransaktionen abgleichen!")    
             print()
         comp = company.Company.get_company(comp_name)
         if comp:
