@@ -186,7 +186,7 @@ def process_inv(pr):
     else:
         inv = purchase_invoice.PurchaseInvoice(pr['lager'])
         tmpfile,tmpfilename = tempfile.mkstemp(suffix=".pdf")
-        tempfile.write(contents)
+        tmpfile.write(contents)
         try:
             inv.parse_invoice(None, tmpfilename,
                               account=pr['buchungskonto'],
