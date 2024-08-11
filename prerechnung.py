@@ -12,6 +12,7 @@ import json
 import traceback
 import args
 import company
+import tempfile
 
 from google.cloud import documentai_v1beta3 as documentai
 from google.api_core.client_options import ClientOptions
@@ -184,7 +185,7 @@ def process_inv(pr):
             print(str(e)+"\n"+traceback.format_exc())
     else:
         inv = purchase_invoice.PurchaseInvoice(pr['lager'])
-        tmpfile = "/tmp/r.pdf"
+        tmpfile = tempfile.TemporaryFile(suffix=".pdf")
         with open(tmpfile, "wb") as f:
             f.write(contents)
         try:
