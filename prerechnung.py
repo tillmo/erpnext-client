@@ -239,8 +239,7 @@ def read_and_transfer(inv, check_dup=True):
         json_object = json.loads(json_str)
     pdf = Api.api.get_file(inv['pdf'])
     f = utils.store_temp_file(pdf, ".pdf")
-    if utils.running_linux():
-        os.system("evince " + f + " &")
+    utils.evince(f)
     update_stock = 'chance' in inv and inv['chance'] and \
                    project.project_type(inv['chance']) in settings.STOCK_PROJECT_TYPES
     pinv = purchase_invoice.PurchaseInvoice.read_and_transfer(

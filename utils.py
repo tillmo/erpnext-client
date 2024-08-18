@@ -13,6 +13,7 @@ import tempfile
 import os
 import locale
 from collections import defaultdict
+import subprocess
 
 def running_linux():
     return sys.platform.startswith('linux')
@@ -234,3 +235,33 @@ def extract_prnr(text):
     if prnr:
         return prnr.group(1)
     return None
+
+def find_evince_in_registry():
+    import winreg
+    try:
+        with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall") as key:
+            for i in range(0, winreg.QueryInfoKey(key)[0]):
+                sub_key_name = winreg.EnumKey(key, i)
+                with winreg.OpenKey(key, sub_key_name) as sub_key:
+                    try:
+                        display_name = winreg.QueryValueEx(sub_key, "DisplayName")[0]
+                        if "Evince" in display_name:
+                            install_location = winreg.QueryValueEx(sub_key, "InstallLocation")[0]
+                            return os.path.join(install_location, "bin", "evince.exe")
+                    except FileNotFoundError:
+                        continue
+    except FileNotFoundError:
+        pass
+    return None
+
+def evince(filename):
+    if running_linux():
+        os.system(f'evince {filename} &')
+    else:
+        evince_path = find_evince_in_registry()
+        if evince_path:
+            subprocess.run([evince_path, filename])
+        else:
+            print("Evince not found in registry.")
+            print("Please install Evince or set the path to the Evince executable in the registry.")
+
