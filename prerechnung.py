@@ -253,7 +253,10 @@ def read_and_transfer(inv, check_dup=True):
         inv_doc = doc.Doc(doc=inv, doctype='PreRechnung')
         inv_doc.update()
     if f:
-        os.remove(f)
+        try:
+            os.remove(f)
+        except Exception:
+            pass
     return pinv
 
 
