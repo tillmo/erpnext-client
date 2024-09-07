@@ -38,6 +38,7 @@ class Api(object):
             Api.item_code_translation = defaultdict(lambda: {})
             company_name = sg.UserSettings()['-company-']
             items = Api.api.get_list('Item',limit_page_length=LIMIT,
+                                     filters={'disabled':0},
                                      fields=['item_code','item_name'])
             print("Lese alle {} ERPNext-Artikel ein".format(len(items)),end="")
             for item in items:
