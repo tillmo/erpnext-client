@@ -566,6 +566,9 @@ def event_handler(event,window):
                 break
             comp.reconcile(bts[ix])
             show_company_data = True
+    elif event == 'Banktransaktionen für abgebr. Links bereinigen':
+        bank.BankTransaction.unreconcile_for_cancelled_links()
+        print("Banktransaktionen für abgebrochene Links bereinigt")
     elif event in bank.BankAccount.get_baccount_names():
         keys = ['date','open','amount','balance','description']
         headings = ['Datum','Offen','Betrag','Stand','Bemerkung']
@@ -608,7 +611,7 @@ def event_handler(event,window):
         elif event=='Monatsabrechnung':
             consolidated = False
             periodicity = 'Monthly'
-        else:    
+        else:
             consolidated = False
             periodicity = None
         balance = event=='Bilanz'   
@@ -730,7 +733,8 @@ def menus():
                                        'Unzugeordnete (An)Zahlungen (Summen)','Prerechnungen','Prerechnungen Anzahlung',
                                        'offene Einkaufsrechnungen','offene Verkaufsrechnungen','Banktransaktionen',
                                        'Banktransaktionen einzeln','Prerechnungen vorprozessieren',
-                                       'Zahlungen für EBay-Rechnungen','PreRechnungs-Überweisungen zuordnen']],
+                                       'Zahlungen für EBay-Rechnungen','PreRechnungs-Überweisungen zuordnen',
+                                       'Banktransaktionen für abgebr. Links bereinigen']],
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
                 ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte','Balkonmodulverkauf (grafisch)','Balkonmodulverkauf (csv)','zu bezahlende Prerechnungen','Kontenblätter']], 
                 ['Bereich', company.Company.all()], 

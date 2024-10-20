@@ -221,8 +221,9 @@ class BankTransaction(Doc):
         bts = gui_api_wrapper(Api.api.get_list,"Bank Transaction",
                               fields=BT_FIELDS,
                               filters=
-                              [["Bank Transaction Payments",
-                                "payment_entry","=",doc_name]])
+                              [["Bank Transaction Payments","payment_entry","=",doc_name],
+                                ['docstatus','!=', 2],
+                                ['status','!=','Cancelled']])
         for bt in bts:
             bt_name = bt['name']
             if not bt['unallocated_amount']:
@@ -232,29 +233,45 @@ class BankTransaction(Doc):
         print("{} {} gebucht".format(doctype_name,doc_name))
 
     @classmethod
-    def delete_entry(cls,doc_name,is_journal=True):
+    def delete_entry(cls,doc_name,is_journal=True,cancelled=False):
         doctype = "Journal Entry" if is_journal else "Payment Entry"
         doctype_name = "Buchungssatz" if is_journal else "Zahlung"
         bts = gui_api_wrapper(Api.api.get_list,"Bank Transaction",
                               fields=BT_FIELDS,
                               filters=
-                              [["Bank Transaction Payments",
-                                "payment_entry","=",doc_name]])
+                              [["Bank Transaction Payments","payment_entry","=",doc_name],
+                                ['docstatus','!=', 2],
+                                ['status','!=','Cancelled']])
         if bts:
             bt = gui_api_wrapper(Api.api.get_doc,"Bank Transaction",
                                  bts[0]['name'])
+            if cancelled:
+                amended = Api.api.get_list(doctype,filters={'amended_from':doc_name})
+                if amended:
+                    return # todo: handle this case
             bt['payment_entries'] = list(filter(lambda pe: pe['payment_entry']!=doc_name,bt['payment_entries']))
             bt['status'] = 'Pending'
             bt['unallocated_amount'] += bt['allocated_amount']
             bt['allocated_amount'] = 0
             gui_api_wrapper(Api.api.update,bt)
-            print("Banktransaktion {} angepasst".format(bt['name']))
+            print("Für {} {}: Banktransaktion {} angepasst".format(doctype_name,doc_name,bt['name']))
         else:
-            print("Keine Banktransaktion angepasst: "+\
-                  "{} {} nicht in Banktransaktionen gefunden".\
-                    format(doctype_name,doc_name))
-        gui_api_wrapper(Api.api.delete,doctype,doc_name)
-        print("{} {} gelöscht".format(doctype_name,doc_name))
+            if not cancelled:    
+                print("Keine Banktransaktion angepasst: "+\
+                      "{} {} nicht in Banktransaktionen gefunden".\
+                        format(doctype_name,doc_name))
+        if not cancelled:    
+            gui_api_wrapper(Api.api.delete,doctype,doc_name)
+            print("{} {} gelöscht".format(doctype_name,doc_name))
+
+    @classmethod
+    def unreconcile_for_cancelled_links(cls):
+        ps = Api.api.get_list('Payment Entry',filters={'docstatus':2},limit_page_length=LIMIT)
+        for p in ps:
+            BankTransaction.delete_entry(p['name'],False,True)
+        js = Api.api.get_list('Journal Entry',filters={'docstatus':2},limit_page_length=LIMIT)
+        for j in js:
+            BankTransaction.delete_entry(j['name'],True,True)       
 
     @classmethod
     def find_bank_transaction(cls,comp_name,total,bill_no=""):

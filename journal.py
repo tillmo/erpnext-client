@@ -120,12 +120,14 @@ def journal_entry3(company,account,against_account1,against_account2,amount1,amo
     print("Buchungssatz {} erstellt".format(j['name']))
     return j
 
-def get_gl(company_name,start_date,end_date,accounts):
+def get_gl(company_name,start_date,end_date,accounts,voucher_no = None):
     filters={'company' : company_name,
              'account' : accounts,
              'from_date' : start_date,
              'to_date' : end_date,
              'group_by':'Group by Voucher (Consolidated)'}
+    if voucher_no:
+        filters['voucher_no'] = voucher_no
     try:
         report = Api.api.query_report(report_name='General ledger',
                                       filters=filters)
@@ -133,8 +135,8 @@ def get_gl(company_name,start_date,end_date,accounts):
     except Exception as e:
         raise e
 
-def get_gl_total(company_name,start_date,end_date,accounts):
-    gl = get_gl(company_name,start_date,end_date,accounts)
+def get_gl_total(company_name,start_date,end_date,accounts,voucher_no = None):
+    gl = get_gl(company_name,start_date,end_date,accounts,voucher_no)
     total = [gle for gle in gl if gle['account'] in ["'Total'","'Summe'"]]
     return total[0]['balance']
 

@@ -11,7 +11,8 @@ PROJECT_ITEM_GROUP = 'Material Solaranlagen'
 PROJECT_UNIT = 'Materialeinheit 1€'
 STOCK_PROJECT_TYPES =  ['Balkonmodule','Solaranlagenmaterial']
 LUMP_SUM_STOCK_PROJECT_TYPES =  ['Solaranlage']
-STOCK_ITEM_GROUPS = ['Solarmodul','Balkon-Solarmodule','Wechselrichter','Steckdosen','Batterie']
+STOCK_ITEM_GROUPS = ['Solarmodul','Balkon-Solarmodule','Wechselrichter','Steckdosen','Batterie','Mikro-Wechselrichter']
+BUNDLE_ITEM_GROUPS = ['Balkon-Anlage']
 AGGREGATE_ITEMS = {'Elektro-Komponenten':'000.100.302','default':'000.100.301'}
 AGGREGATE_ITEM_VALUE = 100.0
 STANDARD_NAMING_SERIES_PINV = 'EK .YYYY.-'
@@ -27,6 +28,7 @@ NKK_ACCOUNTS = {19.0: '3401 - NKK 19% Vorsteuer - Laden',
 KORNKRAFT_ACCOUNTS = {19.0: '3402 - Kornkraft 19% Vorsteuer - Laden',
                 7.0: '3302 - Kornkraft 7% Vorsteuer - Laden'}
 SOMIKO_ACCOUNTS = {19.0: '4996 - Herstellungskosten - SoMiKo'}
+SOMIKO_STOCK_ACCOUNT = '3980 - Warenbestand unsere Lager - SoMiKo'
 
 BALANCE_ACCOUNTS = \
  {'Bremer SolidarStrom':
