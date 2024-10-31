@@ -133,7 +133,7 @@ class Company(Doc):
         else:    
             filters['status'] = ['in',['Paid']]
         fields = ['name','status','posting_date','grand_total',
-                  'outstanding_amount','company']
+                  'outstanding_amount','company','is_return']
         if is_sales:
             fields += ['customer','custom_ebay']
         else:
@@ -167,8 +167,10 @@ class Company(Doc):
         Api.load_account_data()
         sinvs = self.get_sales_invoices(True)
         pinvs = self.get_purchase_invoices(True)
+        sinvs1 = [inv for inv in sinvs if not inv.is_return]+[inv for inv in pinvs if inv.is_return]
+        pinvs1 = [inv for inv in pinvs if not inv.is_return]+[inv for inv in sinvs if inv.is_return]
         bt = gui_api_wrapper(Api.api.get_doc,'Bank Transaction',bt['name'])
-        bank.BankTransaction(bt).transfer(sinvs,pinvs)
+        bank.BankTransaction(bt).transfer(sinvs1,pinvs1)
 
     def reconcile_all(self):
         Api.load_account_data()

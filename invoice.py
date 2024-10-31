@@ -13,6 +13,8 @@ class Invoice(Doc):
         self.status = doc['status']
         self.amount = doc['grand_total']
         self.outstanding = doc['outstanding_amount']
+        if 'is_return' in doc:
+            self.is_return = doc['is_return']
         if self.is_sales:
             self.reference = doc['name']
             self.party = doc['customer']
