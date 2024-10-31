@@ -447,7 +447,7 @@ class PurchaseInvoice(Invoice):
         for item_code, item in dict1.items():
             if item_code == 0:
                 for data in all_items:
-                    if data.get('description') and item.get('description') in data.get('description'):
+                    if item.get('description') and data.get('description') and item.get('description') in data.get('description'):
                         merged_list.append(data)
                         continue
             merged_list.append(item)
