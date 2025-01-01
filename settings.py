@@ -9,7 +9,11 @@ STANDARD_PRICE_LIST = 'Standard-Vertrieb'
 STANDARD_ITEM_GROUP = 'Produkte'
 PROJECT_ITEM_GROUP = 'Material Solaranlagen'
 PROJECT_UNIT = 'Materialeinheit 1€'
+
+# when should the pre invoice affect the stock?
 STOCK_PROJECT_TYPES =  ['Balkonmodule','Solaranlagenmaterial']
+STOCK_PRE_ACCOUNTS = ['Herstellungskosten']
+
 LUMP_SUM_STOCK_PROJECT_TYPES =  ['Solaranlage']
 STOCK_ITEM_GROUPS = ['Solarmodul','Balkon-Solarmodule','Wechselrichter','Steckdosen','Batterie','Mikro-Wechselrichter']
 BUNDLE_ITEM_GROUPS = ['Balkon-Anlage']

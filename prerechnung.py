@@ -169,10 +169,17 @@ def extract_invoice_info(pdf_file_content) -> dict:
 
 
 def process_inv(pr):
+    """
+    Preprocesses the pre invoice and updates the database with the extracted information.
+
+    Args:
+        pr: The pre invoice to be preprocessed
+    """
     print(pr['name'])
     pdf = pr['pdf']
     contents = Api.api.get_file(pdf)
     if sg.UserSettings().get('-google-credentials-'):
+        # use Google invoice AI
         try:
             pr['json'] = json.dumps(extract_invoice_info(contents))
             myjson = json.loads(pr['json'])
@@ -184,6 +191,7 @@ def process_inv(pr):
         except Exception as e:
             print(str(e)+"\n"+traceback.format_exc())
     else:
+        # use local invoice parser
         inv = purchase_invoice.PurchaseInvoice(pr['lager'])
         tmpfile,tmpfilename = tempfile.mkstemp(suffix=".pdf")
         with open(tmpfilename, "wb") as f:
@@ -230,6 +238,13 @@ def to_pay(company_name):
 
 
 def read_and_transfer(inv, check_dup=True):
+    """
+    Process a pre invoice and create an ERPNext invoice for it.
+
+    Args:
+        inv: the pre invoice
+        check_dup: check for duplicates, and if found, do not create a new purchase invoice
+    """
     if not inv['processed']:
         process_inv(inv)
     print("Lese ein {} {}:".format(inv['name'], inv['pdf']))
@@ -241,7 +256,8 @@ def read_and_transfer(inv, check_dup=True):
     f = utils.store_temp_file(pdf, ".pdf")
     utils.evince(f)
     update_stock = 'chance' in inv and inv['chance'] and \
-                   project.project_type(inv['chance']) in settings.STOCK_PROJECT_TYPES
+                   project.project_type(inv['chance']) in settings.STOCK_PROJECT_TYPES and \
+                   inv.get('buchungskonto') in settings.STOCK_PRE_ACCOUNTS
     pinv = purchase_invoice.PurchaseInvoice.read_and_transfer(
         json_object, f, update_stock,
         account_abbrv=inv.get('buchungskonto'), paid_by_submitter=inv.get('selbst_bezahlt', False),
@@ -261,6 +277,19 @@ def read_and_transfer(inv, check_dup=True):
 
 
 def read_and_transfer_pdf(file, update_stock = True, account=None, paid_by_submitter=False,project=None,supplier=None,check_dup=True):
+    """
+    Process a PDF and directly create an ERPNext invoice for it (without using pre invoices).
+    Standalone function to be called from the command line.
+
+    Args:
+        file: the PDF file name
+        update_stock: update stock if True
+        account: default account (abbreviated)
+        paid_by_submitter: if the invoice was paid by the submitter
+        project: the project
+        supplier: the supplier
+        check_dup: check for duplicates, and if found, do not create a new purchase invoice
+    """
     args.init()
     company.Company.init_companies()
     with open(file,"rb") as f:
