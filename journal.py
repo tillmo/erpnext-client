@@ -125,6 +125,7 @@ def get_gl(company_name,start_date,end_date,accounts,voucher_no = None):
              'account' : accounts,
              'from_date' : start_date,
              'to_date' : end_date,
+             'include_default_book_entries': True,
              'group_by':'Group by Voucher (Consolidated)'}
     if voucher_no:
         filters['voucher_no'] = voucher_no
