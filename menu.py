@@ -4,7 +4,7 @@ import PySimpleGUI as sg
 import report
 import company
 import bank
-from invoice import Invoice
+from invoice import Invoice, accrual
 import purchase_invoice
 import project
 import lead
@@ -672,6 +672,8 @@ def event_handler(event,window):
         report.balkonmodule_csv(user_settings['-company-'])
     elif event == 'Kontenblätter':
         report.general_ledger(user_settings['-company-'])
+    elif event == 'Rechnungsabgrenzung':
+        accrual(user_settings['-company-'],user_settings['-year-'])
     elif event == 'EK-Rechnungen nach Konto':
         comp_name = user_settings['-company-']
         comp = company.Company.get_company(comp_name)
@@ -736,9 +738,12 @@ def menus():
                                        'Zahlungen für EBay-Rechnungen','PreRechnungs-Überweisungen zuordnen',
                                        'Banktransaktionen für abgebr. Links bereinigen']],
                 ['Fertige Dokumente', ['Einkaufsrechnungen','Verkaufsrechnungen']+bank.BankAccount.get_baccount_names()], 
-                ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 'Bilanz grafisch', 'Projekte','Balkonmodulverkauf (grafisch)','Balkonmodulverkauf (csv)','zu bezahlende Prerechnungen','Kontenblätter']], 
+                ['Berichte', ['Jahr','Abrechnung', 'Quartalsabrechnung', 'Monatsabrechnung', 'Bilanz', 
+                              'Bilanz grafisch', 'Projekte','Balkonmodulverkauf (grafisch)','Balkonmodulverkauf (csv)',
+                              'zu bezahlende Prerechnungen','Kontenblätter', 'Rechnungsabgrenzung']], 
                 ['Bereich', company.Company.all()], 
-                ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen','USt-Rechnungen zusammenstellen','EK-Rechnungen nach Konto']],
+                ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen',
+                            'USt-Rechnungen zusammenstellen','EK-Rechnungen nach Konto']],
                 ['Lead',['Leads bearbeiten', 'Leadübersicht']],
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Google', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
