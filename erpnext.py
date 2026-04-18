@@ -47,9 +47,10 @@ if __name__ == '__main__':
             'konto': args.konto,
             'lieferant': args.lieferant,
             'projekt': args.projekt,
-            'selbst_bezahlt': args.selbst_bezahlt,
         }
-        overrides = {k: v for k, v in overrides.items() if v}
+        overrides = {k: v for k, v in overrides.items() if v is not None}
+        if args.selbst_bezahlt:
+            overrides['selbst_bezahlt'] = True
         prerechnung.cli_read_and_transfer(
             name=args.p or None,
             advance=args.anzahlung,
