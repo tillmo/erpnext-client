@@ -67,14 +67,21 @@ class Api(object):
                      'supplier_part_no': supplier_part_no})
                 Api.item_code_translation[supplier][supplier_part_no] = item['item_code']
             # Same trick for Item Default - one row per (item, default) entry;
-            # we only need to know which items have a default for the current
-            # company so we can seed the rest below.
+            # fetch expense_account for the current company and seed missing defaults.
             defaults_rows = Api.api.get_list(
                 'Item', limit_page_length=LIMIT,
                 filters={'disabled': 0},
-                fields=['name', '`tabItem Default`.company as default_company'])
-            items_with_defaults = {row['name'] for row in defaults_rows
-                                   if row.get('default_company') == company_name}
+                fields=['name', 'item_code',
+                        '`tabItem Default`.company as default_company',
+                        '`tabItem Default`.expense_account as default_expense_account'])
+            items_with_defaults = set()
+            for row in defaults_rows:
+                if row.get('default_company') != company_name:
+                    continue
+                items_with_defaults.add(row['name'])
+                item = Api.items_by_code.get(row.get('item_code'))
+                if item and row.get('default_expense_account'):
+                    item['expense_account'] = row['default_expense_account']
             missing_defaults = [item for item in items
                                 if item['name'] not in items_with_defaults]
             if missing_defaults:

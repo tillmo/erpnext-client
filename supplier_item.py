@@ -145,9 +145,12 @@ class SupplierItem:
                 e_item['item_code'] = code
                 self.qty = self.qty * self.rate / AGGREGATE_ITEM_VALUE
                 self.rate = AGGREGATE_ITEM_VALUE
-            return {'item_code': e_item['item_code'],
-                    'qty': self.qty,
-                    'rate': self.rate,
-                    'desc': self.description}
+            result = {'item_code': e_item['item_code'],
+                      'qty': self.qty,
+                      'rate': self.rate,
+                      'desc': self.description}
+            if e_item.get('expense_account'):
+                result['expense_account'] = e_item['expense_account']
+            return result
         else:
             return None
