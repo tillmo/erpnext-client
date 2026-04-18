@@ -237,13 +237,14 @@ def to_pay(company_name):
     return prs
 
 
-def read_and_transfer(inv, check_dup=True):
+def read_and_transfer(inv, check_dup=True, cli_overrides=None):
     """
     Process a pre invoice and create an ERPNext invoice for it.
 
     Args:
         inv: the pre invoice
         check_dup: check for duplicates, and if found, do not create a new purchase invoice
+        cli_overrides: dict of override values for CLI mode (betrag, mwst, konto, lieferant, etc.)
     """
     if not inv['processed']:
         process_inv(inv)
@@ -261,7 +262,8 @@ def read_and_transfer(inv, check_dup=True):
     pinv = purchase_invoice.PurchaseInvoice.read_and_transfer(
         json_object, f, update_stock,
         account_abbrv=inv.get('buchungskonto'), paid_by_submitter=inv.get('selbst_bezahlt', False),
-        project=inv.get('chance'), supplier=inv.get('lieferant'), check_dup=check_dup
+        project=inv.get('chance'), supplier=inv.get('lieferant'), check_dup=check_dup,
+        cli_overrides=cli_overrides
     )
     if pinv and not inv.get('purchase_invoice'):
         inv['eingepflegt'] = True
@@ -274,6 +276,70 @@ def read_and_transfer(inv, check_dup=True):
         except Exception:
             pass
     return pinv
+
+
+def cli_read_and_transfer(name=None, advance=False, overrides=None):
+    """List open PreRechnungen and process the selected one (or a named one directly).
+
+    Args:
+        name: optional PreRechnung name; if None or empty, list open ones and let user pick
+        advance: if True, show Anzahlungsrechnungen instead of regular invoices
+        overrides: dict of override values (betrag, mwst, konto, lieferant, projekt,
+                   selbst_bezahlt, rechnungsnr)
+    """
+    company_name = sg.UserSettings()['-company-']
+    comp = company.Company.get_company(company_name)
+    if not comp:
+        print("Kein Bereich gefunden")
+        return None
+
+    if name:
+        invs = Api.api.get_list(
+            'PreRechnung',
+            filters={'name': name},
+            fields=['datum', 'name', 'chance', 'lieferant', 'pdf', 'json',
+                    'lager', 'selbst_bezahlt', 'vom_konto_überwiesen', 'typ',
+                    'processed', 'balkonmodule', 'buchungskonto'],
+            limit_page_length=1
+        )
+        if not invs:
+            print("PreRechnung {} nicht gefunden".format(name))
+            return None
+        inv = invs[0]
+    else:
+        invs = comp.get_open_pre_invoices(advance)
+        if not invs:
+            typ = 'Anzahlungsrechnungen' if advance else 'Prerechnungen'
+            print("Keine offenen {} gefunden".format(typ))
+            return None
+        invs.sort(key=lambda x: x['datum'], reverse=True)
+        print("\nOffene {}:".format('Anzahlungsrechnungen' if advance else 'Prerechnungen'))
+        for i, inv in enumerate(invs):
+            print("  {:3d}: {} {:30s} {:25s} {}".format(
+                i, inv['datum'], inv['name'],
+                (inv.get('lieferant') or '')[:25],
+                inv.get('chance') or ''))
+        print()
+        val = input("Bitte Nummer wählen (leer = Abbrechen): ").strip()
+        if not val:
+            return None
+        try:
+            inv = invs[int(val)]
+        except (ValueError, IndexError):
+            print("Ungültige Auswahl")
+            return None
+
+    if overrides:
+        if overrides.get('konto'):
+            inv['buchungskonto'] = overrides['konto']
+        if overrides.get('lieferant'):
+            inv['lieferant'] = overrides['lieferant']
+        if overrides.get('projekt'):
+            inv['chance'] = overrides['projekt']
+        if overrides.get('selbst_bezahlt'):
+            inv['selbst_bezahlt'] = overrides['selbst_bezahlt']
+
+    return read_and_transfer(inv, cli_overrides=overrides)
 
 
 def read_and_transfer_pdf(file, update_stock = True, account=None, paid_by_submitter=False,project=None,supplier=None,check_dup=True):

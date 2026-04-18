@@ -228,6 +228,87 @@ class PurchaseInvoice(Invoice):
             self.assign_default_e_items({self.default_vat: account})
         return True
 
+    def complete_data_by_cli(self, account=None, paid_by_submitter=False, amount=""):
+        """CLI-mode data completion: applies cli_overrides then prompts for still-missing values."""
+        ov = self.cli_overrides or {}
+
+        gross = ov.get('betrag')
+        vat = ov.get('mwst')
+        if gross is not None:
+            if vat is not None:
+                self.vat[self.default_vat] = vat
+            elif not self.vat[self.default_vat]:
+                self.vat[self.default_vat] = 0.0
+            self.totals[self.default_vat] = gross - self.vat[self.default_vat]
+        elif vat is not None:
+            self.vat[self.default_vat] = vat
+
+        if ov.get('lieferant'):
+            self.supplier = ov['lieferant']
+        if ov.get('rechnungsnr'):
+            self.no = ov['rechnungsnr']
+        if ov.get('datum'):
+            self.date = utils.convert_date4(ov['datum'])
+        if ov.get('selbst_bezahlt'):
+            paid_by_submitter = ov['selbst_bezahlt']
+        if ov.get('konto') and not account:
+            for acc in [a['name'] for a in self.company.leaf_accounts_for_credit]:
+                if ov['konto'] in acc:
+                    account = acc
+                    break
+
+        if not self.supplier:
+            val = input("Lieferant: ").strip()
+            self.supplier = val or "???"
+        if not self.no:
+            val = input("Rechnungsnr.: ").strip()
+            self.no = val or "???"
+        if not self.date:
+            val = input("Datum (TT.MM.JJJJ): ").strip()
+            self.date = utils.convert_date4(val) if val else "1970-01-01"
+        if not self.vat.get(self.default_vat) and self.vat.get(self.default_vat) != 0.0:
+            val = input("MWSt ({}%): ".format(self.default_vat)).strip()
+            self.vat[self.default_vat] = utils.read_float(val) if val else 0.0
+        if not self.totals.get(self.default_vat):
+            cur_gross = (amount or "") or \
+                        (self.totals[self.default_vat] + self.vat[self.default_vat])
+            val = input("Brutto [{}]: ".format(cur_gross)).strip()
+            gross_val = utils.read_float(val) if val else (float(cur_gross) if cur_gross else 0.0)
+            self.totals[self.default_vat] = gross_val - self.vat[self.default_vat]
+
+        self.paid_by_submitter = paid_by_submitter
+        self.compute_total()
+
+        if not account and not self.update_stock:
+            pinvs = self.company.purchase_invoices[self.supplier]
+            paccs = list(dict.fromkeys(
+                pi['expense_account'] for pi in pinvs if 'expense_account' in pi
+            ))
+            accounts = self.company.leaf_accounts_for_credit
+            account_names = [acc['name'] for acc in accounts]
+            for acc in paccs:
+                try:
+                    account_names.remove(acc)
+                except Exception:
+                    pass
+            account_names = paccs + account_names
+            print("Buchungskonten:")
+            for i, acc in enumerate(account_names[:20]):
+                print("  {:2d}: {}".format(i, acc))
+            val = input("Buchungskonto (Nummer oder Text): ").strip()
+            if val.isdigit() and int(val) < len(account_names):
+                account = account_names[int(val)]
+            elif val:
+                account = val
+            elif account_names:
+                account = account_names[0]
+            else:
+                return False
+
+        if not self.update_stock and account:
+            self.assign_default_e_items({self.default_vat: account})
+        return True
+
     def parse_generic(self, lines, account=None, paid_by_submitter=False, is_test=False):
         self.parser = "generic"
         self.extract_items = False
@@ -253,7 +334,10 @@ class PurchaseInvoice(Invoice):
                         return self
         if is_test:
             return self
-        if self.complete_data_by_gui(account, paid_by_submitter, amount):
+        if self.cli_overrides is not None:
+            if self.complete_data_by_cli(account, paid_by_submitter, amount):
+                return self
+        elif self.complete_data_by_gui(account, paid_by_submitter, amount):
             return self
 
     def complete_missing_data(self, account=None, paid_by_submitter=False, is_test=False, check_dup=True):
@@ -297,7 +381,10 @@ class PurchaseInvoice(Invoice):
             print("Bruttobetrag nicht erkannt")
         print("Rückfall auf manuelle Eingabe")
 
-        if self.complete_data_by_gui(account, paid_by_submitter):
+        if self.cli_overrides is not None:
+            if self.complete_data_by_cli(account, paid_by_submitter):
+                return self
+        elif self.complete_data_by_gui(account, paid_by_submitter):
             return self
 
     def apply_info_changes(self, diff, new_data_model):
@@ -685,6 +772,7 @@ class PurchaseInvoice(Invoice):
         self.raw = False
         self.skonto = 0
         self.parser = None
+        self.cli_overrides = None
 
 
     # for testing
@@ -696,8 +784,10 @@ class PurchaseInvoice(Invoice):
 
     @classmethod
     def read_and_transfer(cls, invoice_json, infile, update_stock, account_abbrv=None, paid_by_submitter=False, project=None,
-                          supplier=None, check_dup=True):
-        inv = PurchaseInvoice(update_stock).read_pdf(
+                          supplier=None, check_dup=True, cli_overrides=None):
+        pinv_obj = PurchaseInvoice(update_stock)
+        pinv_obj.cli_overrides = cli_overrides
+        inv = pinv_obj.read_pdf(
                 invoice_json, infile, account_abbrv, paid_by_submitter, supplier, check_dup=check_dup)
         if inv and inv.is_duplicate:
             return inv

@@ -14,6 +14,8 @@ def arg_parser():
               (description='ERPNext client für Solidarische Ökonomie Bremen')
     parser.add_argument('-e', dest='e', type=str,
                         help='Einkaufsrechnung einlesen')
+    parser.add_argument('-p', dest='p', type=str, nargs='?', const='',
+                        help='PreRechnung verarbeiten (optional: Name der PreRechnung)')
     parser.add_argument('-k', dest='k', type=str,
                         help='Kontoauszug einlesen')
     parser.add_argument('-i', dest='i', action='store_true',
@@ -23,7 +25,6 @@ def arg_parser():
     parser.add_argument('-v', dest='v', action='store_true',
                         help='Show version')
     parser.set_defaults(i=False)
-    parser.set_defaults(p=False)
     parser.set_defaults(b=False)
     parser.add_argument('--server', dest='server', type=str,
                         help='URL for API server')
@@ -40,6 +41,26 @@ def arg_parser():
     parser.add_argument('--update-stock', dest='update_stock', action='store_true',
                         help='Lager aktualisieren')
     parser.set_defaults(update_stock=False)
+    parser.add_argument('--betrag', dest='betrag', type=float,
+                        help='Bruttobetrag überschreiben')
+    parser.add_argument('--mwst', dest='mwst', type=float,
+                        help='MWSt-Betrag überschreiben')
+    parser.add_argument('--rechnungsnr', dest='rechnungsnr', type=str,
+                        help='Rechnungsnummer überschreiben')
+    parser.add_argument('--datum', dest='datum', type=str,
+                        help='Rechnungsdatum überschreiben (TT.MM.JJJJ)')
+    parser.add_argument('--konto', dest='konto', type=str,
+                        help='Buchungskonto (Abkürzung)')
+    parser.add_argument('--lieferant', dest='lieferant', type=str,
+                        help='Lieferant')
+    parser.add_argument('--projekt', dest='projekt', type=str,
+                        help='Projekt')
+    parser.add_argument('--selbst-bezahlt', dest='selbst_bezahlt', action='store_true',
+                        help='Rechnung schon selbst bezahlt')
+    parser.set_defaults(selbst_bezahlt=False)
+    parser.add_argument('--anzahlung', dest='anzahlung', action='store_true',
+                        help='Anzahlungsrechnungen anzeigen')
+    parser.set_defaults(anzahlung=False)
     parser.add_argument('--all_sales', dest='all_sales', action='store_true',
                         help='Alle Artikelpreise auf Preisliste {0} setzen'.\
                                  format(purchase_invoice.STANDARD_PRICE_LIST))

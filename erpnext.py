@@ -37,6 +37,24 @@ if __name__ == '__main__':
             doc = gui_api_wrapper(Api.api.get_doc,'Item Price', name)
             doc['valid_from'] = VALIDITY_DATE
             gui_api_wrapper(Api.api.update,doc)
+    elif args.p is not None:
+        menu.initial_loads()
+        overrides = {
+            'betrag': args.betrag,
+            'mwst': args.mwst,
+            'rechnungsnr': args.rechnungsnr,
+            'datum': args.datum,
+            'konto': args.konto,
+            'lieferant': args.lieferant,
+            'projekt': args.projekt,
+            'selbst_bezahlt': args.selbst_bezahlt,
+        }
+        overrides = {k: v for k, v in overrides.items() if v}
+        prerechnung.cli_read_and_transfer(
+            name=args.p or None,
+            advance=args.anzahlung,
+            overrides=overrides or None
+        )
     elif args.e:
         menu.initial_loads()
         if args.e=="-":
