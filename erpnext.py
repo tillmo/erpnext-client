@@ -84,9 +84,10 @@ if __name__ == '__main__':
         if comp:
             comp.reconcile_all()
     elif args.i:
+        import json
         Api.load_item_data()
-        print(Api.item_code_translation)
-        print(Api.items_by_code)
+        print(json.dumps(Api.item_code_translation, ensure_ascii=False, indent=2))
+        print(json.dumps(Api.items_by_code, ensure_ascii=False, indent=2))
     # no arguments given? Then call GUI    
     else:
         menu.main_loop()
