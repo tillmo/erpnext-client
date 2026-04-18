@@ -631,6 +631,8 @@ class PurchaseInvoice(Invoice):
         elif normal_purchase_data:
             final_data = normal_purchase_data
         if final_data:
+            if not self.date and lines:
+                self.date = extract_date(lines)
             if manual_edit:
                 final_data = self.edit_data_model_manually(google_purchase_data, infile)
             print("Final Data ...")
