@@ -55,6 +55,12 @@ def extract_amount_and_vat(lines, vat_rates):
 
 def extract_date(lines):
     for line in lines:
+        if "Rechnungsdatum" in line:
+            for word in line.split():
+                d = utils.convert_date4(word)
+                if d:
+                    return d
+    for line in lines:
         for word in line.split():
             d = utils.convert_date4(word)
             if d:
@@ -106,6 +112,17 @@ def decode_uft_8(bline):
         return bline.decode('utf_8')
     except Exception:
         return ""
+
+
+def _check_pdftotext():
+    r = subprocess.run(["pdftotext", "-v"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    out = r.stdout.decode("utf-8", errors="replace")
+    m = re.search(r"version\s+([0-9]+)", out)
+    if not m or int(m.group(1)) < 4:
+        raise RuntimeError(f"pdftotext version >= 4 required, found: {out.splitlines()[0] if out else 'unknown'}")
+
+
+_check_pdftotext()
 
 
 def pdf_to_text(file, raw=False):
