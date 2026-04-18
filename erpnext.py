@@ -86,8 +86,8 @@ if __name__ == '__main__':
     elif args.i:
         import json
         Api.load_item_data()
-        print(json.dumps(Api.item_code_translation, ensure_ascii=False, indent=2))
-        print(json.dumps(Api.items_by_code, ensure_ascii=False, indent=2))
+        item_dict = {'items': Api.items_by_code, 'translations': Api.item_code_translation}
+        print(json.dumps(item_dict, ensure_ascii=False, indent=2))
     # no arguments given? Then call GUI    
     else:
         menu.main_loop()
