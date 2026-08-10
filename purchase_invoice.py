@@ -114,12 +114,24 @@ def decode_uft_8(bline):
         return ""
 
 
+# layout option used by pdf_to_text; -table is only provided by xpdf's pdftotext,
+# poppler's variant only knows -layout
+PDFTOTEXT_LAYOUT_OPTION = "-table"
+
+
 def _check_pdftotext():
+    global PDFTOTEXT_LAYOUT_OPTION
     r = subprocess.run(["pdftotext", "-v"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     out = r.stdout.decode("utf-8", errors="replace")
     m = re.search(r"version\s+([0-9]+)", out)
     if not m or int(m.group(1)) < 4:
         raise RuntimeError(f"pdftotext version >= 4 required, found: {out.splitlines()[0] if out else 'unknown'}")
+    h = subprocess.run(["pdftotext", "-h"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    if "-table" not in h.stdout.decode("utf-8", errors="replace"):
+        PDFTOTEXT_LAYOUT_OPTION = "-layout"
+        print("WARNUNG: pdftotext kennt -table nicht (vermutlich poppler statt xpdf), benutze -layout.\n"
+              "         Die Rechnungsparser sind auf xpdf abgestimmt, siehe install-ubuntu.sh:\n"
+              "         https://dl.xpdfreader.com/xpdf-tools-linux-4.04.tar.gz")
 
 
 _check_pdftotext()
@@ -130,11 +142,15 @@ def pdf_to_text(file, raw=False):
     if raw:
         cmd.append("-raw")
     else:
-        cmd.append("-table")
+        cmd.append(PDFTOTEXT_LAYOUT_OPTION)
     cmd += ["-enc", "UTF-8"]
     cmd += [file, "-"]
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
-    return [decode_uft_8(bline) for bline in p.stdout]
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.DEVNULL)
+    lines = [decode_uft_8(bline) for bline in p.stdout]
+    err = p.stderr.read().decode("utf-8", errors="replace").strip()
+    if p.wait() != 0:
+        raise RuntimeError("pdftotext ({}) fehlgeschlagen: {}".format(" ".join(cmd), err or "?"))
+    return lines
 
 
 def ask_if_to_continue(err, msg=""):
@@ -435,7 +451,7 @@ class PurchaseInvoice(Invoice):
                     elif new_key == 'grand_total':
                         self.gross_total = value[new_key]
                     elif new_key == 'bill_no':
-                        self.bill_no = value[new_key]
+                        self.no = value[new_key]
                     elif new_key == 'order_id':
                         self.order_id = value[new_key]
                     elif new_key == 'posting_date':
@@ -465,7 +481,7 @@ class PurchaseInvoice(Invoice):
                     elif deleted_key == 'grand_total':
                         self.gross_total = 0
                     elif deleted_key == 'bill_no':
-                        self.bill_no = None
+                        self.no = None
                     elif deleted_key == 'order_id':
                         self.order_id = None
                     elif deleted_key == 'posting_date':
@@ -503,13 +519,33 @@ class PurchaseInvoice(Invoice):
                 elif key == 'grand_total':
                     self.gross_total = value[1]
                 elif key == 'bill_no':
-                    self.bill_no = value[1]
+                    self.no = value[1]
                 elif key == 'order_id':
                     self.order_id = value[1]
                 elif key == 'posting_date':
                     self.date = value[1]
                 elif key == 'shipping':
                     self.shipping = value[1]
+
+    def apply_final_data(self, final_data):
+        """
+        final_data is the merged (and possibly manually edited) purchase data and thus authoritative.
+        Copy its identifying fields back onto the purchase invoice object, since everything
+        downstream (create_doc, check_if_present, ...) works on the object, not on final_data.
+        """
+        for key, attr in (('bill_no', 'no'),
+                          ('order_id', 'order_id'),
+                          ('posting_date', 'date'),
+                          ('supplier', 'supplier')):
+            value = final_data.get(key)
+            if isinstance(value, str):
+                value = value.strip()
+            if not value:
+                continue
+            old_value = getattr(self, attr, None)
+            if value != old_value:
+                print("Übernehme {} = {!r} aus final_data (Objekt hatte {!r})".format(key, value, old_value))
+                setattr(self, attr, value)
 
     def edit_data_model_manually(self, data_model, infile):
         """
@@ -634,9 +670,10 @@ class PurchaseInvoice(Invoice):
             if not self.date and lines:
                 self.date = extract_date(lines)
             if manual_edit:
-                final_data = self.edit_data_model_manually(google_purchase_data, infile)
+                final_data = self.edit_data_model_manually(final_data, infile)
             print("Final Data ...")
             print(final_data)
+            self.apply_final_data(final_data)
             return self.complete_missing_data(account, paid_by_submitter, is_test, check_dup)
 
         print("Verwende generischen Rechnungsparser")
@@ -851,6 +888,11 @@ class PurchaseInvoice(Invoice):
                 print(
                     "Nicht alle Artikel wurden eingetragen.\n Bitte Einkaufsrechnung in ERPNext weiter bearbeiten.")
                 self.e_items = [item for item in self.e_items if item]
+            if not self.e_items:
+                # ERPNext cannot compute a grand total without items and fails with a
+                # cryptic error in set_payment_schedule, so do not even try
+                print("Keine Artikel erkannt. Bitte Einkaufsrechnung in ERPNext manuell anlegen.")
+                return None
             if not ask_if_to_continue(self.check_total(check_dup), "Fortsetzen?"):
                 return None
             if not ask_if_to_continue(self.check_duplicates()):

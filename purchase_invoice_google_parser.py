@@ -176,7 +176,8 @@ class PurchaseInvoiceGoogleParser:
                         continue
                     if s_item.description and (
                             "Fracht" in s_item.description or "Transportkosten" in s_item.description or "Versand" in s_item.description):
-                        self.purchase_invoice.shipping = s_item.amount if s_item.amount else 0
+                        # an invoice may contain several freight positions
+                        self.purchase_invoice.shipping += s_item.amount if s_item.amount else 0
                         continue
                     if s_item.qty and s_item.amount:
                         if not s_item.rate:

@@ -199,16 +199,34 @@ class PurchaseInvoiceParser:
                         self.purchase_invoice.date = d
                 if "Auftragsnummer" in line:
                     self.purchase_invoice.order_id = words[-1]
-                if not self.purchase_invoice.no and (
-                        "Auftragsbestätigung" in line or "Vorkasserechnung" in line or "Rechnung" in line):
-                    self.purchase_invoice.no = words[-1]
-                    self.is_rechnung = "Rechnung" in line
+                if not self.purchase_invoice.no and self.set_no_wagner(line, words):
+                    pass
                 elif words and words[0] and words[0][0].isdigit():
                     self.line_items.append(item)
                     item = [line]
                 else:
                     item.append(line)
             self.line_items.append(item)
+
+    def set_no_wagner(self, line, words):
+        """
+        Extract the invoice number of a Wagner invoice from line, and remember whether it is
+        a proper invoice (Rechnung) or a pro forma one (Vorkasserechnung, Auftragsbestätigung).
+        The number directly follows the keyword; the last word of the line cannot be used,
+        since the delivery address is printed in a second column of the same line, e.g.
+        "1. Vorkasserechnung VOR20841                     BEGeno / SolidarStrom"
+        Returns True if line is such a line, whether or not a number could be found.
+        """
+        for keyword in ["Auftragsbestätigung", "Vorkasserechnung", "Rechnung"]:
+            if keyword not in line:
+                continue
+            for i, word in enumerate(words):
+                if keyword in word and i + 1 < len(words):
+                    self.purchase_invoice.no = words[i + 1]
+                    self.is_rechnung = (keyword == "Rechnung")
+                    break
+            return True
+        return False
 
     def set_items(self):
         if self.supplier == 'nkk':
@@ -334,40 +352,64 @@ class PurchaseInvoiceParser:
                 self.purchase_invoice.items.append(s_item)
         elif self.supplier == 'wagner':
             for item_lines in self.line_items[1:]:
-                item_str = item_lines[0]
-                words = item_str.split()
                 try:
-                    pos = int(words[0])
-                except Exception:
-                    continue
-                if pos >= 28100:
-                    continue
-                clutter = ['Rabatt', 'Übertrag']
-                s_item = SupplierItem(self.purchase_invoice)
-                long_description_lines = \
-                    [l for l in item_lines[1:] \
-                     if utils.no_substr(clutter, l) and l.strip()]
-                s_item.description = " ".join(long_description_lines[0][0:82].split())
-                s_item.long_description = ""
-                for l in long_description_lines:
-                    if "Zwischensumme" in l:
-                        break
-                    s_item.long_description += l
-                if self.is_rechnung:
-                    s_item.item_code = words[1]
-                else:
-                    ind = words.index("Artikelnr.")
-                    s_item.item_code = words[ind + 1]
-                ind = words.index("Stück")
-                s_item.qty = int(words[ind - 1])
-                s_item.qty_unit = "Stk"
-                s_item.amount = utils.read_float(words[-1])
-                if "Fracht" in s_item.description or "Fracht" in words:
-                    self.purchase_invoice.shipping = s_item.amount
-                    continue
-                s_item.rate = round(s_item.amount / s_item.qty, 2)
-                self.rounding_error += s_item.amount - s_item.rate * s_item.qty
-                self.purchase_invoice.items.append(s_item)
+                    self.set_item_wagner(item_lines)
+                except Exception as e:
+                    # a single unreadable position must not abort the whole invoice;
+                    # the missing amount is reported by check_total anyway
+                    print("Position konnte nicht gelesen werden:",
+                          " ".join(item_lines[0].split())[0:82], "-", e)
+
+    def set_item_wagner(self, item_lines):
+        item_str = item_lines[0]
+        words = item_str.split()
+        try:
+            pos = int(words[0])
+        except Exception:
+            return
+        if pos >= 28100:
+            return
+        try:
+            amount = utils.read_float(words[-1])
+        except Exception:
+            # no amount in the last column, hence a continuation line that only looks
+            # like a position because it starts with a number ("12 Jahre Produktgarantie")
+            return
+        clutter = ['Rabatt', 'Übertrag']
+        s_item = SupplierItem(self.purchase_invoice)
+        long_description_lines = \
+            [l for l in item_lines[1:] \
+             if utils.no_substr(clutter, l) and l.strip()]
+        if long_description_lines:
+            s_item.description = " ".join(long_description_lines[0][0:82].split())
+        else:
+            # positions without any further line, e.g. freight costs
+            s_item.description = " ".join(item_str[0:82].split())
+        s_item.long_description = ""
+        for l in long_description_lines:
+            if "Zwischensumme" in l:
+                break
+            s_item.long_description += l
+        if self.is_rechnung:
+            s_item.item_code = words[1]
+        else:
+            ind = words.index("Artikelnr.")
+            s_item.item_code = words[ind + 1]
+        if "Stück" in words:
+            ind = words.index("Stück")
+            s_item.qty = int(words[ind - 1])
+        else:
+            # Vorkasserechnungen have no unit column: ... Menge VK-Preis [Rabatt] Betrag
+            s_item.qty = int(utils.read_float(words[-3]))
+        s_item.qty_unit = "Stk"
+        s_item.amount = amount
+        if "Fracht" in s_item.description or "Fracht" in words:
+            # an invoice may contain several freight positions
+            self.purchase_invoice.shipping += s_item.amount
+            return
+        s_item.rate = round(s_item.amount / s_item.qty, 2)
+        self.rounding_error += s_item.amount - s_item.rate * s_item.qty
+        self.purchase_invoice.items.append(s_item)
 
     def set_totals(self):
         if self.supplier == 'nkk':
