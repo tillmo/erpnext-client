@@ -7,7 +7,9 @@ import pytest
 
 import lead
 import lead_dnc_setup as setup
-from settings import LEAD_DNC_FIELD
+import lead_rules
+import lead_rules_setup as rules_setup
+from settings import LEAD_DNC_FIELD, LEAD_RULE_DOCTYPE, SUPPLIER_DOMAINS_FIELD
 from support.live import Cleanup, LiveState, tag
 
 
@@ -60,3 +62,45 @@ class TestDoNotContactProtection:
     def test_setup_is_idempotent(self, live: LiveState, api: Any, installed: None) -> None:
         assert setup.ensure_custom_field(api, apply=False) is True
         assert setup.ensure_server_script(api, apply=False) is True
+
+
+@pytest.fixture
+def rules_installed(api: Any) -> None:
+    doctypes = api.get_list("DocType", filters={"name": LEAD_RULE_DOCTYPE}, limit_page_length=1)
+    fields = api.get_list("Custom Field", filters={"dt": "Supplier", "fieldname": SUPPLIER_DOMAINS_FIELD}, limit_page_length=1)
+    if not doctypes or not fields:
+        pytest.skip("lead_rules_setup.py --apply wurde auf der Instanz noch nicht ausgeführt")
+
+
+class TestSenderRules:
+    def test_rule_roundtrip_and_load(self, live: LiveState, api: Any, cleanup: Cleanup, rules_installed: None) -> None:
+        domain = tag("pytest").lower() + ".example"
+        rule = api.insert({"doctype": LEAD_RULE_DOCTYPE, "muster": domain, "wirkung": "Kein Lead", "quelle": "Client",
+                           "bemerkung": "pytest"})
+        cleanup.add(LEAD_RULE_DOCTYPE, rule["name"])
+        assert rule["name"] == domain                   # named by the pattern
+        rules = lead_rules.Rules.load()
+        assert domain in rules.block_domains
+        d = lead_rules.classify("news@mail." + domain, [{"sender": "news@mail." + domain, "subject": "x", "content": ""}], rules)
+        assert d.auto and d.choice == "kein Lead"
+        # a disabled rule is ignored
+        api.set_value(LEAD_RULE_DOCTYPE, rule["name"], "deaktiviert", 1)
+        assert domain not in lead_rules.Rules.load().block_domains
+
+    def test_duplicate_pattern_is_rejected(self, live: LiveState, api: Any, cleanup: Cleanup, rules_installed: None) -> None:
+        from frappeclient import FrappeException
+        domain = tag("pytest").lower() + ".example"
+        cleanup.add(LEAD_RULE_DOCTYPE, api.insert({"doctype": LEAD_RULE_DOCTYPE, "muster": domain, "wirkung": "Kein Lead"})["name"])
+        with pytest.raises(FrappeException):
+            api.insert({"doctype": LEAD_RULE_DOCTYPE, "muster": domain, "wirkung": "Lead"})
+
+    def test_supplier_domains_field(self, live: LiveState, api: Any, cleanup: Cleanup, test_supplier: str,
+                                    rules_installed: None) -> None:
+        new = lead_rules.note_supplier_domains(test_supplier, "Rechnung von info@pytest-lieferant.example")
+        assert new == ["pytest-lieferant.example"]
+        assert api.get_doc("Supplier", test_supplier)[SUPPLIER_DOMAINS_FIELD] == "pytest-lieferant.example"
+        assert lead_rules.Rules.load().supplier_domains.get("pytest-lieferant.example") == test_supplier
+
+    def test_setup_is_idempotent(self, live: LiveState, api: Any, rules_installed: None) -> None:
+        assert rules_setup.ensure_rule_doctype(api, apply=False) is True
+        assert rules_setup.ensure_supplier_field(api, apply=False) is True

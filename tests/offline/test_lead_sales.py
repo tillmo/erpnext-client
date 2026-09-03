@@ -13,7 +13,7 @@ import lead
 import sales_invoice
 from api import Api
 from company import Company
-from settings import EBAY_ACCOUNT, LEAD_OWNERS, LEAD_DNC_FIELD
+from settings import EBAY_ACCOUNT, LEAD_OWNERS, LEAD_DNC_FIELD, LEAD_RULE_DOCTYPE, SUPPLIER_DOMAINS_FIELD
 from support import factories as F
 from support.fakes import FakeFrappeClient
 from support.stubs import EasyguiStub, GuiCalled
@@ -52,7 +52,7 @@ def leads(fake_api: FakeFrappeClient) -> FakeFrappeClient:
 class TestProcessOpenLeads:
     def test_assigns_owner_and_resets_not_contact(self, leads: FakeFrappeClient, gui: EasyguiStub,
                                                   capsys: pytest.CaptureFixture[str]) -> None:
-        gui.answers["choicebox"] = lambda msg, title, choices: LEAD_OWNERS[0]
+        gui.answers["choicebox"] = lambda msg, title, choices, **kw: LEAD_OWNERS[0]
         lead.process_open_leads()
         assert leads.assignments == [("Lead", "L-NEU", [LEAD_OWNERS[0].lower() + "@example.org"])]
         for name in ("L-NICHT", "L-FLAG"):      # history resp. flag: closed again without asking
@@ -98,6 +98,59 @@ class TestProcessOpenLeads:
         assert doc["first_name"] == "kunde@example.org" and doc["last_name"] == ""
         assert fake_api.get_doc("Lead", "L-OK")["first_name"] == "Anna"
         assert "L-BSS heißt nun kunde@example.org" in capsys.readouterr().out
+
+
+@pytest.fixture
+def ruled_leads(fake_api: FakeFrappeClient) -> FakeFrappeClient:
+    for owner in LEAD_OWNERS:
+        fake_api.add("User", email=owner.lower() + "@example.org", first_name=owner)
+    fake_api.add(LEAD_RULE_DOCTYPE, muster="zcsend.net", wirkung="Kein Lead", deaktiviert=0)
+    fake_api.add(LEAD_RULE_DOCTYPE, muster="partner.org", wirkung="Lead", deaktiviert=0)
+    fake_api.add("Supplier", supplier_name="Krannich Solar GmbH & Co KG", **{SUPPLIER_DOMAINS_FIELD: "krannich-solar.com"})
+    fake_api.add("Lead", name="L-SPERR", status="Open", lead_name="Newsletter", _assign=None, email_id="news@eu.zcsend.net")
+    fake_api.add("Lead", name="L-LIEF", status="Open", lead_name="Krannich", _assign=None, email_id="order@krannich-solar.com")
+    fake_api.add("Lead", name="L-NEWS", status="Open", lead_name="Shop", _assign=None, email_id="noreply@shop.example")
+    fake_api.add("Lead", name="L-VORSCHLAG", status="Open", lead_name="Krannich 2", _assign=None, email_id="anna@krannich-solar.com")
+    fake_api.add("Lead", name="L-PARTNER", status="Open", lead_name="Partner", _assign=None, email_id="news@partner.org")
+    fake_api.communications["L-SPERR"] = [{"sender": "news@eu.zcsend.net", "subject": "Angebote", "content": "<p>x</p>"}]
+    fake_api.communications["L-LIEF"] = [{"sender": "order@krannich-solar.com", "subject": "Ihre Rechnung 4711", "content": "<p>x</p>"}]
+    fake_api.communications["L-NEWS"] = [{"sender": "noreply@shop.example", "subject": "Neu im Shop",
+                                          "content": "<p>Klicken Sie hier zum <a href='x'>Abmelden</a></p>"}]
+    fake_api.communications["L-VORSCHLAG"] = [{"sender": "anna@krannich-solar.com", "subject": "Frage", "content": "<p>Hallo</p>"}]
+    fake_api.communications["L-PARTNER"] = [{"sender": "news@partner.org", "subject": "Newsletter",
+                                             "content": "<p><a href='u'>unsubscribe</a></p>"}]
+    return fake_api
+
+
+class TestProcessOpenLeadsWithRules:
+    def test_automatic_decisions_and_suggestions(self, ruled_leads: FakeFrappeClient, gui: EasyguiStub,
+                                                 capsys: pytest.CaptureFixture[str]) -> None:
+        gui.answers["choicebox"] = lambda msg, title, choices, **kw: "überspringen"
+        lead.process_open_leads()
+        for name in ("L-SPERR", "L-LIEF", "L-NEWS"):
+            doc = ruled_leads.get_doc("Lead", name)
+            assert doc["status"] == "Do Not Contact" and doc[LEAD_DNC_FIELD] == 1, name
+        comments = ruled_leads.get_list("Comment", fields=["reference_name", "content"])
+        assert {c["reference_name"] for c in comments} == {"L-SPERR", "L-LIEF", "L-NEWS"}
+        assert all(c["content"].startswith('Automatisch als "nicht kontaktieren" markiert: ') for c in comments)
+        # supplier domain without transactional subject and the allow-listed sender are asked
+        asked = {call[1][0].split()[0]: call for call in gui.calls}
+        assert set(asked) == {"L-VORSCHLAG", "L-PARTNER"}
+        msg, title, choices = asked["L-VORSCHLAG"][1]
+        assert "Vorschlag: kein Lead (Absender-Domain gehört zu Lieferant Krannich Solar GmbH & Co KG)" in msg
+        assert asked["L-VORSCHLAG"][2] == {"preselect": choices.index("kein Lead")}
+        assert "Freigabe für partner.org" in asked["L-PARTNER"][1][0]
+        assert asked["L-PARTNER"][2] == {"preselect": 0}
+        for name in ("L-VORSCHLAG", "L-PARTNER"):
+            assert ruled_leads.get_doc("Lead", name)["status"] == "Open"
+        out = capsys.readouterr().out
+        assert 'Markiere Lead L-SPERR Newsletter als "nicht kontaktieren": Sperrliste: zcsend.net' in out
+        assert "3 automatisch" in out and "2 von Hand" in out and "2 übersprungen" in out
+
+    def test_without_rules_everything_is_asked(self, leads: FakeFrappeClient, gui: EasyguiStub) -> None:
+        gui.answers["choicebox"] = "überspringen"
+        lead.process_open_leads()
+        assert len(gui.calls) == 1 and gui.calls[0][2] == {"preselect": 0}
 
 
 class TestSalesInvoiceItems:

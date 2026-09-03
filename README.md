@@ -37,6 +37,22 @@ lead is marked "Do Not Contact". Run it once per instance (without `--apply` it 
     python3 lead_dnc_setup.py --server URL --key KEY --secret SECRET --apply
 
 The script is idempotent and also flags the leads that were marked manually before.
+
+## sorting leads automatically
+`lead_rules.py` decides for each open lead whether it can be marked "Do Not Contact" without
+asking: sender domains and addresses on a block list (custom doctype "Lead Absenderregel",
+maintained in ERPNext), e-mail domains of suppliers (field `custom_email_domains` on Supplier,
+filled from invoice PDFs and updated whenever an invoice is read in) combined with a
+transactional subject, and newsletter wording from bulk senders. Everything else is shown in the
+dialog, where a suggestion is preselected. Automatic decisions leave a comment on the lead.
+Rules with effect "Lead" protect a sender from automatic marking.
+
+`lead_rules_setup.py` installs the doctype and the supplier field, derives the initial block list
+from the decisions made so far, extracts the supplier domains and reports with `--backtest` how
+the rules would have decided the leads decided manually before a given date:
+
+    python3 lead_rules_setup.py --server URL --key KEY --secret SECRET --backtest
+    python3 lead_rules_setup.py --server URL --key KEY --secret SECRET --apply
  
 ## mytools
 * the `mytools/` directory holds private helper scripts, kept in a separate non-public repository

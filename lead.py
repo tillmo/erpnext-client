@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 from api import Api, LIMIT
 from settings import LEAD_OWNERS, LEAD_DNC_FIELD
+import lead_rules
 import utils
 import easygui
 import json
@@ -22,6 +23,14 @@ def mark_not_contact(name: str) -> None:
     doc['status'] = 'Do Not Contact'
     doc[LEAD_DNC_FIELD] = 1
     Api.api.update(doc)
+
+def add_comment(name: str, text: str) -> None:
+    """Leave a comment on the lead (why it was marked automatically)."""
+    try:
+        Api.api.insert({'doctype': 'Comment', 'comment_type': 'Comment', 'reference_doctype': 'Lead',
+                        'reference_name': name, 'content': text})
+    except Exception as e:
+        print(f"Hinweis: Kommentar an {name} nicht möglich: {str(e).splitlines()[-1][:120]}")
 
 def format(lead: dict[str, Any]) -> dict[str, Any]:
     lead['creation'] = lead['creation'].split()[0]
@@ -56,34 +65,52 @@ def process_open_leads() -> None:
                                       '_assign':['like',None]},
                              fields=['name','status','lead_name'],
                              limit_page_length=LIMIT)
+    rules = lead_rules.Rules.load()
+    n_auto = n_manual = n_skipped = 0
     for lead1 in leads:
-        #print(lead1['lead_owner'])
         res = Api.api.load_doc("Lead",lead1['name'])
         doc = res['docs'][0]
         versions = res['docinfo']['versions']
+        comms = res['docinfo']['communications']
         choice: str | None = None
+        comment: str | None = None
         # flagged, or marked "Do Not Contact" before and reopened by a new e-mail
         if doc.get(LEAD_DNC_FIELD) or any(is_change_into_not_contact(v) for v in versions):
             choice = 'kein Lead'
             print(f'Markiere Lead {lead1["name"]} {lead1["lead_name"]} wieder als "nicht kontaktieren"')
-        if not choice:
-            comms = res['docinfo']['communications']
-            title = f"Bitte Lead Owner für {lead1['name']} {lead1['lead_name']} wählen"
-            texts = [utils.html_to_text(comm['content']) for comm in comms]
-            text = "\n--------------------\n".join(texts)
-            text = "\n".join(text.split("\n")[:35])[:1000]
-            msg = f"{doc['name']}   {doc['lead_name']}\n\n{text}"
-            choice = easygui.choicebox(msg, title, choices)
+        else:
+            decision = lead_rules.classify(doc.get('email_id'), comms, rules)
+            if decision.auto:
+                choice = decision.choice
+                comment = f'Automatisch als "nicht kontaktieren" markiert: {decision.reason}'
+                print(f'Markiere Lead {lead1["name"]} {lead1["lead_name"]} als "nicht kontaktieren": {decision.reason}')
+            else:
+                title = f"Bitte Lead Owner für {lead1['name']} {lead1['lead_name']} wählen"
+                texts = [utils.html_to_text(comm['content']) for comm in comms]
+                text = "\n--------------------\n".join(texts)
+                text = "\n".join(text.split("\n")[:35])[:1000]
+                hint = ""
+                if decision.reason:
+                    hint = f"Vorschlag: {decision.choice or 'Lead'} ({decision.reason})\n\n"
+                msg = f"{doc['name']}   {doc['lead_name']}\n{hint}\n{text}"
+                preselect = choices.index(decision.choice) if decision.choice in choices else 0
+                choice = easygui.choicebox(msg, title, choices, preselect=preselect)
+                n_manual += 1
         if choice is None:
-            print("Lead-Bearbeitung abgebrochen")        
-            return
+            print("Lead-Bearbeitung abgebrochen")
+            break
         if choice == 'überspringen':
+            n_skipped += 1
             continue
         if choice == 'kein Lead':
             mark_not_contact(lead1['name'])
+            if comment:
+                add_comment(lead1['name'], comment)
+                n_auto += 1
         else:
             Api.api.assign_to("Lead",lead1['name'],[lead_owners[choice]])
-    print("Leads fertig bearbeitet")        
+    print(f"Leads fertig bearbeitet: {n_auto} automatisch als \"nicht kontaktieren\" markiert, "
+          f"{n_manual} von Hand entschieden, {n_skipped} übersprungen")
 
 def cleanup_leads() -> None:
     leads = Api.api.get_list("Lead",

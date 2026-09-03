@@ -31,6 +31,29 @@ LEAD_OWNERS = ['Chris','Paul','Henrik']
 # Check field on Lead: the server script installed by lead_dnc_setup.py keeps flagged leads
 # in status "Do Not Contact" although Frappe reopens a lead on every received e-mail
 LEAD_DNC_FIELD = 'custom_nicht_kontaktieren'
+# Sorting of leads created from e-mails (lead_rules.py, installed by lead_rules_setup.py)
+LEAD_RULE_DOCTYPE = 'Lead Absenderregel'          # block/allow list: sender domains and addresses
+SUPPLIER_DOMAINS_FIELD = 'custom_email_domains'   # Small Text on Supplier, one domain per line
+OWN_DOMAINS = {'bremer-solidarstrom.de', 'solidarische-oekonomie-bremen.de', 'cafe-sunshine.de'}
+FREEMAIL_DOMAINS = {'gmail.com', 'googlemail.com', 'web.de', 'gmx.de', 'gmx.net', 'gmx.at', 'gmx.ch', 'gmx.com',
+                    't-online.de', 'yahoo.de', 'yahoo.com', 'yahoo.fr', 'yahoo.co.uk', 'hotmail.com', 'hotmail.de',
+                    'outlook.com', 'outlook.de', 'live.de', 'live.com', 'icloud.com', 'me.com', 'posteo.de',
+                    'posteo.net', 'posteo.org', 'posteo.eu', 'freenet.de', 'aol.com', 'aol.de', 'mail.de', 'arcor.de',
+                    'online.de', 'mailbox.org', 'protonmail.com', 'proton.me', 'ewetel.net', 'nord-com.net',
+                    'magenta.de', 'vodafone.de', 'kabelmail.de', 'unitybox.de'}
+# subject words typical of real requests: never mark automatically, suggest "Lead"
+LEAD_POSITIVE_WORDS = ['balkonsolar', 'balkonkraftwerk', 'balkon', 'beratung', 'kontaktanfrage', 'solaranlage',
+                       'solarprojekt', 'solarmodul', 'photovoltaik', 'pv-anlage', 'dach', 'installation', 'anfrage',
+                       'speicher', 'wallbox', 'termin', 'interesse']
+# subject words typical of supplier correspondence
+LEAD_TRANSACTIONAL_WORDS = ['rechnung', 'auftragsbestätigung', 'auftragsbestaetigung', 'bestellung', 'bestellbestätigung',
+                            'lieferung', 'lieferschein', 'versand', 'sendung', 'gutschrift', 'zahlung', 'mahnung',
+                            'invoice', 'order', 'shipment', 'tracking', 'preisliste', 'zahlungserinnerung']
+LEAD_NEWSLETTER_PATTERN = r'unsubscribe|abmelden|abbestellen|newsletter|list-unsubscribe|mailing'
+# local parts (before the @) of bulk senders
+LEAD_BULK_SENDERS = {'noreply', 'no-reply', 'no_reply', 'donotreply', 'do-not-reply', 'newsletter', 'news', 'marketing',
+                     'mailer', 'notification', 'notifications', 'info', 'service', 'kundenservice', 'mail', 'bounce',
+                     'reply', 'support', 'hello', 'hallo', 'team', 'kontakt', 'contact', 'shop', 'sales', 'vertrieb'}
 EBAY_ACCOUNT = '1230 - Guthaben bei EBay - SoMiKo'
 
 NKK_ACCOUNTS: dict[float, str] = {19.0: '3401 - NKK 19% Vorsteuer - Laden',

@@ -10,6 +10,7 @@ from settings import STANDARD_PRICE_LIST, STANDARD_NAMING_SERIES_PINV, VAT_DESCR
 
 import os
 import utils
+import lead_rules
 import PySimpleGUI as sg
 import easygui
 import subprocess
@@ -935,6 +936,10 @@ class PurchaseInvoice(Invoice):
         self.infiles = [infile]
         if not self.parse_invoice(invoice_json, infile, account_abbrv, paid_by_submitter, supplier, check_dup=check_dup):
             return None
+        try:        # e-mail domains of the supplier help to sort leads created from e-mails (lead_rules.py)
+            lead_rules.note_supplier_domains(self.supplier, "\n".join(pdf_to_text(infile)))
+        except Exception as e:
+            print(f"Hinweis: Lieferanten-Domains nicht vermerkt: {e}")
         print("Prüfe auf doppelte Rechung")
         # parse_invoice may already have checked (and attached the PDF)
         if self.is_duplicate or self.check_if_present(check_dup):
