@@ -576,6 +576,9 @@ class TestSendToErpnext:
         assert doc["docstatus"] == 0 and doc["grand_total"] == 119.0 and doc["total"] == 100.0
         assert doc["supplier"] == "Muster Solartechnik GmbH" and doc["bill_no"] == "2026-0815"
         assert doc["supplier_invoice"] == "/private/files/rechnung.pdf"
+        # an das Feld gebunden und privat - sonst legt Frappe beim Speichern eine oeffentliche Kopie an
+        file_doc = fake_api.get_list("File", fields=["attached_to_field", "is_private", "attached_to_name"])[0]
+        assert file_doc == {"attached_to_field": "supplier_invoice", "is_private": 1, "attached_to_name": doc["name"]}
         assert fake_api.get_doc("Supplier", "Muster Solartechnik GmbH")
         assert somiko.purchase_invoices["Muster Solartechnik GmbH"][-1]["name"] == doc["name"]
         assert p.outstanding == 119.0 and p.reference == "2026-0815"

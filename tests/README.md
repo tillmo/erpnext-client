@@ -56,6 +56,11 @@ des Benutzers. Schreibtests laufen so nicht versehentlich gegen die Produktivins
   den Dokumentnamen. `test_bank_write.py` setzt `last_integration_date` des benutzten
   Bankkontos zurück. `test_load_item_data_completes_item_defaults` ergänzt – wie das Programm
   beim Start – fehlende `item_defaults` an Artikeln; das bleibt bestehen.
+* **Buchen hinterlässt Spuren.** Mit `ERPNEXT_TEST_ALLOW_SUBMIT=1` gebuchte Belege werden
+  storniert, lassen sich aber nicht löschen (Hauptbuch-/Payment-Ledger-Einträge verweisen
+  darauf); sie bleiben als stornierte `pytest-…`-Belege samt Test-Lieferant auf der Instanz.
+  Die Server-App `bremer_solidarstrom` erlaubt für `PreRechnung.buchungskonto` nur feste
+  Kurznamen (z. B. „Werkzeuge und Kleingeräte“); die Tests nutzen einen davon.
 
 ## Optionale Abhängigkeiten
 

@@ -92,6 +92,12 @@ class TestSalesInvoiceItems:
         assert sorted(items, key=lambda i: i["item_code"]) == [{"item_name": "Neuer Name", "item_code": "A", "qty": 3},
                                                               {"item_name": "B", "item_code": "B", "qty": 1}]
 
+    def test_get_items_loads_disabled_items(self, fake_api):
+        Api.items_by_code = {"A": {"item_code": "A", "item_name": "A"}}
+        fake_api.add("Item", item_code="ALT", item_name="Alter Artikel", disabled=1)
+        fake_api.add("Sales Invoice", name="R-1", items=[{"item_code": "ALT", "qty": 2}])
+        assert sales_invoice.get_items([{"name": "R-1"}]) == [{"item_name": "Alter Artikel", "item_code": "ALT", "qty": 2}]
+
 
 class TestGetSalesInvoices:
     def test_writes_csv_and_pdfs(self, fake_api, in_tmp_cwd, capsys):

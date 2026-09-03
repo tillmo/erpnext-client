@@ -234,6 +234,12 @@ class TestEventHandler:
         q = utils.last_quarter(__import__("datetime").datetime.today())
         assert seen == [("process", F.COMPANY), ("vat", F.COMPANY, q), ("tax", F.COMPANY, q), "unrec"]
 
+    def test_report_without_data_is_skipped(self, loaded, monkeypatch):
+        import report
+        menu.initial_loads()
+        monkeypatch.setattr(report, "build_report", lambda *a, **k: None)
+        assert menu.event_handler("Abrechnung", Window()) == "inner"
+
     def test_gui_events_are_detected(self, loaded):
         menu.initial_loads()
         with pytest.raises(GuiCalled):

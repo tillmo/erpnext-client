@@ -57,8 +57,10 @@ class TestStockEntry:
 
 class TestItems:
     def test_new_item_and_price(self, live, api, cleanup, test_supplier):
+        from collections import defaultdict
         pinv = F.make_purchase_invoice(live.company, True)
         Api.items_by_code = {}
+        Api.item_code_translation = defaultdict(dict)    # sonst setzt Api.load_item_data() das
         s_item = SupplierItem(pinv)
         s_item.description = "pytest Testartikel " + tag()
         s_item.long_description = "Nur für automatische Tests angelegt"

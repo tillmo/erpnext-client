@@ -122,7 +122,18 @@ class TestReports:
                                         "period_end_date": "{}-12-31".format(year), "periodicity": "Yearly",
                                         "accumulated_in_group_company": True, "report": "Profit and Loss Statement"})
         assert rep["columns"] and isinstance(rep["result"], list)
+        if not rep["result"]:
+            pytest.skip("Firma {} hat keine Buchungen".format(live.company_name))
         assert any("account_name" in r for r in rep["result"])
+
+    def test_consolidated_statement_is_synchronous(self, api, live):
+        year = __import__("datetime").date.today().year
+        filters = {"company": live.company_name, "period_start_date": "{}-01-01".format(year),
+                   "period_end_date": "{}-12-31".format(year), "accumulated_in_group_company": True,
+                   "report": "Profit and Loss Statement"}
+        rep = api.query_report(report_name="Consolidated Financial Statement", filters=filters,
+                               ignore_prepared_report=True)
+        assert "columns" in rep and "result" in rep, sorted(rep)
 
 
 class TestFiles:

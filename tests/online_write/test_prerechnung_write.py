@@ -22,18 +22,32 @@ def _need_doctype(live, monkeypatch):
     monkeypatch.setattr(utils, "evince", lambda f: None)
 
 
+# Die Serverseite (App bremer_solidarstrom) erlaubt fuer buchungskonto nur feste Kurznamen
+BUCHUNGSKONTO = "Werkzeuge und Kleingeräte"
+
+
 @pytest.fixture
-def pre(live, api, cleanup, test_supplier, tmp_path, today):
+def konto(live):
+    accs = [a["name"] for a in live.company.leaf_accounts if BUCHUNGSKONTO in a["name"]]
+    if not accs:
+        pytest.skip("kein Konto '{}' fuer {}".format(BUCHUNGSKONTO, live.company_name))
+    return accs[0]
+
+
+@pytest.fixture
+def pre(live, api, cleanup, test_supplier, konto, tmp_path, today):
     no = tag("PRE")
     pdf = F.write_generic_invoice_pdf(tmp_path / "pre.pdf", no=no)
+    # 'pdf' ist Pflichtfeld, die Datei kann aber erst an ein bestehendes Dokument gehaengt werden:
+    # Platzhalter ohne Datei-URL, danach Anhang direkt an das Feld (docfield setzt 'pdf')
     doc = api.insert({"doctype": "PreRechnung", "company": live.company_name, "lieferant": test_supplier,
                       "typ": "Rechnung", "datum": today, "processed": 0, "eingepflegt": 0,
-                      "buchungskonto": live.expense_leaf(), "selbst_bezahlt": 0, "lager": 0,
-                      "kommentar": "pytest " + no})
+                      "buchungskonto": BUCHUNGSKONTO, "selbst_bezahlt": 0, "lager": 0,
+                      "pdf": "pytest-platzhalter", "kommentar": "pytest " + no})
     cleanup.add("PreRechnung", doc["name"])
-    upload = api.read_and_attach_file("PreRechnung", doc["name"], pdf, True)
-    api.update({"doctype": "PreRechnung", "name": doc["name"], "pdf": upload["file_url"]})
+    api.read_and_attach_file("PreRechnung", doc["name"], pdf, True, docfield="pdf")
     rows = api.get_list("PreRechnung", filters={"name": doc["name"]}, fields=PRE_FIELDS, limit_page_length=1)
+    assert rows[0]["pdf"].startswith("/private/files/")
     return rows[0], no
 
 
@@ -61,7 +75,7 @@ class TestReadAndTransfer:
         doc = api.get_doc("Purchase Invoice", pinv.doc["name"])
         assert doc["supplier"] == inv["lieferant"] and doc["bill_no"] == no
         assert doc["grand_total"] == pytest.approx(119.0) and doc["update_stock"] == 0
-        assert doc["items"][0]["expense_account"] == live.expense_leaf()
+        assert BUCHUNGSKONTO in doc["items"][0]["expense_account"]
         stored = api.get_doc("PreRechnung", inv["name"])
         assert stored["eingepflegt"] == 1 and stored["purchase_invoice"] == doc["name"]
         assert inv["name"] not in {p["name"] for p in live.company.get_open_pre_invoices(False)}

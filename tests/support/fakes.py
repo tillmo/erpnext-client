@@ -437,6 +437,9 @@ class FakeFrappeClient:
         if not doctype:
             raise FrappeException("FrappeClient Request Failed\n\nDocType None not found")
         stored = self._get(doctype, frappe.cstr(doc.get("name")))
+        if doc.get("modified") and stored.get("modified") and doc["modified"] != stored["modified"]:
+            raise FrappeException("FrappeClient Request Failed\n\nTimestampMismatchError: Dokument wurde geändert, "
+                                  "nachdem es geöffnet wurde")
         if stored.get("docstatus", 0) == 1:
             allowed = {"name", "doctype", "docstatus", "modified", "supplier_invoice", "last_integration_date",
                        "status", "payment_entries", "allocated_amount", "unallocated_amount", "_assign"}
@@ -507,23 +510,26 @@ class FakeFrappeClient:
             raise FrappeException("FrappeClient Request Failed\n\nFile {} not found".format(path))
         return self.files[path]
 
-    def attach_file(self, doctype, docname, filename, filedata, is_private):
-        self._log("attach_file", doctype, docname, filename, is_private)
-        self._get(doctype, docname)
+    def attach_file(self, doctype, docname, filename, filedata, is_private, docfield=None):
+        self._log("attach_file", doctype, docname, filename, is_private, docfield=docfield)
+        stored = self._get(doctype, docname)
         file_url = ("/private/files/" if is_private else "/files/") + filename
         self.files[file_url] = filedata
         self.attachments.append((doctype, docname, file_url))
+        if docfield:
+            stored[docfield] = file_url
+            stored["modified"] = datetime.datetime.now().isoformat(sep=" ", timespec="microseconds")
         file_doc = {"doctype": "File", "file_name": filename, "file_url": file_url,
                     "attached_to_doctype": doctype, "attached_to_name": docname,
-                    "is_private": 1 if is_private else 0}
+                    "attached_to_field": docfield, "is_private": 1 if is_private else 0}
         file_doc["name"] = self._new_name("File", file_doc)
         self.docs("File")[file_doc["name"]] = file_doc
         return frappe._dict(copy.deepcopy(file_doc))
 
-    def read_and_attach_file(self, doctype, docname, filename, is_private):
+    def read_and_attach_file(self, doctype, docname, filename, is_private, docfield=None):
         with open(filename, "rb") as f:
             data = f.read()
-        return self.attach_file(doctype, docname, os.path.basename(filename), data, is_private)
+        return self.attach_file(doctype, docname, os.path.basename(filename), data, is_private, docfield)
 
     def get_pdf(self, doctype, name, print_format="Standard", letterhead=True, language="de"):
         self._log("get_pdf", doctype, name, print_format)
@@ -536,8 +542,8 @@ class FakeFrappeClient:
     def get_attachments(self, doctype, name):
         return [a[2] for a in self.attachments if a[0] == doctype and a[1] == name]
 
-    def query_report(self, report_name="", filters=None):
-        self._log("query_report", report_name, filters)
+    def query_report(self, report_name="", filters=None, ignore_prepared_report=False):
+        self._log("query_report", report_name, filters, ignore_prepared_report=ignore_prepared_report)
         handler = self.report_handlers.get(report_name.lower())
         if handler is None:
             raise FrappeException("FrappeClient Request Failed\n\nReport {} not found".format(report_name))

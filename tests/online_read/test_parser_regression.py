@@ -26,6 +26,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.
 
 
 def same_number(parsed, expected):
+    expected = (expected or "").strip()       # bill_no in ERPNext enthält teils ein abschließendes '\n'
     if not expected:
         return parsed in (None, "", "???")
     if parsed == expected:

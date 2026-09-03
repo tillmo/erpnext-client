@@ -14,7 +14,7 @@ from purchase_invoice import PurchaseInvoice  # noqa: E402
 
 def attachments(api, name):
     return api.get_list("File", filters={"attached_to_doctype": "Purchase Invoice", "attached_to_name": name},
-                        fields=["name", "file_url"], limit_page_length=LIMIT)
+                        fields=["name", "file_url", "is_private", "attached_to_field"], limit_page_length=LIMIT)
 
 
 @pytest.fixture
@@ -44,7 +44,11 @@ class TestReadAndTransfer:
         assert doc["items"][0]["expense_account"] == live.expense_leaf()
         assert doc["taxes"] and doc["taxes"][0]["account_head"] == live.company.taxes[19.0]
         assert doc["supplier_invoice"] and api.get_file(doc["supplier_invoice"])[:4] == b"%PDF"
-        assert len(attachments(api, name)) == 1
+        files = attachments(api, name)
+        assert len(files) == 1, files
+        # genau eine private Datei, an das Feld gebunden (keine oeffentliche Kopie durch Frappe)
+        assert files[0]["is_private"] == 1 and files[0]["attached_to_field"] == "supplier_invoice"
+        assert files[0]["file_url"] == doc["supplier_invoice"] and doc["supplier_invoice"].startswith("/private/")
         # sichtbar als offene Einkaufsrechnung (Entwurf)
         assert name in {inv.name for inv in live.company.get_purchase_invoices(True)}
         assert "Später buchen" in gui.calls[-1][1][2]

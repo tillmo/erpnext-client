@@ -178,6 +178,15 @@ class TestPostProcess:
         assert str(e.value).startswith("FrappeClient Request Failed")
         assert "ValidationError: nein" in str(e.value)
 
+    def test_exc_type_without_traceback_raises(self, client):
+        # Frappe 14 antwortet bei 404/417 oft nur mit exc_type und _server_messages
+        with pytest.raises(FrappeException, match="DoesNotExistError"):
+            client.post_process(FakeResponse({"exc_type": "DoesNotExistError", "_server_messages": "[]"}, status_code=404))
+
+    def test_exc_type_on_success_status_is_ignored(self, client):
+        # z.B. frappe.client.delete meldet intern abgefangene Fehler mit Status 200
+        assert client.post_process(FakeResponse({"message": "ok", "exc_type": "DoesNotExistError"})) == "ok"
+
     def test_non_json_exc_is_passed_through(self, client):
         with pytest.raises(FrappeException, match="roh"):
             client.post_process(FakeResponse({"exc": "roh"}))
@@ -221,6 +230,9 @@ class TestFilesAndReports:
         assert data["filename"] == "r.pdf"
         assert data["filedata"] == b64encode(b"data")
         assert data["is_private"] == 1 and data["decode_base64"] == 1
+        assert "docfield" not in data
+        client.read_and_attach_file("Purchase Invoice", "EK 1", str(p), True, docfield="supplier_invoice")
+        assert last(client)[2]["data"]["docfield"] == "supplier_invoice"
 
     def test_query_report(self, client):
         client.session.responses = [FakeResponse({"message": {"result": [], "columns": []}})]
@@ -229,6 +241,9 @@ class TestFilesAndReports:
         assert url == URL + "/api/method/frappe.desk.query_report.run"
         assert kwargs["params"]["report_name"] == "General ledger"
         assert json.loads(kwargs["params"]["filters"]) == {"company": "X"}
+        assert "ignore_prepared_report" not in kwargs["params"]
+        client.query_report("Consolidated Financial Statement", {}, ignore_prepared_report=True)
+        assert last(client)[2]["params"]["ignore_prepared_report"] == 1
 
     def test_assign_to(self, client):
         client.assign_to("Lead", "L", ["user@example.com"])

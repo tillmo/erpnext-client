@@ -165,6 +165,15 @@ class Cleanup:
             except Exception as e:
                 errors.append(("restore", str(action), str(e)[:200]))
         pending = list(reversed(self.items))
+        # Rechnungen an Test-Lieferanten, die ein abgebrochener Test nicht mehr registrieren konnte
+        for doctype, name in self.items:
+            if doctype == "Supplier":
+                try:
+                    for pi in self.client.get_list("Purchase Invoice", filters={"supplier": name}, limit_page_length=100):
+                        if ("Purchase Invoice", pi["name"]) not in pending:
+                            pending.insert(0, ("Purchase Invoice", pi["name"]))
+                except FrappeException as e:
+                    errors.append(("Purchase Invoice", "von " + name, str(e)[:200]))
         for attempt in range(2):          # zweiter Durchlauf löst Verkettungen (Link-Prüfungen) auf
             failed = []
             for doctype, name in pending:
@@ -177,11 +186,17 @@ class Cleanup:
                         self.client.cancel(doctype, name)
                     self.client.delete(doctype, name)
                 except Exception as e:
-                    failed.append((doctype, name, str(e)[:300]))
+                    # letzte Zeile der Server-Antwort enthält den Ausnahmetyp (statt Traceback-Anfang)
+                    failed.append((doctype, name, str(e).strip().splitlines()[-1][:300]))
             pending = [(d, n) for d, n, _ in failed]
             if not pending:
                 break
-        errors.extend(failed)
+        # stornierte Belege (und daran hängende Stammdaten) lassen sich in ERPNext nicht löschen,
+        # weil Hauptbuch-/Payment-Ledger-Einträge darauf verweisen - sie bleiben als 'pytest-…' stehen
+        cancelled = [(d, n) for d, n, msg in failed if "LinkExistsError" in msg]
+        errors.extend(f for f in failed if "LinkExistsError" not in f[2])
+        if cancelled:
+            print("Storniert und absichtlich belassen (nicht löschbar): {}".format(cancelled))
         if errors:
             warnings.warn("Aufräumen unvollständig, bitte auf der Testinstanz prüfen: {}".format(errors))
         return errors

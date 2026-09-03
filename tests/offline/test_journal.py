@@ -309,6 +309,22 @@ class TestVatFunctions:
         assert journal.income(somiko.name, "2026-04-01", "2026-06-30") == {0: 150.0, 19: 1000.0}
         assert journal.pretax(somiko.name, "2026-04-01", "2026-06-30") == 190.0
 
+    def test_unconfigured_company(self, fake_api, capsys):
+        assert journal.income("Colab-neu", "a", "b") == {}
+        assert journal.pretax("Colab-neu", "a", "b") == 0.0
+        assert journal.pretax("Soli e.V.", "a", "b") == 0.0          # konfiguriert, aber ohne Vorsteuerkonten
+        assert "Keine Ertragskonten für Colab-neu" in capsys.readouterr().out
+        assert fake_api.calls_of("query_report") == []
+
+    def test_vat_declaration_skips_unconfigured_descendants(self, somiko, fake_api, capsys):
+        fake_api.add("Company", **F.company_doc())
+        fake_api.add("Company", **dict(F.company_doc("Colab-neu", "CN"), parent_company=somiko.name))
+        Company(F.company_doc("Colab-neu", "CN"))     # somiko ist schon registriert, init_companies lädt nicht mehr
+        fake_api.set_report("General ledger", gl_handler({INCOME_ACCOUNTS[somiko.name][19][0]: -500.0}))
+        journal.vat_declaration(somiko.name, "2026-02")
+        out = capsys.readouterr().out
+        assert "Keine Ertragskonten für Colab-neu" in out and "19 : 500.00" in out
+
     def test_pretax_details_only_purchase_invoices(self, somiko, fake_api):
         acc = TAX_ACCOUNTS[somiko.name]["pre_tax_accounts"][0]
         rows = [{"account": acc, "voucher_type": "Purchase Invoice", "voucher_no": "EK 1", "debit": 19.0, "credit": 0},

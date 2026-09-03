@@ -147,7 +147,16 @@ class TestBuildReport:
         tbl = report.build_report(somiko.name, consolidated=True)
         assert tbl.title.startswith("Abrechnung Bremer SolidarStrom")
         assert tbl.headings == ["Einnahmen/Ausgaben", "Total (EUR"]
-        assert "periodicity" not in fake_api.calls_of("query_report")[0][1][1]
+        call = fake_api.calls_of("query_report")[0]
+        assert "periodicity" not in call[1][1]
+        assert call[2]["ignore_prepared_report"] is True      # sonst nur im Hintergrund erstellt (Frappe 14)
+
+    def test_report_without_data_returns_none(self, somiko, fake_api, capsys):
+        fake_api.set_report("Profit and Loss Statement", {"prepared_report": True, "doc": {}})
+        assert report.build_report(somiko.name) is None
+        assert "liefert keine Daten" in capsys.readouterr().out
+        fake_api.set_report("Balance Sheet", lambda f: (_ for _ in ()).throw(RuntimeError("weg")))
+        assert report.build_report(somiko.name, balance=True) is None
 
     def test_default_periodicity(self, somiko, fake_api, user_settings):
         fake_api.set_report("Profit and Loss Statement", pl_report)

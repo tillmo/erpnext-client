@@ -18,16 +18,19 @@ class TestFinancialStatements:
     def test_build_report(self, live, user_settings, kwargs):
         user_settings["-year-"] = datetime.date.today().year
         tbl = report.build_report(live.company_name, **kwargs)
-        assert isinstance(tbl, table.Table)
-        assert tbl.entries, "Bericht ohne Zeilen"
+        assert isinstance(tbl, table.Table), "Bericht liefert keine Daten"
+        if not tbl.entries:
+            pytest.skip("Firma {} hat keine Buchungen im Berichtszeitraum".format(live.company_name))
         assert tbl.headings[0] in ("Einnahmen/Ausgaben", "Bilanz")
         assert all("account_name" in e for e in tbl.entries)
         assert all(len(e["account_name"]) <= 39 for e in tbl.entries)
 
     def test_build_report_previous_year(self, live, user_settings):
+        # get_dates: das Vorjahr läuft bis heute, ältere Jahre bis zum 31.12.
         user_settings["-year-"] = datetime.date.today().year - 1
-        tbl = report.build_report(live.company_name)
-        assert tbl.title.endswith("31.12.{}".format(datetime.date.today().year - 1))
+        assert report.build_report(live.company_name).title.endswith(datetime.date.today().strftime("%d.%m.%Y"))
+        user_settings["-year-"] = datetime.date.today().year - 2
+        assert report.build_report(live.company_name).title.endswith("31.12.{}".format(datetime.date.today().year - 2))
 
 
 class TestGeneralLedger:
