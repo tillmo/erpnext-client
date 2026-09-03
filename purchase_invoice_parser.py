@@ -5,10 +5,11 @@ from supplier_item import SupplierItem
 
 
 class PurchaseInvoiceParser:
-    def __init__(self, purchase_invoice, supplier, lines):
+    def __init__(self, purchase_invoice, supplier, lines, is_test=False):
         self.purchase_invoice = purchase_invoice
         self.supplier = supplier
         self.lines = lines
+        self.is_test = is_test
         self.line_items = []
         self.is_rechnung = False
         self.rounding_error = 0
@@ -75,7 +76,7 @@ class PurchaseInvoiceParser:
         return self.purchase_invoice
 
     def set_generic_info(self):
-        self.purchase_invoice.parse_generic(self.lines)
+        self.purchase_invoice.parse_generic(self.lines, is_test=self.is_test)
 
     def set_basic_info(self):
         self.purchase_invoice.date = None
@@ -150,10 +151,10 @@ class PurchaseInvoiceParser:
                     if len(words) > i:
                         d = utils.convert_date4(words[i])
                         if d:
-                            self.date = d
+                            self.purchase_invoice.date = d
                 if line[0:8] == "Rechnung":
-                    if len(words) > 1:
-                        self.no = words[2]
+                    if len(words) > 2:
+                        self.purchase_invoice.no = words[2]
                 if preamble:
                     if len(line) >= 4 and line[0:4] == "Pos.":
                         preamble = False
@@ -269,7 +270,8 @@ class PurchaseInvoiceParser:
                 s_item.amount = utils.read_float(item_str[157:].split()[0])
                 if s_item.qty_unit == "Rol":
                     try:
-                        r1 = re.search('[0-9]+ *[mM]', s_item.description)
+                        # nur die Einheit m/Meter, nicht das 'm' aus '6mm2'
+                        r1 = re.search(r'[0-9]+ *(?:[mM]eter|[mM])\b', s_item.description)
                         r2 = re.search('[0-9]+', r1.group(0))
                         s_item.qty_unit = "Meter"
                         s_item.qty = int(r2.group(0))

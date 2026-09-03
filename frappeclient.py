@@ -27,6 +27,14 @@ class FrappeException(Exception):
 	pass
 
 
+class SiteUnreachableError(FrappeException):
+	pass
+
+
+class SiteExpiredError(FrappeException):
+	pass
+
+
 class NotUploadableException(FrappeException):
 	def __init__(self, doctype):
 		self.message = "The doctype `{1}` is not uploadable, so you can't download the template".format(doctype)

@@ -1,3 +1,5 @@
+import datetime
+import decimal
 import json
 
 def as_unicode(text: str, encoding: str = "utf-8") -> str:
@@ -44,17 +46,10 @@ def json_handler(obj):
 		return str(obj)
 
 	elif isinstance(obj, datetime.timedelta):
-		return format_timedelta(obj)
+		return str(obj)
 
 	elif isinstance(obj, decimal.Decimal):
 		return float(obj)
-
-	elif isinstance(obj, LocalProxy):
-		return str(obj)
-
-	elif isinstance(obj, frappe.model.document.BaseDocument):
-		doc = obj.as_dict(no_nulls=True)
-		return doc
 
 	elif isinstance(obj, Iterable):
 		return list(obj)

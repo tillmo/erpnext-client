@@ -264,7 +264,7 @@ def keep_first(data,accounts):
         data1.append(r)
     return data1  
 
-def general_ledger(company_name,account):
+def general_ledger_account(company_name,account):
     ## dates
     start_date = date(datetime.today().year, 1, 1)
     end_date = datetime.today()
@@ -323,7 +323,7 @@ def format_opp(opp):
 def opportunities_data(company_name,balkon=False):
     opps = {}
     if balkon:
-        for si in gui_api_wrapper(Api.api.get_list,'Sales Invoice',filters={'company':company_name,'balkonmodul':balkon,'status': ['!=','Cancelled']},limit_page_length=LIMIT):
+        for si in gui_api_wrapper(Api.api.get_list,'Sales Invoice',filters={'company':company_name,'balkonmodul':balkon,'status': ['!=','Cancelled']},fields=['*'],limit_page_length=LIMIT):
             si['transaction_date'] = si['posting_date']
             opp = si
             opp['sales_invoice'] = si['name']
@@ -332,10 +332,10 @@ def opportunities_data(company_name,balkon=False):
             opp['is_paid'] = si['status'] == 'Paid'
             opps[si['name']] = opp
         return opps
-    for opp in gui_api_wrapper(Api.api.get_list,'Opportunity',filters={'company':company_name,'status': ['!=','Cancelled'], 'nur_balkonmodul':balkon},limit_page_length=LIMIT):
+    for opp in gui_api_wrapper(Api.api.get_list,'Opportunity',filters={'company':company_name,'status': ['!=','Cancelled'], 'nur_balkonmodul':balkon},fields=['*'],limit_page_length=LIMIT):
         opps[opp['name']] = opp
     quots = {}
-    for quot in gui_api_wrapper(Api.api.get_list,'Quotation',filters={'company':company_name,'status': ['not in',['Cancelled','Expired']]},limit_page_length=LIMIT):
+    for quot in gui_api_wrapper(Api.api.get_list,'Quotation',filters={'company':company_name,'status': ['not in',['Cancelled','Expired']]},fields=['*'],limit_page_length=LIMIT):
         if quot['opportunity']:
             if quot['opportunity'] in opps:
                 opp = quot['opportunity']

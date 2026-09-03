@@ -7,7 +7,7 @@ import settings
 import PySimpleGUI as sg # type: ignore
 import company
 import payment
-from journal import journal_entry
+import journal
 import easygui # type: ignore
 from numpy import sign
 from collections import defaultdict
@@ -108,7 +108,7 @@ class BankTransaction(Doc):
             against_account = bt.baccount.e_account
         else:    
             against_account = cacc_or_bt
-        j = journal_entry(self.company,self.baccount.e_account,against_account,
+        j = journal.journal_entry(self.company,self.baccount.e_account,against_account,
                           deposit,withdrawal,self.description[0:140],
                           self.description,self.date)
         #print(j)

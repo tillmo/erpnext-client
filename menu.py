@@ -627,7 +627,7 @@ def event_handler(event,window):
             if ix is False:
                 break
             account = tbl.entries[ix]['account']
-            tbl1 = report.general_ledger(comp,account)
+            tbl1 = report.general_ledger_account(comp,account)
             if tbl1:
                 tbl1.display()
     elif event == 'Bilanz grafisch':

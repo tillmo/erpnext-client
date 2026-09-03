@@ -123,7 +123,7 @@ def iban_de(blz,kto):
     bak = blz*10000000000 + kto
     ban = bak*1000000 + lnd
     prf = 98 - ban % 97
-    return "DE{0}{1:08d}{2:010d}".format(prf,blz,kto)
+    return "DE{0:02d}{1:08d}{2:010d}".format(prf,blz,kto)
 
 def showlist(l):
     res = ""

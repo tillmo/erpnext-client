@@ -303,11 +303,14 @@ class PurchaseInvoice(Invoice):
             val = input("MWSt ({}%): ".format(self.default_vat)).strip()
             self.vat[self.default_vat] = utils.read_float(val) if val else 0.0
         if not self.totals.get(self.default_vat):
-            cur_gross = (amount or "") or \
-                        (self.totals[self.default_vat] + self.vat[self.default_vat])
+            # nach parse_generic ohne erkannte Beträge steht "" statt einer Zahl in totals/vat
+            known_total = self.totals[self.default_vat] or 0.0
+            known_vat = self.vat[self.default_vat] or 0.0
+            cur_gross = amount or (known_total + known_vat if self.totals[self.default_vat] else "")
             val = input("Brutto [{}]: ".format(cur_gross)).strip()
             gross_val = utils.read_float(val) if val else (float(cur_gross) if cur_gross else 0.0)
-            self.totals[self.default_vat] = gross_val - self.vat[self.default_vat]
+            self.vat[self.default_vat] = known_vat
+            self.totals[self.default_vat] = gross_val - known_vat
 
         self.paid_by_submitter = paid_by_submitter
         self.compute_total()
@@ -362,6 +365,7 @@ class PurchaseInvoice(Invoice):
                 self.vat[self.default_vat] = vat
                 self.totals[self.default_vat] = amount - self.vat[self.default_vat]
                 self.shipping = 0.0
+                self.compute_total()
                 if not is_test:
                     if self.check_if_present():
                         return self
@@ -642,7 +646,7 @@ class PurchaseInvoice(Invoice):
                         if given_supplier and self.supplier != given_supplier:
                             print("abweichend von PreRechnung: ", given_supplier)
                         self.multi = info['multi']
-                        purchase_invoice_parser = PurchaseInvoiceParser(self, info['parser'], lines)
+                        purchase_invoice_parser = PurchaseInvoiceParser(self, info['parser'], lines, is_test)
                         purchase_invoice_parser.set_purchase_info()
                         normal_purchase_data = purchase_invoice_parser.get_purchase_data()
         except Exception as e:
@@ -708,7 +712,8 @@ class PurchaseInvoice(Invoice):
 #            self.e_items[0]['expense_account'] = accounts[self.vat_rates[0]]
 
     def assign_aggregate_e_item(self):
-        net = sum(self.totals.values())
+        # totals enthalten den Versand, den create_doc als eigene Zeile ergänzt
+        net = sum(self.totals.values()) - self.shipping
         self.e_items = [{
             'item_code': self.aggregate_item_code,
             'qty': net / settings.AGGREGATE_ITEM_VALUE,
@@ -875,7 +880,8 @@ class PurchaseInvoice(Invoice):
         if not self.parse_invoice(invoice_json, infile, account_abbrv, paid_by_submitter, supplier, check_dup=check_dup):
             return None
         print("Prüfe auf doppelte Rechung")
-        if self.check_if_present(check_dup):
+        # parse_invoice hat ggf. schon geprüft (und das PDF angehängt)
+        if self.is_duplicate or self.check_if_present(check_dup):
             return self
         if self.aggregate_item_code:
             self.assign_aggregate_e_item()

@@ -38,6 +38,8 @@ def get_sales_invoices(company_name,quarter,tax_rates=[]):
                                      filters={'company':company_name,
                                               'posting_date':['between',[start_date,end_date]],
                                               'status': ['!=','Cancelled']},
+                                     fields=['name','posting_date','taxes_and_charges',
+                                             'total_taxes_and_charges','total'],
                                      order_by='posting_date',
                                      limit_page_length=LIMIT):
             print(".",end="",flush=True)

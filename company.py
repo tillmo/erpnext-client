@@ -4,7 +4,7 @@ from doc import Doc
 import PySimpleGUI as sg
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
-from invoice import Invoice
+import invoice
 import bank
 import settings
 import itertools
@@ -21,14 +21,14 @@ class Company(Doc):
             accounts += self.leaf_accounts_by_root_type[rt].copy()
         return accounts
     
+    # Felder, die der Client aus dem Firmendokument braucht (get_list liefert sonst nur 'name')
+    FIELDS = ['name','cost_center','default_expense_account','default_payable_account',
+              'default_receivable_account','default_finance_book']
+
     def __init__(self,doc):
         self.doctype = "Company"
         super().__init__(doc=doc)
-        self.cost_center = doc.get('cost_center')
-        self.expense_account = doc.get('default_expense_account')
-        self.payable_account = doc.get('default_payable_account')
-        self.receivable_account = doc.get('default_receivable_account')
-        self.default_finance_book = doc.get('default_finance_book')
+        self.set_accounts(doc)
         self.taxes = {}
         self.default_vat = None
         Company.companies_by_name[self.name] = self
@@ -61,6 +61,8 @@ class Company(Doc):
             print(".",end="")
             self.leaf_accounts_by_root_type[rt] = list(accs)
         self.doc = gui_api_wrapper(Api.api.get_doc,'Company',self.name)
+        if self.doc:
+            self.set_accounts(self.doc)
         self.leaf_accounts_for_debit = self.leaf_accounts_starting_with_root_type("Income")
         self.leaf_accounts_for_credit = self.leaf_accounts_starting_with_root_type("Expense")
         self.journal = gui_api_wrapper(Api.api.get_list,
@@ -97,6 +99,13 @@ class Company(Doc):
         print(".")
         self.data_loaded = True
 
+    def set_accounts(self,doc):
+        self.cost_center = doc.get('cost_center')
+        self.expense_account = doc.get('default_expense_account')
+        self.payable_account = doc.get('default_payable_account')
+        self.receivable_account = doc.get('default_receivable_account')
+        self.default_finance_book = doc.get('default_finance_book')
+
     @classmethod    
     def current_load_data(cls):
         settings = sg.UserSettings()
@@ -109,7 +118,7 @@ class Company(Doc):
     def init_companies(cls):
         if not Company.companies_by_name:
             print("Lade Firmendaten",end="")
-            for comp in Api.api.get_list('Company'):
+            for comp in Api.api.get_list('Company', fields=Company.FIELDS):
                 print(".",end="")
                 Company(comp)
             print()
@@ -143,7 +152,7 @@ class Company(Doc):
                 filters=filters,
                 fields=fields,               
                 limit_page_length=LIMIT)
-        return [Invoice(inv,is_sales) for inv in invs if (not open_invs) or inv['outstanding_amount']]
+        return [invoice.Invoice(inv,is_sales) for inv in invs if (not open_invs) or inv['outstanding_amount']]
     def get_sales_invoices(self,open_invs):
         return self.get_invoices_of_type('Sales Invoice',open_invs)
     def get_purchase_invoices(self,open_invs):

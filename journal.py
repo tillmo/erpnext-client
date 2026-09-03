@@ -274,8 +274,7 @@ def create_advance_payment_journal_entries(company_name,year):
     pes = Api.api.get_list('Payment Entry',
                            filters={'company':company_name,
                                     'docstatus': 1,
-                                    'posting_date':['>=',start_date],
-                                    'posting_date':['<=',end_date]},
+                                    'posting_date':['Between',[start_date,end_date]]},
                            limit_page_length=LIMIT)
     for pe in pes:
         try:

@@ -178,6 +178,7 @@ class PurchaseInvoiceGoogleParser:
                             "Fracht" in s_item.description or "Transportkosten" in s_item.description or "Versand" in s_item.description):
                         # an invoice may contain several freight positions
                         self.purchase_invoice.shipping += s_item.amount if s_item.amount else 0
+                        sum_amount += s_item.amount if s_item.amount else 0
                         continue
                     if s_item.qty and s_item.amount:
                         if not s_item.rate:
@@ -192,9 +193,8 @@ class PurchaseInvoiceGoogleParser:
                         rounding_error = diff
             self.purchase_invoice.shipping += rounding_error
             self.purchase_invoice.shipping = round(self.purchase_invoice.shipping, 2)
-            if self.purchase_invoice.shipping and self.purchase_invoice.totals[self.purchase_invoice.default_vat]:
-                self.purchase_invoice.totals[self.purchase_invoice.default_vat] -= self.purchase_invoice.shipping
-                self.purchase_invoice.totals[self.purchase_invoice.default_vat] = round(self.purchase_invoice.totals[self.purchase_invoice.default_vat], 2)
+            # totals enthalten wie bei den internen Parsern den Versand; create_doc führt ihn als
+            # eigene Steuerzeile, die Artikelpositionen enthalten ihn nicht
             self.purchase_invoice.compute_total()
         except Exception as e:
             if self.purchase_invoice.update_stock:

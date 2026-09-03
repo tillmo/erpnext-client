@@ -129,7 +129,8 @@ def validate_json1(json):
 
 
 def validate_prerechnungs():
-    for pr in Api.api.get_list("PreRechnung", filters={'json1': ['is', 'set']}, limit_page_length=LIMIT):
+    for pr in Api.api.get_list("PreRechnung", filters={'json1': ['is', 'set']}, fields=['name', 'json1'],
+                               limit_page_length=LIMIT):
         print(pr['name'])
         json1 = json.loads(pr['json1'])
         if not validate_json1(json1):
@@ -165,7 +166,7 @@ def compute_json1_diff(inv):
         invoice_json = json.loads(json_str)
     update_stock = 'chance' in inv and inv['chance'] and project.project_type(inv['chance']) in settings.STOCK_PROJECT_TYPES
     old_json1 = json.loads(inv.get('json1'))
-    purchase_invoice_google_parser = PurchaseInvoiceGoogleParser(PurchaseInvoice(update_stock), invoice_json, supplier)
+    purchase_invoice_google_parser = PurchaseInvoiceGoogleParser(PurchaseInvoice(update_stock), invoice_json, supplier, True)
     purchase_invoice_google_parser.set_purchase_info()
     new_json1 = purchase_invoice_google_parser.get_purchase_data()
     diff = jsondiff.diff(old_json1, new_json1, syntax='symmetric')
