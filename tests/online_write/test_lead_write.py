@@ -6,6 +6,7 @@ from typing import Any
 import pytest
 
 import lead
+import lead_contact
 import lead_dnc_setup as setup
 import lead_rules
 import lead_rules_setup as rules_setup
@@ -104,3 +105,32 @@ class TestSenderRules:
     def test_setup_is_idempotent(self, live: LiveState, api: Any, rules_installed: None) -> None:
         assert rules_setup.ensure_rule_doctype(api, apply=False) is True
         assert rules_setup.ensure_supplier_field(api, apply=False) is True
+
+
+class TestContactData:
+    def test_complete_lead_stores_data_and_vcard(self, live: LiveState, api: Any, cleanup: Cleanup) -> None:
+        name = tag("pytest-Lead")
+        doc = api.insert({"doctype": "Lead", "lead_name": name.lower() + "@example.org", "email_id": name.lower() + "@example.org",
+                          "status": "Open"})
+        cleanup.add("Lead", doc["name"])
+        comms = [{"sender": doc["email_id"], "sender_full_name": "Max Mustermann", "sent_or_received": "Received",
+                  "creation": "2026-09-01 10:00:00",
+                  "content": "<p>Name: Max Mustermann<br>Telefon: 0421 / 12 34 56<br>Handy: 0170 1234567<br>"
+                             "Adresse: Musterstraße 5a, 28199 Bremen</p>"}]
+        assert lead_contact.complete_lead(doc["name"], doc, comms, ask=False) is True
+        stored = api.get_doc("Lead", doc["name"])
+        assert stored["lead_name"] == "Max Mustermann" and stored["first_name"] == "Max" and stored["last_name"] == "Mustermann"
+        assert stored["mobile_no"] == "+49 170 1234567" and stored["phone"] == "+49 421 123456" and stored["city"] == "Bremen"
+        address = lead_contact.linked_address(doc["name"])
+        assert address and address["address_line1"] == "Musterstraße 5a" and address["pincode"] == "28199"
+        cleanup.add("Address", address["name"])
+        files = api.get_list("File", filters={"attached_to_doctype": "Lead", "attached_to_name": doc["name"]},
+                             fields=["name", "file_name", "is_private", "file_url"])
+        assert len(files) == 1 and files[0]["is_private"] == 1 and files[0]["file_name"].endswith(".vcf")
+        content = api.get_file(files[0]["file_url"]).decode("utf-8")
+        assert "FN:Max Mustermann" in content and "TEL;TYPE=CELL:+49 170 1234567" in content
+        # a second run replaces the vCard and adds nothing
+        assert lead_contact.complete_lead(doc["name"], api.get_doc("Lead", doc["name"]), comms, ask=False) is True
+        files = api.get_list("File", filters={"attached_to_doctype": "Lead", "attached_to_name": doc["name"]}, fields=["name"])
+        assert len(files) == 1
+        assert len(api.get_list("Address", filters=[["Dynamic Link", "link_name", "=", doc["name"]]], fields=["name"])) == 1

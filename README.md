@@ -53,6 +53,15 @@ the rules would have decided the leads decided manually before a given date:
 
     python3 lead_rules_setup.py --server URL --key KEY --secret SECRET --backtest
     python3 lead_rules_setup.py --server URL --key KEY --secret SECRET --apply
+
+## contact data and vCard for real leads
+When a lead is assigned to a lead owner, `lead_contact.py` extracts name, phone numbers and
+address from the lead's e-mails (web form labels, signature, "PLZ Ort" lines; quoted earlier
+mails are ignored), shows them in an editable dialog, fills the empty lead fields, creates a
+linked Address if there is none, and attaches a vCard (`<lead>.vcf`, private) to the lead.
+The lead owners open the lead in the ERPNext app on the phone and tap the vCard to add the
+contact. The menu item "Kontaktdaten nachtragen" does the same for existing real leads without
+a phone number; "vCard erzeugen" does it for one lead chosen from a list (newest first).
  
 ## mytools
 * the `mytools/` directory holds private helper scripts, kept in a separate non-public repository

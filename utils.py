@@ -227,10 +227,14 @@ def html_to_text(html: str) -> str:
     soup = BeautifulSoup(html, features="html.parser")
     for tag in soup.find_all('style'):
         tag.decompose()
+    for br in soup.find_all("br"):        # line breaks and block ends become newlines, inline tags do not
+        br.replace_with("\n")
+    for block in soup.find_all(["p", "div", "tr", "li", "h1", "h2", "h3", "h4", "h5", "h6", "blockquote", "pre"]):
+        block.append("\n")
     text = soup.get_text()
     text = re.sub(r"[\t ]*\n\s*","\n",text)
     text = re.sub(r"[\t ]+"," ",text)
-    return text
+    return text.strip("\n")
 
 # extract no. of PreRechnung
 def extract_prnr(text: str) -> str | None:

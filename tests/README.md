@@ -89,7 +89,8 @@ tests/
 └── online_write/          create/modify/delete: supplier, journal entry, payment, bank statement,
                            purchase invoice from PDF, stock entry, item, PreRechnung, submit,
                            leads (server script of lead_dnc_setup.py, sender rules of
-                           lead_rules_setup.py; skipped until they are installed)
+                           lead_rules_setup.py - skipped until they are installed -, contact
+                           data and vCard)
 ```
 
 The fake (`FakeFrappeClient`) reproduces the points where the client relies on

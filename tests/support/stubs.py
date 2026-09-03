@@ -110,7 +110,7 @@ class EasyguiStub(types.ModuleType):
     Without a stored answer, every dialog raises GuiCalled.
     """
     FUNCTIONS: tuple[str, ...] = ("choicebox", "msgbox", "ccbox", "buttonbox", "fileopenbox",
-                 "ynbox", "multchoicebox", "enterbox", "textbox", "boolbox")
+                 "ynbox", "multchoicebox", "multenterbox", "enterbox", "textbox", "boolbox")
 
     def __init__(self) -> None:
         super().__init__("easygui")

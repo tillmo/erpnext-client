@@ -33,6 +33,7 @@ class TestLeadHelpers:
         fake_api.add("Lead", name="L1", status="Open", lead_name="A", creation="2026-01-02 10:00:00")
         with pytest.raises(GuiCalled):
             lead.show_open_leads()
+        assert fake_api.calls_of("get_list")[-1][2]["order_by"] == "creation desc"      # newest first
 
 
 @pytest.fixture
@@ -53,13 +54,16 @@ class TestProcessOpenLeads:
     def test_assigns_owner_and_resets_not_contact(self, leads: FakeFrappeClient, gui: EasyguiStub,
                                                   capsys: pytest.CaptureFixture[str]) -> None:
         gui.answers["choicebox"] = lambda msg, title, choices, **kw: LEAD_OWNERS[0]
+        gui.answers["multenterbox"] = lambda msg, title, fields, values: values     # contact data confirmed as extracted
         lead.process_open_leads()
         assert leads.assignments == [("Lead", "L-NEU", [LEAD_OWNERS[0].lower() + "@example.org"])]
+        # the assigned lead gets its contact data and a vCard
+        assert leads.get_list("File", fields=["attached_to_name", "file_name"]) == [{"attached_to_name": "L-NEU", "file_name": "L-NEU.vcf"}]
         for name in ("L-NICHT", "L-FLAG"):      # history resp. flag: closed again without asking
             doc = leads.get_doc("Lead", name)
             assert doc["status"] == "Do Not Contact" and doc[LEAD_DNC_FIELD] == 1
         assert leads.get_doc("Lead", "L-ZUGEWIESEN")["status"] == "Open"
-        assert len(gui.calls) == 1
+        assert [c[0] for c in gui.calls] == ["choicebox", "multenterbox"]      # owner choice, then contact data
         msg, title, choices = gui.calls[0][1]
         assert "Ich möchte Solar" in msg and choices == LEAD_OWNERS + ["kein Lead", "überspringen"]
         out = capsys.readouterr().out

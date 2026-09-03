@@ -43,6 +43,7 @@ CHILD_TABLES = {
     "Purchase Taxes and Charges": "taxes",
     "Sales Taxes and Charges": "taxes",
     "Payment Entry Reference": "references",
+    "Dynamic Link": "links",
 }
 
 # naming per DocType (simulating Frappe naming series)

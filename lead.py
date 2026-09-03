@@ -4,6 +4,7 @@ from typing import Any
 from api import Api, LIMIT
 from settings import LEAD_OWNERS, LEAD_DNC_FIELD
 import lead_rules
+import lead_contact
 import utils
 import easygui
 import json
@@ -40,6 +41,7 @@ def show_open_leads() -> None:
     leads = Api.api.get_list("Lead",
                              filters={'status':'Open'},
                              fields=['name','status','lead_name', 'creation'],
+                             order_by='creation desc',
                              limit_page_length=LIMIT)
     
     print()
@@ -64,6 +66,7 @@ def process_open_leads() -> None:
                              filters={'status':'Open',
                                       '_assign':['like',None]},
                              fields=['name','status','lead_name'],
+                             order_by='creation desc',
                              limit_page_length=LIMIT)
     rules = lead_rules.Rules.load()
     n_auto = n_manual = n_skipped = 0
@@ -109,6 +112,7 @@ def process_open_leads() -> None:
                 n_auto += 1
         else:
             Api.api.assign_to("Lead",lead1['name'],[lead_owners[choice]])
+            lead_contact.complete_lead(lead1['name'], doc, comms)
     print(f"Leads fertig bearbeitet: {n_auto} automatisch als \"nicht kontaktieren\" markiert, "
           f"{n_manual} von Hand entschieden, {n_skipped} übersprungen")
 

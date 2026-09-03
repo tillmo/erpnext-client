@@ -141,6 +141,7 @@ class TestStrings:
         assert "Zeile 2" in text
         assert "color" not in text
         assert "\n\n\n" not in text
+        assert utils.html_to_text("<p>Name: <b>Max</b><br>Tel: 1</p><div>Ort</div>") == "Name: Max\nTel: 1\nOrt"
 
 
 class TestFormatting:

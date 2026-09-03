@@ -12,6 +12,7 @@ from invoice import Invoice, accrual
 import purchase_invoice
 import project
 import lead
+import lead_contact
 import sales_invoice
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper, api_wrapper
@@ -695,6 +696,10 @@ def event_handler(event: Any,window: sg.Window) -> str:
         lead.process_open_leads()
     elif event == 'Leadübersicht':
         lead.show_open_leads()
+    elif event == 'Kontaktdaten nachtragen':
+        lead_contact.complete_leads()
+    elif event == 'vCard erzeugen':
+        lead_contact.create_vcard()
     elif event == 'Zahlungen für EBay-Rechnungen':
         sales_invoice.ebay_sales(user_settings['-company-'],
                                  user_settings['-buchen-'])
@@ -750,7 +755,7 @@ def menus() -> bool:
                 ['Bereich', company.Company.all()], 
                 ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen',
                             'USt-Rechnungen zusammenstellen','EK-Rechnungen nach Konto']],
-                ['Lead',['Leads bearbeiten', 'Leadübersicht']],
+                ['Lead',['Leads bearbeiten', 'Leadübersicht', 'Kontaktdaten nachtragen', 'vCard erzeugen']],
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Google', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
 
