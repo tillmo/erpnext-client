@@ -9,10 +9,12 @@ private file so that the lead owners can add the contact to their phone from the
 from __future__ import annotations
 
 import re
+import textwrap
 from dataclasses import dataclass, fields as dataclass_fields
 from typing import Any
 
 import easygui
+import PySimpleGUI as sg
 
 import lead_rules
 import settings
@@ -369,13 +371,49 @@ def add_comment(name: str, text: str) -> None:
         print(f"Hinweis: Kommentar an {name} nicht möglich: {str(e).splitlines()[-1][:120]}")
 
 
+MAX_EXCERPT_LINES = 25
+
+
+def excerpt(text: str, max_lines: int = MAX_EXCERPT_LINES, width: int = 90) -> str:
+    """At most ``max_lines`` display lines of a mail text (long lines are wrapped and count), '…' if cut."""
+    out: list[str] = []
+    for line in (text or '').split('\n'):
+        for piece in (textwrap.wrap(line, width) or ['']):
+            if len(out) >= max_lines:
+                return "\n".join(out) + "\n…"
+            out.append(piece)
+    return "\n".join(out)
+
+
 FIELDS = [('first_name', 'Vorname'), ('last_name', 'Nachname'), ('mobile_no', 'Handy'), ('phone', 'Telefon'),
           ('street', 'Straße und Hausnummer'), ('pincode', 'PLZ'), ('city', 'Ort'), ('email', 'E-Mail')]
 
 
+def visible_text(text: str) -> str:
+    """The mail without quoted earlier mails, for display."""
+    return "\n".join(_lines(text)).strip("\n")
+
+
+def _dialog(msg: str, title: str, fields: list[str], values: list[str]) -> list[str] | None:
+    """Wide PySimpleGUI window: heading, scrollable mail excerpt, one input per field. None if cancelled."""
+    head, _, text = msg.partition("\n\n")
+    keys = [f'-field{i}-' for i in range(len(fields))]
+    layout: list[list[Any]] = [[sg.Text(head)],
+                               [sg.Multiline(text, size=(110, 18), disabled=True, autoscroll=False)]]
+    for label, value, key in zip(fields, values, keys):
+        layout.append([sg.Text(label, size=(22, 1)), sg.Input(default_text=value, key=key, size=(60, 1))])
+    layout.append([sg.Button('OK', bind_return_key=True), sg.Button('Abbrechen')])
+    window = sg.Window(title, layout, finalize=True)
+    event, vals = window.read()
+    window.close()
+    if event != 'OK':
+        return None
+    return [vals[k] or '' for k in keys]
+
+
 def edit_contact(contact: Contact, title: str, msg: str) -> Contact | None:
     """Editable dialog with the extracted values; None if cancelled."""
-    values = easygui.multenterbox(msg, title, [label for _, label in FIELDS], [getattr(contact, f) for f, _ in FIELDS])
+    values = _dialog(msg, title, [label for _, label in FIELDS], [getattr(contact, f) for f, _ in FIELDS])
     if values is None:
         return None
     result = Contact(**{f: (v or '').strip() for (f, _), v in zip(FIELDS, values)})
@@ -393,8 +431,7 @@ def complete_lead(name: str, doc: dict[str, Any], comms: list[dict[str, Any]], a
         extracted.email = lead_rules.address_of(doc.get('email_id'))
     contact = extracted.merged_with(from_lead(doc, linked_address(name)))
     if ask:
-        excerpt = "\n".join(text.split("\n")[:25])[:900]
-        msg = f"{name}   {doc.get('lead_name') or ''}\nKontaktdaten prüfen und ergänzen:\n\n{excerpt}"
+        msg = f"{name}   {doc.get('lead_name') or ''}\nKontaktdaten prüfen und ergänzen:\n\n{excerpt(visible_text(text), 80, 110)}"
         edited = edit_contact(contact, f"Kontaktdaten für {name}", msg)
         if edited is None:
             print(f"Kontaktdaten für {name} übersprungen")
@@ -409,7 +446,8 @@ def complete_lead(name: str, doc: dict[str, Any], comms: list[dict[str, Any]], a
 
 
 def complete_leads() -> None:
-    """Menu: add contact data and vCards to real leads that have no phone number yet."""
+    """Menu: vCards for complete leads, then contact data (and vCards) for real leads without a phone number."""
+    attach_missing_vcards()
     todo = [l for l in real_leads() if not (l.get('mobile_no') or l.get('phone'))]
     print(f"{len(todo)} Leads ohne Telefonnummer")
     done = 0
@@ -425,27 +463,33 @@ def complete_leads() -> None:
 
 def real_leads() -> list[dict[str, Any]]:
     """Leads that are (or were) treated as real leads, newest first."""
-    leads = Api.api.get_list('Lead', fields=['name', 'status', 'lead_name', 'email_id', 'mobile_no', 'phone', '_assign', 'creation'],
+    leads = Api.api.get_list('Lead', fields=['name', 'status', 'lead_name', 'first_name', 'last_name', 'email_id', 'mobile_no',
+                                             'phone', 'city', '_assign', 'creation'],
                              filters={'status': ['!=', 'Do Not Contact']}, order_by='creation desc', limit_page_length=LIMIT)
     return [l for l in leads if l['status'] in GOOD_STATUSES or l['_assign'] not in (None, '', '[]')]
 
 
-def choose_lead(title: str) -> str | None:
-    """Pick one of the real leads (newest first); None if cancelled."""
-    leads = real_leads()
-    if not leads:
-        print("Keine Leads gefunden")
-        return None
-    choices = [f"{l['name']}  {l['lead_name'] or l['email_id'] or ''}  ({l['status']}, {(l['creation'] or '')[:10]})" for l in leads]
-    choice = easygui.choicebox("Bitte Lead wählen", title, choices)
-    return choice.split()[0] if choice else None
+def is_complete(contact: Contact) -> bool:
+    return bool(contact.last_name and (contact.mobile_no or contact.phone) and contact.street and contact.city)
 
 
-def create_vcard() -> None:
-    """Menu: check the contact data of one lead and attach its vCard."""
-    name = choose_lead("vCard erzeugen")
-    if not name:
-        print("vCard-Erzeugung abgebrochen")
-        return
-    res = Api.api.load_doc('Lead', name)
-    complete_lead(name, res['docs'][0], res['docinfo']['communications'])
+def leads_with_vcard() -> set[str]:
+    files = Api.api.get_list('File', filters={'attached_to_doctype': 'Lead', 'file_name': ['like', '%.vcf']},
+                             fields=['attached_to_name'], limit_page_length=LIMIT)
+    return {f['attached_to_name'] for f in files}
+
+
+def attach_missing_vcards() -> int:
+    """vCards for all real leads with complete contact data that have none yet. Returns the number attached."""
+    have = leads_with_vcard()
+    count = 0
+    for l in real_leads():
+        if l['name'] in have or not (l.get('last_name') and (l.get('mobile_no') or l.get('phone'))):
+            continue
+        contact = from_lead(l, linked_address(l['name']))
+        if is_complete(contact):
+            attach_vcard(l['name'], contact)
+            count += 1
+    if count:
+        print(f"{count} vCards für Leads mit vollständigen Kontaktdaten angehängt")
+    return count

@@ -373,3 +373,15 @@ def install() -> dict[str, types.ModuleType]:
             google.api_core = created["google.api_core"]
         installed.update(created)
     return installed
+
+
+class DialogStub:
+    """Replacement for lead_contact._dialog: ``answer`` is a value or a callable(msg, title, fields, values)."""
+
+    def __init__(self) -> None:
+        self.answer: Any = None
+        self.calls: list[tuple[str, str, list[str], list[str]]] = []
+
+    def __call__(self, msg: str, title: str, fields: list[str], values: list[str]) -> Any:
+        self.calls.append((msg, title, list(fields), list(values)))
+        return self.answer(msg, title, fields, values) if callable(self.answer) else self.answer

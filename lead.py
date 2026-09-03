@@ -90,8 +90,7 @@ def process_open_leads() -> None:
             else:
                 title = f"Bitte Lead Owner für {lead1['name']} {lead1['lead_name']} wählen"
                 texts = [utils.html_to_text(comm['content']) for comm in comms]
-                text = "\n--------------------\n".join(texts)
-                text = "\n".join(text.split("\n")[:35])[:1000]
+                text = lead_contact.excerpt("\n--------------------\n".join(texts))
                 hint = ""
                 if decision.reason:
                     hint = f"Vorschlag: {decision.choice or 'Lead'} ({decision.reason})\n\n"
@@ -115,6 +114,7 @@ def process_open_leads() -> None:
             lead_contact.complete_lead(lead1['name'], doc, comms)
     print(f"Leads fertig bearbeitet: {n_auto} automatisch als \"nicht kontaktieren\" markiert, "
           f"{n_manual} von Hand entschieden, {n_skipped} übersprungen")
+    lead_contact.attach_missing_vcards()
 
 def cleanup_leads() -> None:
     leads = Api.api.get_list("Lead",

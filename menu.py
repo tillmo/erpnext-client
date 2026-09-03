@@ -698,8 +698,6 @@ def event_handler(event: Any,window: sg.Window) -> str:
         lead.show_open_leads()
     elif event == 'Kontaktdaten nachtragen':
         lead_contact.complete_leads()
-    elif event == 'vCard erzeugen':
-        lead_contact.create_vcard()
     elif event == 'Zahlungen für EBay-Rechnungen':
         sales_invoice.ebay_sales(user_settings['-company-'],
                                  user_settings['-buchen-'])
@@ -755,7 +753,7 @@ def menus() -> bool:
                 ['Bereich', company.Company.all()], 
                 ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen',
                             'USt-Rechnungen zusammenstellen','EK-Rechnungen nach Konto']],
-                ['Lead',['Leads bearbeiten', 'Leadübersicht', 'Kontaktdaten nachtragen', 'vCard erzeugen']],
+                ['Lead',['Leads bearbeiten', 'Leadübersicht', 'Kontaktdaten nachtragen']],
                 ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Google', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
 

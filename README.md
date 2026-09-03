@@ -61,7 +61,8 @@ mails are ignored), shows them in an editable dialog, fills the empty lead field
 linked Address if there is none, and attaches a vCard (`<lead>.vcf`, private) to the lead.
 The lead owners open the lead in the ERPNext app on the phone and tap the vCard to add the
 contact. The menu item "Kontaktdaten nachtragen" does the same for existing real leads without
-a phone number; "vCard erzeugen" does it for one lead chosen from a list (newest first).
+a phone number. Both actions also attach the missing vCards of all real leads whose name, phone
+number and address are already complete.
  
 ## mytools
 * the `mytools/` directory holds private helper scripts, kept in a separate non-public repository

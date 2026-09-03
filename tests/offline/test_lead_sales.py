@@ -10,13 +10,14 @@ import pytest
 
 import invoice  # noqa: F401  (import order, see conftest)
 import lead
+import lead_contact
 import sales_invoice
 from api import Api
 from company import Company
 from settings import EBAY_ACCOUNT, LEAD_OWNERS, LEAD_DNC_FIELD, LEAD_RULE_DOCTYPE, SUPPLIER_DOMAINS_FIELD
 from support import factories as F
 from support.fakes import FakeFrappeClient
-from support.stubs import EasyguiStub, GuiCalled
+from support.stubs import DialogStub, EasyguiStub, GuiCalled
 
 
 class TestLeadHelpers:
@@ -52,9 +53,11 @@ def leads(fake_api: FakeFrappeClient) -> FakeFrappeClient:
 
 class TestProcessOpenLeads:
     def test_assigns_owner_and_resets_not_contact(self, leads: FakeFrappeClient, gui: EasyguiStub,
-                                                  capsys: pytest.CaptureFixture[str]) -> None:
+                                                  capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch) -> None:
         gui.answers["choicebox"] = lambda msg, title, choices, **kw: LEAD_OWNERS[0]
-        gui.answers["multenterbox"] = lambda msg, title, fields, values: values     # contact data confirmed as extracted
+        dialog = DialogStub()
+        dialog.answer = lambda msg, title, fields, values: values     # contact data confirmed as extracted
+        monkeypatch.setattr(lead_contact, "_dialog", dialog)
         lead.process_open_leads()
         assert leads.assignments == [("Lead", "L-NEU", [LEAD_OWNERS[0].lower() + "@example.org"])]
         # the assigned lead gets its contact data and a vCard
@@ -63,7 +66,7 @@ class TestProcessOpenLeads:
             doc = leads.get_doc("Lead", name)
             assert doc["status"] == "Do Not Contact" and doc[LEAD_DNC_FIELD] == 1
         assert leads.get_doc("Lead", "L-ZUGEWIESEN")["status"] == "Open"
-        assert [c[0] for c in gui.calls] == ["choicebox", "multenterbox"]      # owner choice, then contact data
+        assert [c[0] for c in gui.calls] == ["choicebox"] and len(dialog.calls) == 1      # owner choice, then contact data
         msg, title, choices = gui.calls[0][1]
         assert "Ich möchte Solar" in msg and choices == LEAD_OWNERS + ["kein Lead", "überspringen"]
         out = capsys.readouterr().out

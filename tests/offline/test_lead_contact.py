@@ -8,7 +8,14 @@ import pytest
 import lead_contact as lc
 from lead_contact import Contact
 from support.fakes import FakeFrappeClient
-from support.stubs import EasyguiStub
+from support.stubs import DialogStub, EasyguiStub
+
+
+@pytest.fixture
+def dialog(monkeypatch: pytest.MonkeyPatch) -> DialogStub:
+    stub = DialogStub()
+    monkeypatch.setattr(lc, "_dialog", stub)
+    return stub
 
 FORM_MAIL = """Neue Kontaktanfrage über die Website
 
@@ -198,16 +205,17 @@ class TestApply:
 
 
 class TestCompleteLead:
-    def test_dialog_values_are_stored(self, lead_doc: FakeFrappeClient, gui: EasyguiStub, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_dialog_values_are_stored(self, lead_doc: FakeFrappeClient, dialog: DialogStub, capsys: pytest.CaptureFixture[str]) -> None:
         def answer(msg: str, title: str, fields: list[str], values: list[str]) -> list[str]:
             assert "L-1" in title and "Max Mustermann" in msg
+            assert "Bremer SolidarStrom, Beispielweg 1" in msg          # the mail text is shown
             assert dict(zip(fields, values)) == {"Vorname": "Max", "Nachname": "Mustermann", "Handy": "", "Telefon": "+49 421 123456",
                                                  "Straße und Hausnummer": "Musterstraße 5a", "PLZ": "28199", "Ort": "Bremen",
                                                  "E-Mail": "max@example.org"}
             values = list(values)
             values[2] = "0171 999 8877"          # the user adds a mobile number
             return values
-        gui.answers["multenterbox"] = answer
+        dialog.answer = answer
         doc = lead_doc.get_doc("Lead", "L-1")
         assert lc.complete_lead("L-1", doc, lead_doc.communications["L-1"]) is True
         stored = lead_doc.get_doc("Lead", "L-1")
@@ -218,8 +226,8 @@ class TestCompleteLead:
         assert comments and comments[0]["content"].startswith("Kontaktdaten aus der E-Mail übernommen: first_name")
         assert "vCard L-1.vcf angehängt" in capsys.readouterr().out
 
-    def test_cancel(self, lead_doc: FakeFrappeClient, gui: EasyguiStub, capsys: pytest.CaptureFixture[str]) -> None:
-        gui.answers["multenterbox"] = None
+    def test_cancel(self, lead_doc: FakeFrappeClient, dialog: DialogStub, capsys: pytest.CaptureFixture[str]) -> None:
+        dialog.answer = None
         assert lc.complete_lead("L-1", lead_doc.get_doc("Lead", "L-1"), lead_doc.communications["L-1"]) is False
         assert lead_doc.calls_of("update") == [] and lead_doc.get_list("File") == []
         assert "übersprungen" in capsys.readouterr().out
@@ -230,7 +238,14 @@ class TestCompleteLead:
 
 
 class TestCompleteLeads:
-    def test_menu_action(self, lead_doc: FakeFrappeClient, gui: EasyguiStub, capsys: pytest.CaptureFixture[str]) -> None:
+    def test_quoted_mails_are_not_shown(self, lead_doc: FakeFrappeClient, dialog: DialogStub) -> None:
+        lead_doc.communications["L-1"][0]["content"] = "<p>Moin<br>LG Christian<br>Am 02.05.26 um 17:50 schrieb Janis:<br>&gt; Mein Text</p>"
+        dialog.answer = None
+        lc.complete_lead("L-1", lead_doc.get_doc("Lead", "L-1"), lead_doc.communications["L-1"])
+        msg = dialog.calls[0][0]
+        assert "LG Christian" in msg and "schrieb Janis" not in msg and "Mein Text" not in msg
+
+    def test_menu_action(self, lead_doc: FakeFrappeClient, dialog: DialogStub, capsys: pytest.CaptureFixture[str]) -> None:
         lead_doc.get_doc("Lead", "L-1")
         lead_doc.docs("Lead")["L-1"].update(status="Replied", creation="2026-09-01 10:00:00")
         lead_doc.add("Lead", name="L-DNC", status="Do Not Contact", email_id="x@y.de", creation="2026-09-02 10:00:00")
@@ -238,42 +253,47 @@ class TestCompleteLeads:
         lead_doc.add("Lead", name="L-ASSIGNED", status="Open", _assign='["chris@example.org"]', email_id="a@y.de",
                      creation="2026-09-03 10:00:00")
         lead_doc.add("Lead", name="L-HAS-PHONE", status="Converted", mobile_no="+49 170 1", creation="2026-09-03 10:00:00")
-        gui.answers["multenterbox"] = lambda msg, title, fields, values: values
+        dialog.answer = lambda msg, title, fields, values: values
         lc.complete_leads()
-        titles = [call[1][1] for call in gui.calls if call[0] == "multenterbox"]
+        titles = [call[1] for call in dialog.calls]
         assert titles == ["Kontaktdaten für L-ASSIGNED", "Kontaktdaten für L-1"]      # newest first, only real leads
         out = capsys.readouterr().out
         assert "2 Leads ohne Telefonnummer" in out and "Kontaktdaten für 2 Leads nachgetragen" in out
 
-    def test_cancel_asks_to_continue(self, lead_doc: FakeFrappeClient, gui: EasyguiStub) -> None:
+    def test_cancel_asks_to_continue(self, lead_doc: FakeFrappeClient, gui: EasyguiStub, dialog: DialogStub) -> None:
         lead_doc.docs("Lead")["L-1"].update(status="Replied", creation="2026-09-01 10:00:00")
         lead_doc.add("Lead", name="L-3", status="Replied", email_id="b@y.de", creation="2026-09-02 10:00:00")
-        gui.answers["multenterbox"] = None
+        dialog.answer = None
         gui.answers["ynbox"] = False
         lc.complete_leads()
-        assert len([c for c in gui.calls if c[0] == "multenterbox"]) == 1
+        assert len(dialog.calls) == 1 and [c[0] for c in gui.calls] == ["ynbox"]
 
 
-class TestCreateVcard:
-    def test_choice_list_newest_first(self, lead_doc: FakeFrappeClient, gui: EasyguiStub) -> None:
-        lead_doc.docs("Lead")["L-1"].update(status="Replied", creation="2026-09-01 10:00:00", mobile_no="+49 170 1")
-        lead_doc.add("Lead", name="L-NEWER", status="Converted", lead_name="Neu Er", email_id="n@y.de", creation="2026-09-05 10:00:00")
-        lead_doc.add("Lead", name="L-DNC", status="Do Not Contact", email_id="x@y.de", creation="2026-09-06 10:00:00")
-        lead_doc.add("Lead", name="L-OPEN", status="Open", _assign=None, email_id="o@y.de", creation="2026-09-07 10:00:00")
-        seen: dict[str, Any] = {}
+class TestAttachMissingVcards:
+    def test_only_complete_leads_without_vcard(self, lead_doc: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
+        lead_doc.docs("Lead")["L-1"].update(status="Replied", first_name="Max", last_name="Mustermann", mobile_no="+49 170 1",
+                                            creation="2026-09-01 10:00:00")
+        lead_doc.add("Address", address_line1="Weg 1", pincode="28199", city="Bremen", links=[{"link_doctype": "Lead", "link_name": "L-1"}])
+        lead_doc.add("Lead", name="L-NO-ADDR", status="Converted", last_name="Ohne", mobile_no="+49 170 2", creation="2026-09-02 10:00:00")
+        lead_doc.add("Lead", name="L-NO-PHONE", status="Converted", last_name="Stumm", city="Bremen", creation="2026-09-02 10:00:00")
+        lead_doc.add("Lead", name="L-HAS", status="Converted", last_name="Hat", mobile_no="+49 170 3", creation="2026-09-02 10:00:00")
+        lead_doc.add("Address", address_line1="Weg 2", pincode="28199", city="Bremen", links=[{"link_doctype": "Lead", "link_name": "L-HAS"}])
+        lead_doc.attach_file("Lead", "L-HAS", "L-HAS.vcf", b"BEGIN:VCARD", True)
+        lead_doc.add("Lead", name="L-DNC", status="Do Not Contact", last_name="Spam", mobile_no="+49 170 4", creation="2026-09-02 10:00:00")
+        assert lc.attach_missing_vcards() == 1
+        files = sorted(f["attached_to_name"] for f in lead_doc.get_list("File", fields=["attached_to_name"]))
+        assert files == ["L-1", "L-HAS"]
+        assert "1 vCards" in capsys.readouterr().out
+        assert lc.attach_missing_vcards() == 0          # idempotent
 
-        def choose(msg: str, title: str, choices: list[str], **kw: Any) -> str:
-            seen["choices"] = choices
-            return choices[1]
-        gui.answers["choicebox"] = choose
-        gui.answers["multenterbox"] = lambda msg, title, fields, values: values
-        lc.create_vcard()
-        assert [c.split()[0] for c in seen["choices"]] == ["L-NEWER", "L-1"]
-        assert "Neu Er" in seen["choices"][0] and "(Converted, 2026-09-05)" in seen["choices"][0]
-        assert lead_doc.get_list("File", fields=["attached_to_name"]) == [{"attached_to_name": "L-1"}]
 
-    def test_cancel(self, lead_doc: FakeFrappeClient, gui: EasyguiStub, capsys: pytest.CaptureFixture[str]) -> None:
-        lead_doc.docs("Lead")["L-1"].update(status="Replied", creation="2026-09-01 10:00:00")
-        gui.answers["choicebox"] = None
-        lc.create_vcard()
-        assert lead_doc.get_list("File") == [] and "abgebrochen" in capsys.readouterr().out
+class TestExcerpt:
+    def test_limits_display_lines(self) -> None:
+        text = "\n".join(f"Zeile {i}" for i in range(40))
+        out = lc.excerpt(text)
+        assert out.count("\n") == 25 and out.endswith("\n…") and "Zeile 24" in out and "Zeile 25" not in out
+        long_line = "x" * 900
+        out = lc.excerpt(long_line + "\nfolgt", width=90)
+        assert out.count("\n") == 10 and out.endswith("folgt")          # 10 wrapped pieces, nothing cut
+        assert lc.excerpt("\n".join(["a"] * 25)).count("\n") == 24     # exactly 25 lines: no marker
+        assert lc.excerpt("") == ""
