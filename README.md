@@ -31,7 +31,13 @@ You now can start the client with `python3 erpnext.py` (or, in Windows 10, with 
 * it is not needed for using the client: no code in this repository depends on it, and the directory is git-ignored here
 
 ## running tests
-For running tests, please first run
-pip3 install -e .
+The test suite lives in `tests/` and is split into offline tests (no ERPNext needed),
+read-only tests against an ERPNext instance, and write tests against a dedicated test instance:
+
+    python3 -m pytest tests/offline
+
+See [tests/README.md](tests/README.md) for the environment variables that enable the online
+tests, for the safety measures (no GUI dialogs, read-only guard, automatic cleanup) and for the
+list of known findings documented as `xfail`.
 
 
