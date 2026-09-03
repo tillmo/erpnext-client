@@ -13,7 +13,7 @@ import lead
 import sales_invoice
 from api import Api
 from company import Company
-from settings import EBAY_ACCOUNT, LEAD_OWNERS
+from settings import EBAY_ACCOUNT, LEAD_OWNERS, LEAD_DNC_FIELD
 from support import factories as F
 from support.fakes import FakeFrappeClient
 from support.stubs import EasyguiStub, GuiCalled
@@ -43,6 +43,7 @@ def leads(fake_api: FakeFrappeClient) -> FakeFrappeClient:
                  first_name="Neu", last_name="")
     fake_api.add("Lead", name="L-ZUGEWIESEN", status="Open", lead_name="Alt", _assign='["x"]')
     fake_api.add("Lead", name="L-NICHT", status="Open", lead_name="Nicht", _assign=None)
+    fake_api.add("Lead", name="L-FLAG", status="Open", lead_name="Flag", _assign=None, **{LEAD_DNC_FIELD: 1})
     fake_api.communications["L-NEU"] = [{"content": "<p>Ich möchte <b>Solar</b></p>"}]
     fake_api.versions["L-NICHT"] = [{"data": json.dumps({"changed": [["status", "Open", "Do Not Contact"]]})}]
     return fake_api
@@ -54,8 +55,11 @@ class TestProcessOpenLeads:
         gui.answers["choicebox"] = lambda msg, title, choices: LEAD_OWNERS[0]
         lead.process_open_leads()
         assert leads.assignments == [("Lead", "L-NEU", [LEAD_OWNERS[0].lower() + "@example.org"])]
-        assert leads.get_doc("Lead", "L-NICHT")["status"] == "Do Not Contact"
+        for name in ("L-NICHT", "L-FLAG"):      # history resp. flag: closed again without asking
+            doc = leads.get_doc("Lead", name)
+            assert doc["status"] == "Do Not Contact" and doc[LEAD_DNC_FIELD] == 1
         assert leads.get_doc("Lead", "L-ZUGEWIESEN")["status"] == "Open"
+        assert len(gui.calls) == 1
         msg, title, choices = gui.calls[0][1]
         assert "Ich möchte Solar" in msg and choices == LEAD_OWNERS + ["kein Lead", "überspringen"]
         out = capsys.readouterr().out
@@ -64,7 +68,8 @@ class TestProcessOpenLeads:
     def test_kein_lead_and_skip(self, leads: FakeFrappeClient, gui: EasyguiStub) -> None:
         gui.answers["choicebox"] = "kein Lead"
         lead.process_open_leads()
-        assert leads.get_doc("Lead", "L-NEU")["status"] == "Do Not Contact"
+        doc = leads.get_doc("Lead", "L-NEU")
+        assert doc["status"] == "Do Not Contact" and doc[LEAD_DNC_FIELD] == 1
         assert leads.assignments == []
 
     def test_cancel_stops(self, leads: FakeFrappeClient, gui: EasyguiStub, capsys: pytest.CaptureFixture[str]) -> None:
@@ -77,6 +82,12 @@ class TestProcessOpenLeads:
         gui.answers["choicebox"] = "überspringen"
         lead.process_open_leads()
         assert leads.assignments == [] and leads.get_doc("Lead", "L-NEU")["status"] == "Open"
+
+    def test_mark_not_contact(self, fake_api: FakeFrappeClient) -> None:
+        fake_api.add("Lead", name="L-1", status="Open", lead_name="Eins")
+        lead.mark_not_contact("L-1")
+        doc = fake_api.get_doc("Lead", "L-1")
+        assert doc["status"] == "Do Not Contact" and doc[LEAD_DNC_FIELD] == 1
 
     def test_cleanup_leads(self, fake_api: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
         fake_api.add("Lead", name="L-BSS", status="Open", first_name="Bremer", last_name="SolidarStrom",

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 from api import Api, LIMIT
-from settings import LEAD_OWNERS
+from settings import LEAD_OWNERS, LEAD_DNC_FIELD
 import utils
 import easygui
 import json
@@ -14,6 +14,14 @@ def is_change_into_not_contact(v: dict[str, Any]) -> bool:
         if j.get('changed') == [['status', 'Open', 'Do Not Contact']]:
             return True
     return False
+
+def mark_not_contact(name: str) -> None:
+    """Set a lead to "Do Not Contact" and flag it, so that the server script keeps it there
+    when further e-mails arrive (see lead_dnc_setup.py)."""
+    doc = Api.api.get_doc("Lead", name)
+    doc['status'] = 'Do Not Contact'
+    doc[LEAD_DNC_FIELD] = 1
+    Api.api.update(doc)
 
 def format(lead: dict[str, Any]) -> dict[str, Any]:
     lead['creation'] = lead['creation'].split()[0]
@@ -51,15 +59,14 @@ def process_open_leads() -> None:
     for lead1 in leads:
         #print(lead1['lead_owner'])
         res = Api.api.load_doc("Lead",lead1['name'])
+        doc = res['docs'][0]
         versions = res['docinfo']['versions']
         choice: str | None = None
-        for v in versions:
-            if is_change_into_not_contact(v):
-                choice = 'kein Lead'
-                print(f'Markiere Lead {lead1["name"]} {lead1["lead_name"]} wieder als "nicht kontaktieren"')
-                break
+        # flagged, or marked "Do Not Contact" before and reopened by a new e-mail
+        if doc.get(LEAD_DNC_FIELD) or any(is_change_into_not_contact(v) for v in versions):
+            choice = 'kein Lead'
+            print(f'Markiere Lead {lead1["name"]} {lead1["lead_name"]} wieder als "nicht kontaktieren"')
         if not choice:
-            doc = res['docs'][0]
             comms = res['docinfo']['communications']
             title = f"Bitte Lead Owner für {lead1['name']} {lead1['lead_name']} wählen"
             texts = [utils.html_to_text(comm['content']) for comm in comms]
@@ -73,9 +80,7 @@ def process_open_leads() -> None:
         if choice == 'überspringen':
             continue
         if choice == 'kein Lead':
-            doc = Api.api.get_doc("Lead",lead1['name'])
-            doc['status'] = 'Do Not Contact'
-            Api.api.update(doc)    
+            mark_not_contact(lead1['name'])
         else:
             Api.api.assign_to("Lead",lead1['name'],[lead_owners[choice]])
     print("Leads fertig bearbeitet")        
