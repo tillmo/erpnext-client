@@ -1,17 +1,17 @@
-"""Headless-Ersatz für GUI-Module und optionale Fremdpakete.
+"""Headless replacement for GUI modules and optional third-party packages.
 
-Zwei Gründe für Stubs:
+Two reasons for stubs:
 
-* PySimpleGUI / PySimpleGUIWx / easygui werden IMMER ersetzt, auch wenn sie
-  installiert sind: Tests dürfen weder Fenster öffnen noch die echte
-  ``erpnext.json`` des Benutzers (sg.UserSettings mit autosave) überschreiben.
+* PySimpleGUI / PySimpleGUIWx / easygui are ALWAYS replaced, even if they are
+  installed: tests must neither open windows nor overwrite the user's real
+  ``erpnext.json`` (sg.UserSettings with autosave).
 * jsondiff, jsoneditor, anytree, plotly, datefinder, google-cloud-documentai
-  werden nur ersetzt, wenn sie fehlen, damit die Projektmodule importierbar
-  bleiben. Tests, die das echte Verhalten dieser Pakete brauchen, sind mit
-  den ``requires_*``-Markern aus :mod:`support.deps` versehen.
+  are only replaced if they are missing, so that the project modules remain
+  importable. Tests that need the real behaviour of these packages carry the
+  ``requires_*`` markers from :mod:`support.deps`.
 
-Jeder GUI-Aufruf, der nicht explizit von einem Test beantwortet wurde, wirft
-``GuiCalled`` - so fällt sofort auf, wenn Code unerwartet in einen Dialog läuft.
+Every GUI call that was not explicitly answered by a test raises
+``GuiCalled`` - so it is immediately noticeable when code unexpectedly runs into a dialog.
 """
 from __future__ import annotations
 
@@ -22,14 +22,14 @@ from typing import Any, Callable, Iterable, Iterator, NoReturn
 
 
 class GuiCalled(RuntimeError):
-    """Ein Test hat Code erreicht, der einen GUI-Dialog öffnen würde."""
+    """A test has reached code that would open a GUI dialog."""
 
 
 # ---------------------------------------------------------------- PySimpleGUI
 class UserSettings:
-    """Nachbildung von sg.UserSettings: alle Instanzen teilen einen Speicher.
+    """Replica of sg.UserSettings: all instances share one store.
 
-    Wie das Original liefert ``settings['fehlt']`` None statt KeyError.
+    Like the original, ``settings['missing']`` returns None instead of KeyError.
     """
     store: dict[str, Any] = {}
     filename: str | None = None
@@ -77,7 +77,7 @@ def make_pysimplegui() -> types.ModuleType:
         return filename
     mod.user_settings_filename = user_settings_filename
 
-    # harmlose Konfigurationsaufrufe
+    # harmless configuration calls
     mod.set_options = lambda *a, **k: None
     mod.theme = lambda *a, **k: None
     mod.theme_add_new = lambda *a, **k: None
@@ -104,10 +104,10 @@ def make_pysimpleguiwx() -> types.ModuleType:
 
 # -------------------------------------------------------------------- easygui
 class EasyguiStub(types.ModuleType):
-    """easygui-Ersatz: Antworten werden pro Funktion vorgegeben, Aufrufe protokolliert.
+    """easygui replacement: answers are provided per function, calls are logged.
 
-    ``answers[name]`` darf ein Wert oder ein Callable(*args, **kwargs) sein.
-    Ohne hinterlegte Antwort wirft jeder Dialog GuiCalled.
+    ``answers[name]`` may be a value or a callable(*args, **kwargs).
+    Without a stored answer, every dialog raises GuiCalled.
     """
     FUNCTIONS: tuple[str, ...] = ("choicebox", "msgbox", "ccbox", "buttonbox", "fileopenbox",
                  "ynbox", "multchoicebox", "enterbox", "textbox", "boolbox")
@@ -136,7 +136,7 @@ class EasyguiStub(types.ModuleType):
         return dialog
 
 
-# ------------------------------------------------- optionale Fremdpakete
+# ------------------------------------------ optional third-party packages
 def make_jsondiff() -> tuple[types.ModuleType, types.ModuleType]:
     mod: Any = types.ModuleType("jsondiff")
     symbols: Any = types.ModuleType("jsondiff.symbols")
@@ -175,7 +175,7 @@ def make_jsoneditor() -> types.ModuleType:
 
 
 def make_anytree() -> types.ModuleType:
-    """Minimale, aber semantisch treue Nachbildung von anytree.Node/PostOrderIter/RenderTree."""
+    """Minimal but semantically faithful replica of anytree.Node/PostOrderIter/RenderTree."""
     mod: Any = types.ModuleType("anytree")
 
     class Node:
@@ -285,7 +285,7 @@ def make_datefinder() -> types.ModuleType:
 
 
 def make_google() -> tuple[Any, dict[str, types.ModuleType]]:
-    """google.cloud.documentai_v1beta3 und google.api_core.client_options."""
+    """google.cloud.documentai_v1beta3 and google.api_core.client_options."""
     created: dict[str, types.ModuleType] = {}
     google: Any
     try:
@@ -327,14 +327,14 @@ def _missing(name: str) -> bool:
     try:
         importlib.import_module(name)
         return False
-    except Exception:  # ImportError, aber auch kaputte Installationen
+    except Exception:  # ImportError, but also broken installations
         return True
 
 
 def install() -> dict[str, types.ModuleType]:
-    """Stubs in sys.modules eintragen. Muss vor dem ersten Projekt-Import laufen.
+    """Register stubs in sys.modules. Must run before the first project import.
 
-    Liefert ein dict mit den installierten Stub-Modulen (für Fixtures).
+    Returns a dict with the installed stub modules (for fixtures).
     """
     installed: dict[str, types.ModuleType] = {}
 

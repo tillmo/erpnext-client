@@ -1,4 +1,4 @@
-"""Tests für frappeclient.FrappeClient mit nachgebildeter requests-Session (kein Netz)."""
+"""Tests for frappeclient.FrappeClient with a simulated requests session (no network)."""
 from __future__ import annotations
 
 import json
@@ -184,12 +184,12 @@ class TestPostProcess:
         assert "ValidationError: nein" in str(e.value)
 
     def test_exc_type_without_traceback_raises(self, client: FrappeClient) -> None:
-        # Frappe 14 antwortet bei 404/417 oft nur mit exc_type und _server_messages
+        # on 404/417 Frappe 14 often only responds with exc_type and _server_messages
         with pytest.raises(FrappeException, match="DoesNotExistError"):
             client.post_process(FakeResponse({"exc_type": "DoesNotExistError", "_server_messages": "[]"}, status_code=404))
 
     def test_exc_type_on_success_status_is_ignored(self, client: FrappeClient) -> None:
-        # z.B. frappe.client.delete meldet intern abgefangene Fehler mit Status 200
+        # e.g. frappe.client.delete reports internally caught errors with status 200
         assert client.post_process(FakeResponse({"message": "ok", "exc_type": "DoesNotExistError"})) == "ok"
 
     def test_non_json_exc_is_passed_through(self, client: FrappeClient) -> None:

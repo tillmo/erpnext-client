@@ -1,4 +1,4 @@
-"""Tests für purchase_invoice_google_parser.py (Auswertung des Google-Document-AI-JSON)."""
+"""Tests for purchase_invoice_google_parser.py (evaluation of the Google Document AI JSON)."""
 from __future__ import annotations
 
 from typing import Any
@@ -25,7 +25,7 @@ def simple_find_date(s: str | None) -> str | None:
 
 @pytest.fixture(autouse=True)
 def patched_find_date(monkeypatch: pytest.MonkeyPatch) -> None:
-    # datefinder ist optional und bei deutschen Datumsformaten nicht deterministisch
+    # datefinder is optional and not deterministic for German date formats
     monkeypatch.setattr(gp, "find_date", simple_find_date)
 
 
@@ -68,7 +68,7 @@ class TestHelpers:
 class TestSetPurchaseInfo:
     def test_basic_fields(self, somiko: Company) -> None:
         pinv, parser = run(somiko, F.google_invoice_json())
-        assert pinv.no == "RE2024-77"               # Leerzeichen entfernt
+        assert pinv.no == "RE2024-77"               # whitespace removed
         assert pinv.supplier == "Muster Solartechnik GmbH"
         assert pinv.order_id == "BEST-1"
         assert pinv.gross_total == 1190.0 and pinv.totals[19.0] == 1000.0 and pinv.vat[19.0] == 190.0
@@ -102,7 +102,7 @@ class TestSetPurchaseInfo:
         ("15.03.2024", "20.03.2024", "X", "2024-03-15"),
         ("25.03.2024", "20.03.2024", "X", "2024-03-20"),      # min()
         ("25.03.2024", "20.03.2024", "Heckert Solar GmbH", "2024-03-20"),
-        ("15.03.2024", "10.03.2024", "Heckert Solar GmbH", "2024-03-10"),   # Heckert: immer due_date
+        ("15.03.2024", "10.03.2024", "Heckert Solar GmbH", "2024-03-10"),   # Heckert: always due_date
         (None, "20.03.2024", "X", "2024-03-20"),
         ("15.03.2024", None, "X", "2024-03-15"),
         (None, None, "X", None),
@@ -114,7 +114,7 @@ class TestSetPurchaseInfo:
 
 ITEMS_OK = [
     {"description": "Solarmodul 400", "code": "M1", "qty": "2 Stk", "rate": "100,00", "amount": "200,00"},
-    {"description": "Kleinteile", "amount": "20,00"},          # ohne Menge -> übersprungen, landet im Rundungsrest
+    {"description": "Kleinteile", "amount": "20,00"},          # without quantity -> skipped, ends up in the rounding remainder
     {"description": "Vorkasse Abzug", "qty": "1", "amount": "-500,00"},
 ]
 
@@ -128,9 +128,9 @@ class TestItems:
         assert (item.description, item.item_code, item.qty, item.qty_unit, item.rate, item.amount) == \
             ("Solarmodul 400", "M1", 2.0, "Stk", 100.0, 200.0)
         assert item.long_description == "Solarmodul 400"
-        # 261,80 - 41,80 - 200 = 20 -> als Rundungsrest zu den Versandkosten
+        # 261,80 - 41,80 - 200 = 20 -> added to the shipping costs as rounding remainder
         assert pinv.shipping == 20.0
-        # totals enthalten wie bei den internen Parsern den Versand
+        # as with the internal parsers, totals include the shipping costs
         assert pinv.totals[19.0] == 220.0 and pinv.gross_total == 261.80
         assert pinv.check_total() == ""
         assert pinv.extract_items is True
@@ -145,7 +145,7 @@ class TestItems:
         items = [{"description": "Modul", "qty": "1", "rate": "200,00", "amount": "200,00"},
                  {"description": "Fracht", "qty": "1", "rate": "20,00", "amount": "20,00"},
                  {"description": "Versandkosten", "qty": "1", "amount": "5,00"}]
-        # Brutto so gewählt, dass kein Rundungsrest entsteht: 200 + 25 = 225 netto
+        # gross amount chosen so that no rounding remainder arises: 200 + 25 = 225 net
         j = F.google_invoice_json(total="267,75", tax="42,75", net="225,00", items=items)
         pinv, _ = run(somiko, j, update_stock=True)
         assert [i.description for i in pinv.items] == ["Modul"]
@@ -168,7 +168,7 @@ class TestItems:
         if expected:
             assert pinv.items[0].qty == expected
         else:
-            assert pinv.items == []   # Menge 0 -> nicht übernommen
+            assert pinv.items == []   # quantity 0 -> not taken over
 
     def test_amount_or_qty_derived_from_rate(self, somiko: Company) -> None:
         items = [{"description": "A", "qty": "2", "rate": "10,00"},        # amount = rate*qty

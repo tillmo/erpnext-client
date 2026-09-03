@@ -1,4 +1,4 @@
-"""Tests für args.py (Kommandozeile, Einstellungen) und die GUI-freien Teile von menu.py."""
+"""Tests for args.py (command line, settings) and the GUI-free parts of menu.py."""
 from __future__ import annotations
 
 import json
@@ -106,7 +106,7 @@ class TestInit:
             raise ConnectionError("down")
         monkeypatch.setattr(api, "FrappeClient", broken)
         with pytest.raises(ConnectionError):
-            args.init()     # Api.initialize ist hier nicht durch den Wrapper geschützt
+            args.init()     # Api.initialize is not protected by the wrapper here
 
 
 @pytest.fixture

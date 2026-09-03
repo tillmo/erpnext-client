@@ -1,15 +1,15 @@
-"""Verbindung zu einer echten ERPNext-Instanz für die Online-Tests.
+"""Connection to a real ERPNext instance for the online tests.
 
-Die Zugangsdaten kommen ausschließlich aus Umgebungsvariablen (siehe tests/conftest.py),
-nie aus der erpnext.json des Benutzers.
+The credentials come exclusively from environment variables (see tests/conftest.py),
+never from the user's erpnext.json.
 
-* ``ReadOnlyClient`` umhüllt den FrappeClient und lässt jeden schreibenden Aufruf
-  mit ``ReadOnlyViolation`` scheitern - die Nur-Lese-Tests können so nichts verändern,
-  selbst wenn eine getestete Funktion unerwartet schreiben wollte.
-* ``LiveState`` lädt Firmen, Bankkonten und die Daten der gewählten Firma einmal pro
-  Sitzung und setzt sie vor jedem Test wieder in die Klassen-Registries ein (die der
-  autouse-Fixture in tests/conftest.py jeweils leert).
-* ``Cleanup`` merkt sich angelegte Dokumente und löscht sie am Testende wieder.
+* ``ReadOnlyClient`` wraps the FrappeClient and makes every writing call fail with
+  ``ReadOnlyViolation`` - so the read-only tests cannot change anything, even if a
+  function under test unexpectedly tried to write.
+* ``LiveState`` loads companies, bank accounts and the data of the selected company once
+  per session and reinstates them in the class registries before each test (which the
+  autouse fixture in tests/conftest.py clears each time).
+* ``Cleanup`` remembers created documents and deletes them again at the end of the test.
 """
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ WRITE_METHODS = {"insert", "insert_many", "update", "update_with_doctype", "bulk
 
 
 class ReadOnlyViolation(RuntimeError):
-    """Ein Nur-Lese-Test hat versucht, auf der Instanz zu schreiben."""
+    """A read-only test tried to write to the instance."""
 
 
 class ReadOnlyClient:
@@ -53,7 +53,7 @@ class ReadOnlyClient:
 
 
 def tag(prefix: str = "pytest") -> str:
-    """Eindeutige Kennung für Testdokumente, damit sie auf der Instanz erkennbar bleiben."""
+    """Unique identifier for test documents so that they remain recognisable on the instance."""
     return "{}-{}".format(prefix, uuid.uuid4().hex[:8])
 
 
@@ -69,7 +69,7 @@ def connect(config: OnlineConfig) -> tuple[FrappeClient, list[str]]:
     client = FrappeClient(config.server, api_key=config.key, api_secret=config.secret)
     try:
         companies = [c["name"] for c in client.get_list("Company")]
-    except Exception as e:  # Verbindungs-/Auth-Fehler klar melden statt jeden Test einzeln scheitern zu lassen
+    except Exception as e:  # report connection/auth errors clearly instead of letting every test fail individually
         pytest.skip("Keine Verbindung zu {}: {}".format(config.server, str(e)[:200]))
     if not companies:
         pytest.skip("Die Instanz hat keine Firma")
@@ -106,7 +106,7 @@ class LiveState:
         self.accounts_by_company: dict[str, list[dict[str, Any]]] = dict(Api.accounts_by_company)
 
     def install(self, read_only: bool) -> FrappeClient | ReadOnlyClient:
-        """Vor jedem Test: Einstellungen, Client und Registries wieder herstellen."""
+        """Before each test: restore settings, client and registries."""
         import bank
         import company as company_mod
         from api import Api
@@ -120,7 +120,7 @@ class LiveState:
         bank.BankAccount.baccounts_by_company = defaultdict(list, {k: list(v) for k, v in self.baccounts_by_company.items()})
         return Api.api
 
-    # ------------------------------------------------------------ Hilfen
+    # ----------------------------------------------------------- Helpers
     def bank_accounts(self) -> list[BankAccount]:
         return self.baccounts_by_company.get(self.company_name, [])
 
@@ -154,7 +154,7 @@ class LiveState:
 
 
 class Cleanup:
-    """Registrierte Dokumente am Testende löschen (gebuchte zuvor abbrechen)."""
+    """Delete registered documents at the end of the test (cancel submitted ones first)."""
 
     def __init__(self, client: FrappeClient) -> None:
         self.client: FrappeClient = client
@@ -166,7 +166,7 @@ class Cleanup:
         return name
 
     def restore(self, action: Callable[[], Any]) -> None:
-        """Callable, das am Ende ausgeführt wird (z. B. Feldwert zurücksetzen)."""
+        """Callable that is executed at the end (e.g. resetting a field value)."""
         self.restore_actions.append(action)
 
     def run(self) -> list[tuple[str, str, str]]:
@@ -177,7 +177,7 @@ class Cleanup:
             except Exception as e:
                 errors.append(("restore", str(action), str(e)[:200]))
         pending = list(reversed(self.items))
-        # Rechnungen an Test-Lieferanten, die ein abgebrochener Test nicht mehr registrieren konnte
+        # invoices to test suppliers that an aborted test could no longer register
         for doctype, name in self.items:
             if doctype == "Supplier":
                 try:
@@ -186,25 +186,25 @@ class Cleanup:
                             pending.insert(0, ("Purchase Invoice", pi["name"]))
                 except FrappeException as e:
                     errors.append(("Purchase Invoice", "von " + name, str(e)[:200]))
-        for attempt in range(2):          # zweiter Durchlauf löst Verkettungen (Link-Prüfungen) auf
+        for attempt in range(2):          # a second pass resolves chains (link checks)
             failed: list[tuple[str, str, str]] = []
             for doctype, name in pending:
                 try:
                     doc = self.client.get_doc(doctype, name)
                 except FrappeException:
-                    continue        # gibt es (nicht mehr)
+                    continue        # does not exist (any more)
                 try:
                     if doc.get("docstatus") == 1:
                         self.client.cancel(doctype, name)
                     self.client.delete(doctype, name)
                 except Exception as e:
-                    # letzte Zeile der Server-Antwort enthält den Ausnahmetyp (statt Traceback-Anfang)
+                    # the last line of the server response contains the exception type (instead of the start of the traceback)
                     failed.append((doctype, name, str(e).strip().splitlines()[-1][:300]))
             pending = [(d, n) for d, n, _ in failed]
             if not pending:
                 break
-        # stornierte Belege (und daran hängende Stammdaten) lassen sich in ERPNext nicht löschen,
-        # weil Hauptbuch-/Payment-Ledger-Einträge darauf verweisen - sie bleiben als 'pytest-…' stehen
+        # cancelled documents (and master data attached to them) cannot be deleted in ERPNext,
+        # because general ledger / payment ledger entries refer to them - they remain as 'pytest-…'
         cancelled = [(d, n) for d, n, msg in failed if "LinkExistsError" in msg]
         errors.extend(f for f in failed if "LinkExistsError" not in f[2])
         if cancelled:

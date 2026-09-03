@@ -1,4 +1,4 @@
-"""PreRechnung anlegen, vorprozessieren und in eine Einkaufsrechnung überführen."""
+"""Create a PreRechnung, preprocess it and transfer it into a purchase invoice."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -28,7 +28,7 @@ def _need_doctype(live: LiveState, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(utils, "evince", lambda f: None)
 
 
-# Die Serverseite (App bremer_solidarstrom) erlaubt fuer buchungskonto nur feste Kurznamen
+# The server side (app bremer_solidarstrom) only allows fixed short names for buchungskonto
 BUCHUNGSKONTO = "Werkzeuge und Kleingeräte"
 
 
@@ -44,8 +44,8 @@ def konto(live: LiveState) -> str:
 def pre(live: LiveState, api: Any, cleanup: Cleanup, test_supplier: str, konto: str, tmp_path: Path, today: str) -> tuple[dict[str, Any], str]:
     no = tag("PRE")
     pdf = F.write_generic_invoice_pdf(tmp_path / "pre.pdf", no=no)
-    # 'pdf' ist Pflichtfeld, die Datei kann aber erst an ein bestehendes Dokument gehaengt werden:
-    # Platzhalter ohne Datei-URL, danach Anhang direkt an das Feld (docfield setzt 'pdf')
+    # 'pdf' is a mandatory field, but the file can only be attached to an existing document:
+    # placeholder without file URL, then attach directly to the field (docfield sets 'pdf')
     doc = api.insert({"doctype": "PreRechnung", "company": live.company_name, "lieferant": test_supplier,
                       "typ": "Rechnung", "datum": today, "processed": 0, "eingepflegt": 0,
                       "buchungskonto": BUCHUNGSKONTO, "selbst_bezahlt": 0, "lager": 0,

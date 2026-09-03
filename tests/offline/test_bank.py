@@ -1,4 +1,4 @@
-"""Tests für bank.py: Bankkonten, Banktransaktionen, Kontoauszugs-Import (offline)."""
+"""Tests for bank.py: bank accounts, bank transactions, bank statement import (offline)."""
 from __future__ import annotations
 
 import datetime
@@ -51,8 +51,8 @@ class TestBankAccount:
         bank.BankAccount.init_baccounts()
         assert set(bank.BankAccount.baccounts_by_name) == {"Sparkasse Bremen - SoMiKo", "Sparda - SoMiKo"}
         assert sorted(bank.BankAccount.get_baccount_names()) == ["Sparda - SoMiKo", "Sparkasse Bremen - SoMiKo"]
-        bank.BankAccount.init_baccounts()      # kein zweites Laden
-        assert len(fake_api.calls_of("get_list")) == 3   # 1x Konten, 2x Salden
+        bank.BankAccount.init_baccounts()      # no second load
+        assert len(fake_api.calls_of("get_list")) == 3   # 1x accounts, 2x balances
 
     def test_init_baccounts_skipped_during_setup(self, fake_api: FakeFrappeClient, user_settings: UserSettings) -> None:
         user_settings["-setup-"] = True
@@ -185,7 +185,7 @@ class TestTransfer:
         assert options[1].startswith(fake_api.get_list("Bank Transaction", filters={"description": "Gegenbuchung"})[0]["name"])
         assert "-100.0" in options[1]
         assert options[2].startswith(sinvs[0].name) and "Kunde K" in options[2]
-        # Konten aus ähnlichen Buchungssätzen zuerst, dann Einnahmenkonten
+        # accounts from similar journal entries first, then income accounts
         assert options[3] in ("8403 - Balkonmodule 19% - SoMiKo", "8401 - Selbstbauanlagen 19% - SoMiKo")
         income_names = [a["name"] for a in somiko.leaf_accounts_for_debit]
         assert set(options[3:]) == set(income_names)
@@ -202,7 +202,7 @@ class TestTransfer:
         j = fake_api.get_doc("Journal Entry", fake_api.get_list("Journal Entry")[0]["name"])
         assert j["accounts"][1]["account"] == "4985 - Werkzeuge und Kleingeräte - SoMiKo"
         assert j["accounts"][1]["debit"] == 42.0
-        # Auszahlung -> Ausgabenkonten werden angeboten (ohne passende Buchungssätze alphabetisch)
+        # withdrawal -> expense accounts are offered (alphabetically, without matching journal entries)
         options = gui.calls[0][1][2]
         assert options[1 + len(pinvs):] == sorted(a["name"] for a in somiko.leaf_accounts_for_credit)
 
@@ -223,7 +223,7 @@ class TestTransfer:
         answers = iter(["Anzahlung", "Alpha AG"])
         gui.answers["choicebox"] = lambda msg, title, options: next(answers)
         bank.BankTransaction(doc).transfer([], [])
-        assert gui.calls[1][1][2] == ["Alpha AG", "zeta GmbH"]     # casefold-sortiert
+        assert gui.calls[1][1][2] == ["Alpha AG", "zeta GmbH"]     # sorted by casefold
         pe = fake_api.get_doc("Payment Entry", fake_api.get_list("Payment Entry")[0]["name"])
         assert pe["payment_type"] == "Pay" and pe["party_type"] == "Supplier" and pe["party"] == "Alpha AG"
         assert pe["reference_no"] == "998877"
@@ -310,7 +310,7 @@ class TestSubmitAndDelete:
         fake_api.cancel("Journal Entry", je)
         bank.BankTransaction.delete_entry(je, cancelled=True)
         assert fake_api.get_doc("Bank Transaction", bt_name)["status"] == "Pending"
-        assert fake_api.get_doc("Journal Entry", je)["docstatus"] == 2   # nicht gelöscht
+        assert fake_api.get_doc("Journal Entry", je)["docstatus"] == 2   # not deleted
 
     def test_cancelled_entry_with_amendment_is_skipped(self, bacc: bank.BankAccount, fake_api: FakeFrappeClient) -> None:
         bt_name, je = self._linked(bacc, fake_api)
@@ -348,7 +348,7 @@ class TestFindBankTransaction:
         assert bank.BankTransaction.find_bank_transaction(somiko.name, -10.0, "RE-1") is None
         assert bank.BankTransaction.find_bank_transaction(somiko.name, -10.0, "RE-2") is None
         assert bank.BankTransaction.find_bank_transaction(somiko.name, -10.0, "") is None
-        assert len(fake_api.calls_of("get_list")) == n0 + 2   # leere bill_no fragt gar nicht erst
+        assert len(fake_api.calls_of("get_list")) == n0 + 2   # an empty bill_no does not even query
 
     def test_reconciled_transactions_are_ignored(self, bacc: bank.BankAccount, fake_api: FakeFrappeClient,
                                                  somiko: Company) -> None:
@@ -445,8 +445,8 @@ class TestBankStatementReaders:
         b.read_sparda_ethik(fn)
         assert [(e.posting_date, e.purpose, e.partner, e.amount) for e in b.entries] == [
             ("2026-08-16", "Miete", "Vermieter", -500.0), ("2026-08-15", "Rechnung 4711", "Kunde K", 1234.56)]
-        assert b.ebal == 734.56       # erste Zeile = Endsaldo
-        assert b.sbal == 1234.56      # letzte Zeile
+        assert b.ebal == 734.56       # first row = closing balance
+        assert b.sbal == 1234.56      # last row
 
     def test_get_baccount_from_iban_column(self, bacc: bank.BankAccount, tmp_path: Path) -> None:
         fn = F.write_sparkasse_csv(tmp_path / "spk.csv", ROWS_SPARKASSE)
@@ -507,7 +507,7 @@ class TestProcessFile:
         today = datetime.date.today().strftime("%Y-%m-%d")
         assert fake_api.get_doc("Bank Account", bacc.name)["last_integration_date"] == today
         assert bacc.doc["last_integration_date"] == today
-        # zweiter Import derselben Datei legt nichts Neues an
+        # a second import of the same file creates nothing new
         b2 = bank.BankStatement.process_file(fn)
         assert len(b2.entries) == 2 and b2.transactions == []
         assert len(fake_api.get_list("Bank Transaction")) == 2

@@ -1,4 +1,4 @@
-"""bank.py gegen echte Bankkonten und Banktransaktionen (nur lesend)."""
+"""bank.py against real bank accounts and bank transactions (read-only)."""
 from __future__ import annotations
 
 from pathlib import Path

@@ -17,7 +17,7 @@ from collections import defaultdict
 
 class Company(Doc):
     companies_by_name: dict[str, Company] = {}
-    # in load_data / set_accounts gesetzte Instanzattribute
+    # instance attributes set in load_data / set_accounts
     taxes: dict[float, str]
     default_vat: float | None
     data_loaded: bool
@@ -41,7 +41,7 @@ class Company(Doc):
             accounts += self.leaf_accounts_by_root_type[rt].copy()
         return accounts
     
-    # Felder, die der Client aus dem Firmendokument braucht (get_list liefert sonst nur 'name')
+    # fields the client needs from the company document (otherwise get_list only returns 'name')
     FIELDS: list[str] = ['name','cost_center','default_expense_account','default_payable_account',
               'default_receivable_account','default_finance_book']
 

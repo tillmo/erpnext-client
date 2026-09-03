@@ -1,8 +1,8 @@
-"""Kontoauszug einlesen, Banktransaktionen zuordnen, wieder auflösen - gegen die Testinstanz.
+"""Import a bank statement, assign bank transactions, undo again - against the test instance.
 
-Voraussetzung: ein Bankkonto der Firma mit unterstützter BLZ (Sparkasse Bremen 29050101,
-Sparda 25090500, Ethikbank 83094495). Das Feld last_integration_date des Bankkontos wird
-am Ende auf den alten Wert zurückgesetzt.
+Prerequisite: a bank account of the company with a supported bank code (Sparkasse Bremen 29050101,
+Sparda 25090500, Ethikbank 83094495). The field last_integration_date of the bank account is
+reset to its old value at the end.
 """
 from __future__ import annotations
 
@@ -75,16 +75,16 @@ def test_import_reconcile_and_undo(live: LiveState, api: Any, cleanup: Cleanup, 
     assert miete["date"] == "2026-08-15"
     assert api.get_doc("Bank Account", bacc.name)["last_integration_date"] == today
 
-    # 2) erneuter Import legt nichts an
+    # 2) a repeated import creates nothing
     stmt2 = bank.BankStatement.process_file(fn)
     assert stmt2.transactions == []
     assert len(find_transactions(api, marker)) == 2
 
-    # 3) Zuordnung zu einem Aufwandskonto -> Buchungssatz, Transaktion abgeglichen
+    # 3) assignment to an expense account -> journal entry, transaction reconciled
     bt = bank.BankTransaction(api.get_doc("Bank Transaction", miete["name"]))
     bt.journal_entry(live.expense_leaf(), False)
     je_name = bt.doc["payment_entries"][0]["payment_entry"]
-    cleanup.add("Journal Entry", je_name)   # nach den Transaktionen registriert -> wird zuerst gelöscht
+    cleanup.add("Journal Entry", je_name)   # registered after the transactions -> deleted first
     je = api.get_doc("Journal Entry", je_name)
     assert je["docstatus"] == 0 and je["total_debit"] == pytest.approx(12.34)
     assert {a["account"] for a in je["accounts"]} == {bacc.e_account, live.expense_leaf()}
@@ -93,7 +93,7 @@ def test_import_reconcile_and_undo(live: LiveState, api: Any, cleanup: Cleanup, 
     assert stored["payment_entries"][0]["payment_entry"] == je_name
     assert je_name not in {bt_["name"] for bt_ in live.company.open_bank_transactions()}
 
-    # 4) Rückgängig: Buchungssatz löschen, Transaktion wieder offen
+    # 4) undo: delete journal entry, transaction open again
     bank.BankTransaction.delete_entry(je_name)
     with pytest.raises(FrappeException):
         api.get_doc("Journal Entry", je_name)

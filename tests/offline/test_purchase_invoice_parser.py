@@ -1,8 +1,8 @@
-"""Tests der lieferantenspezifischen Textparser (PurchaseInvoiceParser) mit synthetischen Zeilen.
+"""Tests of the supplier-specific text parsers (PurchaseInvoiceParser) with synthetic lines.
 
-Die Zeilen in support.factories bilden die Spaltengeometrie nach, die der Parser erwartet
-(feste Offsets wie item_str[73:99]). Ob echte PDFs diese Geometrie liefern, prüft der
-Online-Regressionstest tests/online_read/test_parser_regression.py.
+The lines in support.factories reproduce the column geometry the parser expects
+(fixed offsets such as item_str[73:99]). Whether real PDFs deliver this geometry is checked
+by the online regression test tests/online_read/test_parser_regression.py.
 """
 from __future__ import annotations
 
@@ -38,7 +38,7 @@ class TestKrannich:
         assert (modul.item_code, modul.qty, modul.qty_unit, modul.amount, modul.rate) == ("KS-MOD-400", 2, "Stk", 1000.0, 500.0)
         assert modul.description == "Solarmodul 400 Wp schwarz"
         assert "Einzelpreis" not in modul.long_description
-        # Rolle -> Meter aus der Beschreibung
+        # roll -> metres from the description
         assert (kabel.item_code, kabel.qty, kabel.qty_unit, kabel.rate) == ("KS-KAB-50", 50, "Meter", 2.0)
 
     def test_roll_length_with_mm_in_description(self, somiko: Company) -> None:
@@ -91,9 +91,9 @@ class TestHeckert:
         assert len(pinv.items) == 1
         item = pinv.items[0]
         assert (item.item_code, item.qty, item.qty_unit) == ("HS-MOD-380", 2, "Stk")
-        assert item.amount == 550.0 and item.rate == 275.0      # Rabatt eingerechnet
+        assert item.amount == 550.0 and item.rate == 275.0      # discount included
         assert item.description == "Modul NeMo 380 Wp"
-        assert pinv.shipping == 30.0                             # Transportkosten-Position
+        assert pinv.shipping == 30.0                             # transport cost position
         assert pinv.totals[19.0] == 580.0 and pinv.vat[19.0] == 110.20
         assert pinv.gross_total == 690.20
         assert pinv.check_total() == ""
@@ -155,7 +155,7 @@ class TestWagner:
         parser.line_items = [[], ["1 Kaputt ohne Artikelnr 3 200,00 600,00\n"], ["2 WS-A Ok 1 Stück 5,00 5,00\n"]]
         parser.set_items()
         assert "Position konnte nicht gelesen werden" in capsys.readouterr().out
-        assert len(pinv.items) == 0    # zweite Position: Artikelnr. fehlt ebenfalls (Vorkasse-Format)
+        assert len(pinv.items) == 0    # second position: item number is missing as well (pro forma format)
 
 
 class TestPvXchange:

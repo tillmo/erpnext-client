@@ -1,4 +1,4 @@
-"""Tests für purchase_invoice.py (ohne Lieferanten-Parser, siehe test_purchase_invoice_parser.py)."""
+"""Tests for purchase_invoice.py (without supplier parsers, see test_purchase_invoice_parser.py)."""
 from __future__ import annotations
 
 import subprocess
@@ -35,7 +35,7 @@ class TestExtractors:
     def test_extract_amounts(self) -> None:
         assert purchase_invoice.extract_amounts("Summe 119,00 EUR, MwSt 19,00 und 7") == [119.0, 19.0]
         assert purchase_invoice.extract_amounts("nichts") == []
-        # Tausenderpunkte werden nicht erkannt: nur der Teil nach dem Punkt zählt
+        # thousands separators are not recognised: only the part after the dot counts
         assert purchase_invoice.extract_amounts("1.234,56") == [234.56]
 
     def test_extract_amount_and_vat_direct(self) -> None:
@@ -62,7 +62,7 @@ class TestExtractors:
     @pytest.mark.parametrize("line, expected", [
         ("Rechnungsnummer: 2026-0815", "2026-0815"),
         ("Rechnungs-Nr. 4711", "4711"),
-        ("Rechnung Nr 2024/117", "Nr 2024/117"),     # 'Rechnung'-Muster nimmt das Wort 'Nr' mit
+        ("Rechnung Nr 2024/117", "Nr 2024/117"),     # the 'Rechnung' pattern takes the word 'Nr' along
         ("Belegnummer / Document Number RE-2024-555", "RE-2024-555"),
         ("Deine Rechnung RE_77 vom", "RE_77"),
         ("Zahlung EXP-24-01-00042 erhalten", "EXP-24-01-00042"),
@@ -147,7 +147,7 @@ class TestInit:
     def test_extract_order_id(self, pinv: PurchaseInvoice) -> None:
         pinv.extract_order_id("Auftragsbestätigung", "Ihre Auftragsbestätigung AB123 vom 1.1.")
         assert pinv.order_id == "AB123"
-        pinv.extract_order_id("Order confirmation", "Order confirmation")   # kein Folgewort -> unverändert
+        pinv.extract_order_id("Order confirmation", "Order confirmation")   # no following word -> unchanged
         assert pinv.order_id == "AB123"
         pinv.extract_order_id("Fehlt", "andere Zeile")
         assert pinv.order_id == "AB123"
@@ -193,7 +193,7 @@ class TestTotalsAndItems:
         p.totals[19.0] = 250.0
         p.assign_aggregate_e_item()
         assert p.e_items == [{"item_code": "000.100.301", "qty": 2.5, "rate": 100.0, "cost_center": "Haupt - SoMiKo"}]
-        p.shipping = 50.0        # Versand ist in totals enthalten und wird separat gebucht
+        p.shipping = 50.0        # shipping is included in totals and is posted separately
         p.assign_aggregate_e_item()
         assert p.e_items[0]["qty"] == 2.0
 
@@ -380,7 +380,7 @@ class TestApplyChanges:
         by_code = {i.get("item_code"): i for i in merged if i.get("item_code")}
         assert by_code["A"]["description"] == "Modul A lang"
         assert set(by_code) == {"A", "B", "C", "D"}
-        assert sum(1 for i in merged if i.get("item_code") == "D") == 2   # Textposition dem Artikel D zugeordnet
+        assert sum(1 for i in merged if i.get("item_code") == "D") == 2   # text position assigned to item D
         assert [i for i in merged if "item_code" not in i] == [{"description": "nur Text Modul"}]
         assert pinv.merge_items([], items2) == items2
 
@@ -429,7 +429,7 @@ class TestGenericParsing:
         monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
         pinv.cli_overrides = {}
         pinv.no = None
-        pinv.vat[19.0] = ""        # Zustand wie nach parse_generic ohne erkannte Beträge
+        pinv.vat[19.0] = ""        # state as after parse_generic without recognised amounts
         pinv.totals[19.0] = ""
         assert pinv.complete_data_by_cli() is True
         assert pinv.vat[19.0] == 19.0 and pinv.totals[19.0] == 100.0
@@ -448,7 +448,7 @@ class TestGenericParsing:
         monkeypatch.setattr("builtins.input", fake_input)
         pinv.cli_overrides = {}
         pinv.no = None
-        pinv.totals[19.0] = ""     # Nettobetrag unbekannt, MWSt 0.0 gilt als bekannt
+        pinv.totals[19.0] = ""     # net amount unknown, VAT 0.0 counts as known
         assert pinv.complete_data_by_cli(amount=119.0) is True
         assert pinv.supplier == "Prompt GmbH" and pinv.no == "P-1" and pinv.date == "2026-06-05"
         assert "MWSt (19.0%): " not in prompts
@@ -529,7 +529,7 @@ class TestParseInvoice:
                                                   "Netto 100,00", "MwSt 19,00", "Brutto 119,00"])
         assert pinv.parse_invoice(None, pdf, is_test=True) is pinv
         assert pinv.parser == "generic" and pinv.no == "SW-1"
-        assert pinv.supplier == "Solarwatt GmbH"          # konfigurierter Lieferantenname
+        assert pinv.supplier == "Solarwatt GmbH"          # configured supplier name
         assert pinv.totals[19.0] == 100.0 and pinv.date == "2026-02-01"
         assert fake_api.calls == []
 
@@ -547,7 +547,7 @@ class TestReadPdfAndTransfer:
         fake_api.add("Purchase Invoice", bill_no="2026-0815", status="Unpaid")
         gui.answers["msgbox"] = None
         pinv.cli_overrides = {"konto": "4210"}
-        # parse_generic erkennt das Duplikat bereits selbst
+        # parse_generic already detects the duplicate itself
         assert pinv.read_pdf(None, generic_pdf) is pinv
         assert pinv.is_duplicate is True
 
@@ -593,7 +593,7 @@ class TestSendToErpnext:
         assert doc["docstatus"] == 0 and doc["grand_total"] == 119.0 and doc["total"] == 100.0
         assert doc["supplier"] == "Muster Solartechnik GmbH" and doc["bill_no"] == "2026-0815"
         assert doc["supplier_invoice"] == "/private/files/rechnung.pdf"
-        # an das Feld gebunden und privat - sonst legt Frappe beim Speichern eine oeffentliche Kopie an
+        # bound to the field and private - otherwise Frappe creates a public copy on save
         file_doc = fake_api.get_list("File", fields=["attached_to_field", "is_private", "attached_to_name"])[0]
         assert file_doc == {"attached_to_field": "supplier_invoice", "is_private": 1, "attached_to_name": doc["name"]}
         assert fake_api.get_doc("Supplier", "Muster Solartechnik GmbH")
@@ -647,7 +647,7 @@ class TestSendToErpnext:
         p = F.make_purchase_invoice(somiko, True)
         p.cli_overrides = {"konto": "4210"}
         p.read_pdf(None, generic_pdf, check_dup=False)
-        p.update_stock = True    # read_pdf hat die Standardposition zugewiesen und update_stock zurückgesetzt
+        p.update_stock = True    # read_pdf has assigned the default position and reset update_stock
         gui.answers["msgbox"] = None
         assert p.send_to_erpnext() is p
         assert "Bitte Artikel in ERPNext manuell eintragen" in gui.calls[-1][1][0]

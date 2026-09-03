@@ -1,13 +1,13 @@
-"""Regressionstest der Rechnungsparser gegen echte Einkaufsrechnungs-PDFs der Instanz.
+"""Regression test of the invoice parsers against real purchase invoice PDFs of the instance.
 
-Nachfolger von test/test_pinv_parser.py: Für bis zu ERPNEXT_TEST_MAX_INVOICES (Standard 25)
-Einkaufsrechnungen mit angehängtem PDF wird das PDF geladen, mit is_test=True geparst und die
-erkannte Rechnungsnummer mit bill_no verglichen (gleiche Variantenregel wie im alten Skript:
-'22' und '22a' gelten als gleich). Liegt test/data/purchase_invoices.json samt PDFs vor
-(erzeugt von test/get_purchase_invoices.py), wird stattdessen dieser Datensatz genutzt.
+Successor of test/test_pinv_parser.py: for up to ERPNEXT_TEST_MAX_INVOICES (default 25)
+purchase invoices with an attached PDF, the PDF is loaded, parsed with is_test=True and the
+recognised invoice number is compared with bill_no (same variant rule as in the old script:
+'22' and '22a' count as equal). If test/data/purchase_invoices.json with its PDFs is present
+(created by test/get_purchase_invoices.py), that data set is used instead.
 
-Der Test schlägt fehl, wenn ein Parser eine Ausnahme wirft oder die Trefferquote unter
-ERPNEXT_TEST_PARSER_MIN_MATCH (Standard 0.5) fällt; die Details werden ausgegeben.
+The test fails if a parser raises an exception or the match rate falls below
+ERPNEXT_TEST_PARSER_MIN_MATCH (default 0.5); the details are printed.
 """
 from __future__ import annotations
 
@@ -32,7 +32,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.
 
 
 def same_number(parsed: str | None, expected: str | None) -> bool:
-    expected = (expected or "").strip()       # bill_no in ERPNext enthält teils ein abschließendes '\n'
+    expected = (expected or "").strip()       # bill_no in ERPNext sometimes contains a trailing '\n'
     if not expected:
         return parsed in (None, "", "???")
     if parsed == expected:
@@ -85,7 +85,7 @@ def test_parsers_against_real_invoices(api: Any, live: LiveState, tmp_path: Path
         try:
             pinv.parse_invoice(None, pdf, given_supplier=doc.get("supplier"), is_test=True)
             entry["parsed"], entry["parser"], entry["gross"] = pinv.no, pinv.parser, pinv.gross_total
-        except Exception as e:  # noqa: BLE001 - jede Ausnahme ist hier ein Befund
+        except Exception as e:  # noqa: BLE001 - every exception is a finding here
             entry["error"] = "{}: {}".format(type(e).__name__, e)
         entry["ok"] = entry["error"] is None and same_number(entry["parsed"], entry["expected"])
         results.append(entry)

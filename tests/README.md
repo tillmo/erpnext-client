@@ -1,15 +1,15 @@
-# Tests für den ERPNext-Client
+# Tests for the ERPNext client
 
-Die Tests liegen in drei Verzeichnissen, die zugleich pytest-Marker sind:
+The tests live in three directories, which are also pytest markers:
 
-| Verzeichnis            | Marker         | Voraussetzung                                                    |
+| Directory              | Marker         | Prerequisite                                                     |
 |------------------------|----------------|------------------------------------------------------------------|
-| `tests/offline/`       | `offline`      | nichts – ERPNext wird durch einen In-Memory-Fake ersetzt         |
-| `tests/online_read/`   | `online_read`  | ERPNext-Instanz mit **lesendem** API-Zugriff                     |
-| `tests/online_write/`  | `online_write` | ERPNext-**Test**instanz mit **schreibendem** Zugriff             |
+| `tests/offline/`       | `offline`      | none – ERPNext is replaced by an in-memory fake                  |
+| `tests/online_read/`   | `online_read`  | ERPNext instance with **read** API access                        |
+| `tests/online_write/`  | `online_write` | ERPNext **test** instance with **write** access                  |
 
-Ausführen (aus dem Repo-Wurzelverzeichnis, mit aktivierter Python-Umgebung des Clients,
-z. B. `source ~/programs/python/env3.14/bin/activate`; `pytest` steht in `requirements-linux.txt`):
+Run them from the repository root, with the client's Python environment activated
+(e.g. `source ~/programs/python/env3.14/bin/activate`; `pytest` is listed in `requirements-linux.txt`):
 
 ```bash
 python3 -m pytest tests/offline
@@ -25,99 +25,99 @@ ERPNEXT_TEST_SERVER=https://erpnext-test.example ERPNEXT_TEST_KEY=... ERPNEXT_TE
 ERPNEXT_TEST_WRITE=1 python3 -m pytest tests/online_write
 ```
 
-Ohne die Umgebungsvariablen werden die Online-Tests übersprungen, nicht ausgeführt.
+Without the environment variables, the online tests are skipped, not run.
 
-## Umgebungsvariablen
+## Environment variables
 
-| Variable                        | Bedeutung                                                                          |
+| Variable                        | Meaning                                                                            |
 |---------------------------------|------------------------------------------------------------------------------------|
-| `ERPNEXT_TEST_SERVER`           | URL der Instanz, z. B. `https://erpnext-test.example`                              |
-| `ERPNEXT_TEST_KEY` / `_SECRET`  | API-Schlüssel/-Geheimnis (ERPNext: Einstellungen → My Settings → API-Zugriff)      |
-| `ERPNEXT_TEST_COMPANY`          | Firma, mit der getestet wird (Standard: erste Firma der Instanz)                   |
-| `ERPNEXT_TEST_WRITE=1`          | Schreibtests freischalten                                                          |
-| `ERPNEXT_TEST_ALLOW_SUBMIT=1`   | zusätzlich Tests, die Dokumente buchen und wieder abbrechen                        |
-| `ERPNEXT_TEST_MAX_INVOICES`     | Anzahl Rechnungen für die Parser-Regression (Standard 25)                          |
-| `ERPNEXT_TEST_PARSER_MIN_MATCH` | Mindest-Trefferquote der Parser-Regression, 0–1 (Standard 0.5)                     |
+| `ERPNEXT_TEST_SERVER`           | URL of the instance, e.g. `https://erpnext-test.example`                           |
+| `ERPNEXT_TEST_KEY` / `_SECRET`  | API key/secret (ERPNext: Settings → My Settings → API Access)                      |
+| `ERPNEXT_TEST_COMPANY`          | company used for testing (default: first company of the instance)                  |
+| `ERPNEXT_TEST_WRITE=1`          | enable write tests                                                                 |
+| `ERPNEXT_TEST_ALLOW_SUBMIT=1`   | additionally tests that submit documents and cancel them again                     |
+| `ERPNEXT_TEST_MAX_INVOICES`     | number of invoices for the parser regression (default 25)                          |
+| `ERPNEXT_TEST_PARSER_MIN_MATCH` | minimum match rate of the parser regression, 0–1 (default 0.5)                     |
 
-Die Zugangsdaten werden **nur** aus diesen Variablen gelesen, nie aus der `erpnext.json`
-des Benutzers. Schreibtests laufen so nicht versehentlich gegen die Produktivinstanz.
+The credentials are read **only** from these variables, never from the user's
+`erpnext.json`. This way, write tests never accidentally run against the production instance.
 
-## Sicherheitsnetz
+## Safety net
 
-* **Keine Dialoge, keine Fremdeinstellungen.** `PySimpleGUI`, `PySimpleGUIWx` und `easygui`
-  werden in allen Tests durch Stubs ersetzt (`tests/support/stubs.py`). Ein Test, der
-  unerwartet einen Dialog öffnen würde, scheitert mit `GuiCalled`. Die echte `erpnext.json`
-  wird nie angefasst.
-* **Nur-Lese-Tests können nicht schreiben.** In `tests/online_read` ist `Api.api` ein
-  `ReadOnlyClient`, der jeden schreibenden Aufruf mit `ReadOnlyViolation` abbricht.
-* **Schreibtests räumen auf.** Angelegte Dokumente heißen `pytest-<id>` (oder tragen die
-  Kennung in Referenz/Bemerkung) und werden über die `cleanup`-Fixture gelöscht; gebuchte
-  Dokumente werden zuvor abgebrochen. Bleibt etwas liegen, meldet pytest eine Warnung mit
-  den Dokumentnamen. `test_bank_write.py` setzt `last_integration_date` des benutzten
-  Bankkontos zurück. `test_load_item_data_completes_item_defaults` ergänzt – wie das Programm
-  beim Start – fehlende `item_defaults` an Artikeln; das bleibt bestehen.
-* **Buchen hinterlässt Spuren.** Mit `ERPNEXT_TEST_ALLOW_SUBMIT=1` gebuchte Belege werden
-  storniert, lassen sich aber nicht löschen (Hauptbuch-/Payment-Ledger-Einträge verweisen
-  darauf); sie bleiben als stornierte `pytest-…`-Belege samt Test-Lieferant auf der Instanz.
-  Die Server-App `bremer_solidarstrom` erlaubt für `PreRechnung.buchungskonto` nur feste
-  Kurznamen (z. B. „Werkzeuge und Kleingeräte“); die Tests nutzen einen davon.
+* **No dialogs, no foreign settings.** `PySimpleGUI`, `PySimpleGUIWx` and `easygui`
+  are replaced by stubs in all tests (`tests/support/stubs.py`). A test that would
+  unexpectedly open a dialog fails with `GuiCalled`. The real `erpnext.json`
+  is never touched.
+* **Read-only tests cannot write.** In `tests/online_read`, `Api.api` is a
+  `ReadOnlyClient` that aborts every writing call with `ReadOnlyViolation`.
+* **Write tests clean up.** Created documents are named `pytest-<id>` (or carry the
+  identifier in a reference/remark) and are deleted via the `cleanup` fixture; submitted
+  documents are cancelled first. If something is left behind, pytest reports a warning with
+  the document names. `test_bank_write.py` resets `last_integration_date` of the bank
+  account used. `test_load_item_data_completes_item_defaults` adds – like the program does
+  at startup – missing `item_defaults` to items; this persists.
+* **Submitting leaves traces.** Documents submitted with `ERPNEXT_TEST_ALLOW_SUBMIT=1` are
+  cancelled, but cannot be deleted (general ledger / payment ledger entries refer to them);
+  they remain on the instance as cancelled `pytest-…` documents together with the test supplier.
+  The server app `bremer_solidarstrom` only allows fixed short names for
+  `PreRechnung.buchungskonto` (e.g. "Werkzeuge und Kleingeräte"); the tests use one of them.
 
-## Optionale Abhängigkeiten
+## Optional dependencies
 
-Fehlen `jsondiff`, `jsoneditor`, `anytree`, `plotly`, `datefinder` oder
-`google-cloud-documentai`, werden sie durch Stubs ersetzt, damit die Projektmodule
-importierbar bleiben. Tests, die das echte Paket brauchen, werden übersprungen
+If `jsondiff`, `jsoneditor`, `anytree`, `plotly`, `datefinder` or
+`google-cloud-documentai` are missing, they are replaced by stubs so that the project modules
+remain importable. Tests that need the real package are skipped
 (`requires_jsondiff`, `requires_datefinder`, … in `tests/support/deps.py`).
-`pdftotext` (xpdf, wie in `install-ubuntu.sh`) muss installiert sein; ohne das Programm
-werden die Module rund um `purchase_invoice` übersprungen. Die Wagner-Tests brauchen die
-Locale `de_DE.utf8`.
+`pdftotext` (xpdf, as in `install-ubuntu.sh`) must be installed; without the program,
+the modules around `purchase_invoice` are skipped. The Wagner tests need the
+locale `de_DE.utf8`.
 
-## Aufbau
+## Layout
 
 ```
 tests/
-├── conftest.py            Stubs installieren, Marker, Zustand pro Test zurücksetzen, Fixtures
+├── conftest.py            install stubs, markers, reset state per test, fixtures
 ├── support/
-│   ├── stubs.py           GUI- und Paket-Stubs
-│   ├── fakes.py           FakeFrappeClient (In-Memory-ERPNext), FakeSession/FakeResponse
-│   ├── factories.py       Firmen, Konten, synthetische Rechnungs-PDFs, Kontoauszüge, Parserzeilen
-│   ├── deps.py            Verfügbarkeits-Marker für optionale Abhängigkeiten
-│   └── live.py            Verbindung, ReadOnlyClient, LiveState, Cleanup für Online-Tests
-├── offline/               Unit- und Integrationstests je Modul (test_<modul>.py) plus
-│                          test_integration_pipeline.py (Abläufe Ende-zu-Ende gegen den Fake)
-├── online_read/           Grundverhalten der API, Stammdaten, Berichte, Parser-Regression
-└── online_write/          Anlegen/Ändern/Löschen: Lieferant, Buchungssatz, Zahlung, Kontoauszug,
-                           Einkaufsrechnung aus PDF, Lagerbuchung, Artikel, PreRechnung, Buchen
+│   ├── stubs.py           GUI and package stubs
+│   ├── fakes.py           FakeFrappeClient (in-memory ERPNext), FakeSession/FakeResponse
+│   ├── factories.py       companies, accounts, synthetic invoice PDFs, bank statements, parser lines
+│   ├── deps.py            availability markers for optional dependencies
+│   └── live.py            connection, ReadOnlyClient, LiveState, Cleanup for online tests
+├── offline/               unit and integration tests per module (test_<module>.py) plus
+│                          test_integration_pipeline.py (end-to-end workflows against the fake)
+├── online_read/           basic API behaviour, master data, reports, parser regression
+└── online_write/          create/modify/delete: supplier, journal entry, payment, bank statement,
+                           purchase invoice from PDF, stock entry, item, PreRechnung, submit
 ```
 
-Der Fake (`FakeFrappeClient`) bildet die Punkte nach, an denen sich der Client auf
-Server-Verhalten verlässt: `get_list` liefert nur die angeforderten Felder (Standard `name`)
-und ohne `limit_page_length` höchstens 20 Zeilen; Kindtabellen-Felder ergeben eine Zeile
-pro Kindzeile; `insert` berechnet Summen/Status; unausgeglichene Buchungssätze und das
-Löschen gebuchter Dokumente werden abgelehnt. `tests/online_read/test_connection_live.py`
-prüft genau diese Annahmen gegen den echten Server.
+The fake (`FakeFrappeClient`) reproduces the points where the client relies on
+server behaviour: `get_list` returns only the requested fields (default `name`)
+and, without `limit_page_length`, at most 20 rows; child table fields yield one row
+per child row; `insert` computes totals/status; unbalanced journal entries and the
+deletion of submitted documents are rejected. `tests/online_read/test_connection_live.py`
+checks exactly these assumptions against the real server.
 
-## Befunde dokumentieren (`xfail`)
+## Documenting findings (`xfail`)
 
-Ein Test, der einen vermuteten Fehler im Client festhält, bekommt `@pytest.mark.xfail(strict=True,
-reason=...)`: Er „besteht“, solange der Fehler da ist, und schlägt an, sobald er behoben wurde
-(dann Marker entfernen). Die 22 Befunde aus dem Aufbau der Suite (2026-09-03) sind inzwischen
-korrigiert; aktuell gibt es keine `xfail`-Tests. Übersicht jederzeit:
+A test that records a suspected bug in the client gets `@pytest.mark.xfail(strict=True,
+reason=...)`: it "passes" as long as the bug is present, and fires as soon as it has been fixed
+(then remove the marker). The 22 findings from building the suite (2026-09-03) have since been
+fixed; currently there are no `xfail` tests. Overview at any time:
 `python3 -m pytest tests/offline -ra | grep XFAIL`.
 
-## Typprüfung
+## Type checking
 
-Der gesamte Code (Client und Tests) ist typannotiert; `mypy.ini` im Wurzelverzeichnis
-konfiguriert die Prüfung (`mypy` bzw. ohne Installation `uvx mypy`). Die verbleibenden
-Befunde sind keine Annotationsfehler, sondern ehrliche Hinweise auf Stellen, an denen der Code
-Rückgaben ungeprüft verwendet, die `None` sein können (v. a. Ergebnisse von `gui_api_wrapper`,
-`Company.get_company`, Parser-Felder vor dem Parsen). Sie werden am besten beim jeweiligen
-Umbau behoben, nicht durch Aufweichen der Annotationen.
+The entire code (client and tests) is type-annotated; `mypy.ini` in the root directory
+configures the check (`mypy`, or `uvx mypy` without installation). The remaining
+findings are not annotation errors but honest hints at places where the code uses
+return values that may be `None` without checking (mainly results of `gui_api_wrapper`,
+`Company.get_company`, parser fields before parsing). They are best fixed during the
+respective refactoring, not by weakening the annotations.
 
-## Parser-Regression mit echten Rechnungen
+## Parser regression with real invoices
 
-`tests/online_read/test_parser_regression.py` ersetzt `test/test_pinv_parser.py`. Es lädt bis zu
-`ERPNEXT_TEST_MAX_INVOICES` Einkaufsrechnungs-PDFs von der Instanz (oder nutzt
-`test/data/purchase_invoices.json` samt PDFs, falls mit `test/get_purchase_invoices.py` erzeugt),
-parst sie mit `is_test=True` und vergleicht die erkannte Rechnungsnummer mit `bill_no`. Die
-Ausgabe (`-s`) zeigt Abweichungen je Parser.
+`tests/online_read/test_parser_regression.py` replaces `test/test_pinv_parser.py`. It loads up to
+`ERPNEXT_TEST_MAX_INVOICES` purchase invoice PDFs from the instance (or uses
+`test/data/purchase_invoices.json` with its PDFs, if created with `test/get_purchase_invoices.py`),
+parses them with `is_test=True` and compares the recognised invoice number with `bill_no`. The
+output (`-s`) shows deviations per parser.

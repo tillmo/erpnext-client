@@ -1,4 +1,4 @@
-"""Tests für invoice.Invoice, invoice.accrual und payment.create_payment."""
+"""Tests for invoice.Invoice, invoice.accrual and payment.create_payment."""
 from __future__ import annotations
 
 import os
@@ -168,8 +168,8 @@ class TestAccrual:
         fake_api.add("Payment Entry", name="PAY-2", company=c, docstatus=1, posting_date="2025-05-11",
                      references=[{"reference_doctype": "Sales Invoice", "reference_name": "R 2024-8"}])
         sinvs, sinvs_old, pinvs, pinvs_old = invoice.accrual(c, 2025)
-        assert sinvs == ["R 2025-2"]          # 2025 gestellt, 2025 nicht bezahlt
-        assert sinvs_old == ["R 2024-8"]      # 2025 bezahlt, aber nicht aus 2025
+        assert sinvs == ["R 2025-2"]          # issued in 2025, not paid in 2025
+        assert sinvs_old == ["R 2024-8"]      # paid in 2025, but not from 2025
         assert pinvs == ["EK 2025-1"]
         assert pinvs_old == ["EK 2024-9"]
         assert os.path.exists(in_tmp_cwd / "EK 2025-1.pdf")

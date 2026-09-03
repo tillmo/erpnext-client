@@ -1,4 +1,4 @@
-"""Tests für supplier_item.SupplierItem: Artikelzuordnung, Preise, Aggregat-Umrechnung."""
+"""Tests for supplier_item.SupplierItem: item assignment, prices, aggregate conversion."""
 from __future__ import annotations
 
 from collections import defaultdict
@@ -62,7 +62,7 @@ class TestSearchItem:
         assert e_item["item_code"] == "010.100.001"
         texts = gui.calls[0][1][2]
         assert texts[0] == "Neuen Artikel anlegen"
-        assert texts[1] == "026.000.315 Generisches Einkaufsprodukt"   # DEFAULT_ITEMS immer ganz oben
+        assert texts[1] == "026.000.315 Generisches Einkaufsprodukt"   # DEFAULT_ITEMS always at the very top
         assert texts[2] == "010.100.001 Solarmodul 400 Wp"
         assert "Solarmodul 400 Wp schwarz, Glas-Glas" in gui.calls[0][1][0]
 
@@ -96,7 +96,7 @@ class TestSearchItem:
                                                "idx": 1, "parent": e_item["name"], "parenttype": "Item",
                                                "parentfield": "supplier_items"}
         assert Api.item_code_translation[SUPPLIER]["KS-777"] == e_item["name"]
-        # Artikelgruppen werden sortiert angeboten
+        # item groups are offered sorted
         assert gui.calls[1][1][2] == ["Montagematerial", "Produkte", "Solarmodul", "Wechselrichter"]
         assert "Einzelpreis: 150.00€" in gui.calls[1][1][0]
 

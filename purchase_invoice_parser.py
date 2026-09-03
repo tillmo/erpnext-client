@@ -285,7 +285,7 @@ class PurchaseInvoiceParser:
                 s_item.amount = utils.read_float(item_str[157:].split()[0])
                 if s_item.qty_unit == "Rol":
                     try:
-                        # nur die Einheit m/Meter, nicht das 'm' aus '6mm2'
+                        # only the unit m/Meter, not the 'm' from '6mm2'
                         r1 = re.search(r'[0-9]+ *(?:[mM]eter|[mM])\b', s_item.description)
                         r2 = re.search('[0-9]+', r1.group(0))
                         s_item.qty_unit = "Meter"

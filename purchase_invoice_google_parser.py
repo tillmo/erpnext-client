@@ -207,8 +207,8 @@ class PurchaseInvoiceGoogleParser:
                         rounding_error = diff
             self.purchase_invoice.shipping += rounding_error
             self.purchase_invoice.shipping = round(self.purchase_invoice.shipping, 2)
-            # totals enthalten wie bei den internen Parsern den Versand; create_doc führt ihn als
-            # eigene Steuerzeile, die Artikelpositionen enthalten ihn nicht
+            # as with the internal parsers, totals include the shipping costs; create_doc lists them as
+            # a separate tax line, the item positions do not include them
             self.purchase_invoice.compute_total()
         except Exception as e:
             if self.purchase_invoice.update_stock:

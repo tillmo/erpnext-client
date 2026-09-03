@@ -1,7 +1,7 @@
-"""Verfügbarkeit optionaler Abhängigkeiten, als pytest-Marker nutzbar.
+"""Availability of optional dependencies, usable as pytest markers.
 
-Die Stubs aus :mod:`support.stubs` machen die Projektmodule importierbar;
-Tests, die das echte Verhalten eines Pakets prüfen, überspringen sich hier.
+The stubs from :mod:`support.stubs` make the project modules importable;
+tests that check the real behaviour of a package skip themselves here.
 """
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ requires_de_locale = pytest.mark.skipif(not de_locale_available(), reason="Local
 
 
 def skip_module_without_pdftotext() -> None:
-    """Am Modulanfang aufrufen, bevor purchase_invoice importiert wird:
-    dessen Import ruft ``pdftotext -v`` auf und scheitert ohne das Programm."""
+    """Call at the start of the module, before purchase_invoice is imported:
+    its import runs ``pdftotext -v`` and fails without the program."""
     if not HAVE_PDFTOTEXT:
         pytest.skip("pdftotext nicht installiert", allow_module_level=True)

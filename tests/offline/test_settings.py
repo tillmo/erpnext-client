@@ -1,4 +1,4 @@
-"""Konsistenzprüfungen für settings.py (Kontenbezeichnungen, Firmenzuordnung)."""
+"""Consistency checks for settings.py (account names, company assignment)."""
 from __future__ import annotations
 
 import re

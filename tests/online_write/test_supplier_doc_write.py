@@ -1,4 +1,4 @@
-"""Lieferant anlegen (Api.create_supplier) und die Doc-Hülle gegen die Instanz."""
+"""Create a supplier (Api.create_supplier) and the Doc wrapper against the instance."""
 from __future__ import annotations
 
 from typing import Any

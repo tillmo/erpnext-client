@@ -1,4 +1,4 @@
-"""Buchungssätze und Zahlungen als Entwurf anlegen (und wieder löschen)."""
+"""Create journal entries and payments as drafts (and delete them again)."""
 from __future__ import annotations
 
 from typing import Any
@@ -28,7 +28,7 @@ class TestJournalEntry:
         accounts = {a["account"]: a for a in doc["accounts"]}
         assert accounts[live.bank_leaf()]["credit_in_account_currency"] == pytest.approx(12.34)
         assert accounts[live.expense_leaf()]["debit_in_account_currency"] == pytest.approx(12.34)
-        # der Client findet ihn unter den offenen Buchungssätzen
+        # the client finds it among the open journal entries
         assert j["name"] in {je["name"] for je in live.company.open_journal_entries()}
 
     def test_journal_entry3_draft(self, live: LiveState, api: Any, cleanup: Cleanup, today: str) -> None:

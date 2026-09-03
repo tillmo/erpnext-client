@@ -1,11 +1,11 @@
-"""Fixtures für lesende Tests gegen eine ERPNext-Instanz.
+"""Fixtures for read-only tests against an ERPNext instance.
 
-Aktivierung über Umgebungsvariablen:
+Activation via environment variables:
 
     ERPNEXT_TEST_SERVER=https://erpnext.example ERPNEXT_TEST_KEY=... ERPNEXT_TEST_SECRET=... \\
     [ERPNEXT_TEST_COMPANY="Bremer SolidarStrom"] python3 -m pytest tests/online_read
 
-Alle Tests laufen mit einem ReadOnlyClient: jeder Schreibversuch schlägt fehl.
+All tests run with a ReadOnlyClient: every write attempt fails.
 """
 from __future__ import annotations
 
@@ -29,13 +29,13 @@ def live(online_config: OnlineConfig) -> LiveState:
 
 @pytest.fixture(autouse=True)
 def _live_env(live: LiveState) -> Iterator[FrappeClient | ReadOnlyClient]:
-    """Nach dem Zurücksetzen durch tests/conftest.py Client und Registries wieder einsetzen."""
+    """Reinstate client and registries after the reset by tests/conftest.py."""
     yield live.install(read_only=True)
 
 
 @pytest.fixture
 def api(live: LiveState) -> ReadOnlyClient:
-    """Der Nur-Lese-Client (entspricht Api.api)."""
+    """The read-only client (corresponds to Api.api)."""
     from api import Api
     return Api.api
 

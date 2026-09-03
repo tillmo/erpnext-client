@@ -1,4 +1,4 @@
-"""Unit-Tests für utils.py (reine Hilfsfunktionen)."""
+"""Unit tests for utils.py (pure helper functions)."""
 from __future__ import annotations
 
 import os
@@ -41,8 +41,8 @@ class TestDates:
         assert utils.yesterday("2026-01-01") == "2025-12-31"
 
     @pytest.mark.parametrize("d, expected", [
-        (date(2026, 9, 3), "2026-02"),    # 90 Tage zurück: Juni -> Q2
-        (date(2026, 1, 15), "2025-04"),   # Jahreswechsel
+        (date(2026, 9, 3), "2026-02"),    # 90 days back: June -> Q2
+        (date(2026, 1, 15), "2025-04"),   # turn of the year
         (date(2026, 4, 1), "2026-01"),    # 1.1. -> Q1
         (date(2026, 7, 1), "2026-02"),
     ])
@@ -74,15 +74,15 @@ class TestDates:
 
 class TestReadFloat:
     @pytest.mark.parametrize("s, expected", [
-        ("1.234,56", 1234.56),      # deutsch mit Tausenderpunkt
-        ("1,234.56", 1234.56),      # englisch
+        ("1.234,56", 1234.56),      # German with thousands separator
+        ("1,234.56", 1234.56),      # English
         ("12,50", 12.5),
-        ("12.50", 12.5),            # zwei Nachkommastellen -> englisch
+        ("12.50", 12.5),            # two decimal places -> English
         ("1234", 1234.0),
         ("0,00", 0.0),
-        ("*12,00", 12.0),           # Sternchen (Kornkraft) werden entfernt
-        ("100,00 EUR", 100.0),      # nur erstes Wort zählt
-        ("12,50-", -12.5),          # nachgestelltes Minus (Bankformat)
+        ("*12,00", 12.0),           # asterisks (Kornkraft) are removed
+        ("100,00 EUR", 100.0),      # only the first word counts
+        ("12,50-", -12.5),          # trailing minus (bank format)
         ("-12,50", -12.5),
         ("  7,00  ", 7.0),
     ])
@@ -121,7 +121,7 @@ class TestStrings:
         ("TAN 123456 Ueberweisung", "unbekannt"),
         ("nur Text ohne Zahlen", "unbekannt"),
         ("RE-2024-0815 Solar", "RE-2024-0815"),
-        ("1234 zu kurz", "unbekannt"),       # len(w) > 4 nötig
+        ("1234 zu kurz", "unbekannt"),       # len(w) > 4 required
         ("ab12 cd34 12345", "12345"),
     ])
     def test_find_ref(self, line: str, expected: str) -> None:
@@ -131,7 +131,7 @@ class TestStrings:
         assert utils.extract_prnr("Ueberweisung Pre123 Solar") == "123"
         assert utils.extract_prnr("PreRechnung 5 Pre00042") == "00042"
         assert utils.extract_prnr("keine Nummer") is None
-        # das 'R' in PreR00123 trennt Pre von den Ziffern
+        # the 'R' in PreR00123 separates Pre from the digits
         assert utils.extract_prnr("PreR00123") is None
 
     def test_html_to_text(self) -> None:
@@ -197,7 +197,7 @@ class TestFormatting:
 
 class TestIban:
     def test_iban_de_known_example(self) -> None:
-        # verbreitetes Beispiel aus der IBAN-Dokumentation
+        # common example from the IBAN documentation
         assert utils.iban_de(37040044, 532013000) == "DE89370400440532013000"
 
     def test_iban_de_single_digit_check(self) -> None:

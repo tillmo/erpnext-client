@@ -1,4 +1,4 @@
-"""Tests für lead.py und sales_invoice.py."""
+"""Tests for lead.py and sales_invoice.py."""
 from __future__ import annotations
 
 import csv
@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-import invoice  # noqa: F401  (Importreihenfolge, s. conftest)
+import invoice  # noqa: F401  (import order, see conftest)
 import lead
 import sales_invoice
 from api import Api

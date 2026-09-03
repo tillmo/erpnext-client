@@ -1,1 +1,1 @@
-"""Hilfsmodule für die Tests: Stubs, Fake-API, Factories, Umgebungs-Flags."""
+"""Helper modules for the tests: stubs, fake API, factories, environment flags."""

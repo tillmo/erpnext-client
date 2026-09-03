@@ -1,4 +1,4 @@
-"""Tests für frappe.py (lokaler Ersatz einiger frappe-Utilities)."""
+"""Tests for frappe.py (local replacement of some frappe utilities)."""
 from __future__ import annotations
 
 import json

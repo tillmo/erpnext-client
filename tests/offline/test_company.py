@@ -1,4 +1,4 @@
-"""Tests für company.Company mit FakeFrappeClient."""
+"""Tests for company.Company with FakeFrappeClient."""
 from __future__ import annotations
 
 from typing import Any
@@ -41,14 +41,14 @@ class TestRegistry:
         fake_api.add("Company", **F.company_doc("B", "B"))
         Company.init_companies()
         assert set(Company.all()) == {"A", "B"}
-        Company.init_companies()  # zweiter Aufruf lädt nicht erneut
+        Company.init_companies()  # second call does not load again
         assert len(fake_api.calls_of("get_list")) == 1
 
     def test_init_companies_fills_accounts(self, fake_api: FakeFrappeClient) -> None:
         F.seed_company_data(fake_api)
         Company.init_companies()
         comp = Company.get_company(F.COMPANY)
-        assert comp.cost_center == "Haupt - SoMiKo"          # schon aus get_list(fields=Company.FIELDS)
+        assert comp.cost_center == "Haupt - SoMiKo"          # already from get_list(fields=Company.FIELDS)
         assert comp.payable_account.startswith("1600") and comp.receivable_account.startswith("1400")
         comp.load_data()
         assert comp.cost_center == "Haupt - SoMiKo" and comp.expense_account.startswith("4996")
@@ -100,10 +100,10 @@ class TestLoadData:
         assert "Income" in comp.leaf_accounts_by_root_type
         assert comp.leaf_accounts_for_debit[0]["root_type"] == "Income"
         assert comp.leaf_accounts_for_credit[0]["root_type"] == "Expense"
-        # Journal: nur die zweite Kontozeile (idx 2) jedes Buchungssatzes, nur eigene Firma
+        # journal: only the second account row (idx 2) of each journal entry, only own company
         assert [j["account"] for j in comp.journal] == ["4210 - Miete und Nebenkosten - SoMiKo"]
         assert comp.journal[0]["user_remark"] == "Miete August"
-        # Einkaufsrechnungen nach Lieferant gruppiert, eine Zeile pro Artikelzeile (JOIN)
+        # purchase invoices grouped by supplier, one row per item row (JOIN)
         assert set(comp.purchase_invoices) == {"Krannich Solar GmbH & Co KG", "Heckert Solar GmbH"}
         assert len(comp.purchase_invoices["Krannich Solar GmbH & Co KG"]) == 2
         assert {pi["expense_account"] for pi in comp.purchase_invoices["Krannich Solar GmbH & Co KG"]} == \
@@ -144,7 +144,7 @@ class TestQueries:
         fake_api.add("Sales Invoice", company=somiko.name, customer="K", status="Unpaid", custom_ebay=0,
                      posting_date="2026-01-05", grand_total=200.0, outstanding_amount=200.0, is_return=0)
         open_p = somiko.get_purchase_invoices(True)
-        assert [inv.reference for inv in open_p] == ["1"]   # offene ohne ausstehenden Betrag fallen weg
+        assert [inv.reference for inv in open_p] == ["1"]   # open ones without outstanding amount are dropped
         assert open_p[0].amount == -100.0 and open_p[0].party == "A"
         paid = somiko.get_purchase_invoices(False)
         assert [inv.reference for inv in paid] == ["3"]
@@ -228,6 +228,6 @@ class TestReconcile:
             seen["p"] = [i.reference for i in pinvs]
         monkeypatch.setattr(bank.BankTransaction, "transfer", transfer)
         somiko.reconcile({"name": name})
-        # die Einkaufs-Gutschrift wandert auf die Verkaufsseite
+        # the purchase credit note moves to the sales side
         assert seen["s"] == [fake_api.get_list("Sales Invoice")[0]["name"], "1"]
         assert seen["p"] == []

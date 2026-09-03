@@ -1,4 +1,4 @@
-"""Lagerbuchungen, Artikel und Artikelpreise anlegen."""
+"""Create stock entries, items and item prices."""
 from __future__ import annotations
 
 from typing import Any
@@ -66,7 +66,7 @@ class TestItems:
         from collections import defaultdict
         pinv = F.make_purchase_invoice(live.company, True)
         Api.items_by_code = {}
-        Api.item_code_translation = defaultdict(dict)    # sonst setzt Api.load_item_data() das
+        Api.item_code_translation = defaultdict(dict)    # otherwise Api.load_item_data() sets this
         s_item = SupplierItem(pinv)
         s_item.description = "pytest Testartikel " + tag()
         s_item.long_description = "Nur für automatische Tests angelegt"

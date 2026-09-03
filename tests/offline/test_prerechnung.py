@@ -1,4 +1,4 @@
-"""Tests für prerechnung.py: Vorprozessierung, Übernahme in Einkaufsrechnungen, CLI-Auswahl."""
+"""Tests for prerechnung.py: preprocessing, transfer into purchase invoices, CLI selection."""
 from __future__ import annotations
 
 import json
@@ -34,7 +34,7 @@ def no_viewer(monkeypatch: pytest.MonkeyPatch) -> None:
 
 @pytest.fixture
 def pre(somiko: Company, fake_api: FakeFrappeClient, tmp_path: Path) -> dict[str, Any]:
-    """PreRechnung mit hochgeladenem generischem PDF im Fake."""
+    """PreRechnung with an uploaded generic PDF in the fake."""
     pdf = F.write_generic_invoice_pdf(tmp_path / "pre.pdf")
     with open(pdf, "rb") as f:
         fake_api.add_file("/private/files/pre.pdf", f.read())
@@ -87,7 +87,7 @@ class TestProcessInv:
         prerechnung.process_inv(pre)
         stored = fake_api.get_doc("PreRechnung", pre["name"])
         assert stored["betrag"] == 119.0
-        assert "auftragsnr" not in stored          # generischer Parser kennt keine Auftragsnummer
+        assert "auftragsnr" not in stored          # the generic parser knows no order number
 
     def test_google_parser_path(self, pre: dict[str, Any], fake_api: FakeFrappeClient, user_settings: UserSettings,
                                 monkeypatch: pytest.MonkeyPatch) -> None:
@@ -98,7 +98,7 @@ class TestProcessInv:
         assert stored["processed"] is True
         assert json.loads(stored["json"])["entities"]
         assert stored["auftragsnr"] == "BEST-1"
-        assert stored["betrag"] == "1.190,00 EUR"     # Rohwert aus dem JSON, keine Zahl
+        assert stored["betrag"] == "1.190,00 EUR"     # raw value from the JSON, not a number
 
     def test_google_parser_error_is_reported(self, pre: dict[str, Any], fake_api: FakeFrappeClient,
                                              user_settings: UserSettings, monkeypatch: pytest.MonkeyPatch,
@@ -142,12 +142,12 @@ class TestExtractInvoiceInfo:
         user_settings["-invoice-processor-"] = "proc"
         entities = [
             _entity("supplier", "Muster GmbH", 0.95, start=10),
-            _entity("supplier", "Rausch", 0.1, start=11),                 # zu unsicher
+            _entity("supplier", "Rausch", 0.1, start=11),                 # too uncertain
             _entity("item", "Modul", 0.9, [("item-description", "Modul", 0.9), ("item-quantity", "2", 0.8),
-                                           ("item-amount", "200,00", 0.1)], start=100),   # letzte Eigenschaft zu unsicher
-            _entity("item", "", 0.9, [("item-amount", "200,00", 0.9)], start=120),   # gehört zur ersten Position
-            _entity("item", "Kabel", 0.9, [("item-description", "Kabel", 0.9)], start=130),  # Typ wiederholt -> neue Position
-            _entity("item", "", 0.9, [], start=131),                       # ohne Eigenschaften -> ignoriert
+                                           ("item-amount", "200,00", 0.1)], start=100),   # last property too uncertain
+            _entity("item", "", 0.9, [("item-amount", "200,00", 0.9)], start=120),   # belongs to the first position
+            _entity("item", "Kabel", 0.9, [("item-description", "Kabel", 0.9)], start=130),  # type repeated -> new position
+            _entity("item", "", 0.9, [], start=131),                       # without properties -> ignored
             _entity("total_amount", "238,00 EUR", 0.9, start=200),
         ]
         captured = {}
@@ -171,7 +171,7 @@ class TestExtractInvoiceInfo:
         item = result["entities"][1]
         assert sorted(p["type"] for p in item["properties"]) == ["item-amount", "item-description", "item-quantity"]
         assert item["value"] == "Modul" and item["line_number"] == 100
-        # zweite Position ('Kabel') hat nur eine Eigenschaft und wird deshalb verworfen
+        # the second position ('Kabel') has only one property and is therefore discarded
         assert result["entities"][2]["value"] == "238,00 EUR"
 
 
@@ -191,7 +191,7 @@ class TestReadAndTransfer:
         stored = fake_api.get_doc("PreRechnung", pre["name"])
         assert stored["eingepflegt"] is True and stored["purchase_invoice"] == doc["name"]
         assert "Lese ein {} /private/files/pre.pdf".format(pre["name"]) in capsys.readouterr().out
-        # Temporärdatei ist weg
+        # temporary file is gone
         assert not os.path.exists(pinv.infiles[0])
 
     def test_unprocessed_pre_invoice_is_processed_first(self, pre: dict[str, Any], fake_api: FakeFrappeClient,
@@ -223,7 +223,7 @@ class TestReadAndTransfer:
         pre["buchungskonto"] = "Herstellungskosten"
         gui.answers["buttonbox"] = "Später buchen"
         pinv = prerechnung.read_and_transfer(pre, cli_overrides={})
-        # der generische Parser kennt keine Positionen: Standardartikel auf Herstellungskosten, kein Lager
+        # the generic parser knows no positions: default item on production costs, no stock
         doc = fake_api.get_doc("Purchase Invoice", pinv.doc["name"])
         assert doc["update_stock"] == 0 and doc["project"] == "PROJ-0001"
         assert doc["items"][0]["item_code"] == settings.DEFAULT_ITEM_CODE
@@ -286,7 +286,7 @@ class TestCli:
         prerechnung.cli_read_and_transfer()
         out = capsys.readouterr().out
         assert "Offene Prerechnungen:" in out and "Zweite GmbH" in out
-        assert seen["inv"]["lieferant"] == "Muster Solartechnik GmbH"   # neueste zuerst, Index 1 = ältere
+        assert seen["inv"]["lieferant"] == "Muster Solartechnik GmbH"   # newest first, index 1 = older
 
     def test_interactive_cancel_and_invalid(self, pre: dict[str, Any], fake_api: FakeFrappeClient, somiko: Company,
                                             monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:

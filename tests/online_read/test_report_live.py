@@ -1,4 +1,4 @@
-"""Berichte gegen echte Daten: Abrechnung, Bilanz, Hauptbuch, Projekte, Chancen."""
+"""Reports against real data: Abrechnung, balance sheet, general ledger, projects, opportunities."""
 from __future__ import annotations
 
 import datetime
@@ -31,7 +31,7 @@ class TestFinancialStatements:
         assert all(len(e["account_name"]) <= 39 for e in tbl.entries)
 
     def test_build_report_previous_year(self, live: LiveState, user_settings: UserSettings) -> None:
-        # get_dates: das Vorjahr läuft bis heute, ältere Jahre bis zum 31.12.
+        # get_dates: the previous year runs until today, older years until 31.12.
         user_settings["-year-"] = datetime.date.today().year - 1
         assert report.build_report(live.company_name).title.endswith(datetime.date.today().strftime("%d.%m.%Y"))
         user_settings["-year-"] = datetime.date.today().year - 2

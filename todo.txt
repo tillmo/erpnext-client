@@ -1,18 +1,18 @@
-- Rechnungen Heckert
-- statt Rechnungsverschmelzung lieber return-Rechnungen
+- Heckert invoices
+- instead of merging invoices, prefer return invoices
 - payment reconciliation
-- Excel-Tabelle mit Quittungen einlesen
-- MWSt-Abweichungen bei Tests
+- read in Excel table with receipts
+- VAT deviations in tests
 
-- Keine Option "Sofort buchen" für Lager-Rechnungen ohne extract_items
-- Rechnung alpha solar
-- Lieferanten-Auftragsbestätigung einlesen, an Chance heften, Nr. ablegen
-  - Kundenanzahlung in Chance eintragen
-  - bei Lieferantenzahlung die Nr. erkennen, Zahlungs-ID in Chance ablegen
-  - Sobald Kundenrechnung gebucht ist, diese automatisch zahlen
-    - möglichst gleichzeitig auch Lieferantenrechnung buchen und autom. zahlen
-    - als einen Workflow in Client implementieren?
-- Auftragsbestätigung: Solipreis raus, stattdessen: welchen Preis man gewählt hat (Häkchen für verschiedene Optionen)
+- no option "Sofort buchen" (submit immediately) for stock invoices without extract_items
+- alpha solar invoice
+- read in supplier order confirmation, attach it to the opportunity, store the number
+  - enter customer advance payment in the opportunity
+  - on supplier payment, recognise the number, store the payment ID in the opportunity
+  - as soon as the customer invoice is submitted, pay it automatically
+    - if possible, also submit and automatically pay the supplier invoice at the same time
+    - implement as one workflow in the client?
+- order confirmation: remove the Soli price, instead: which price was chosen (checkboxes for different options)
 - show draft invoices that should be submitted
 - sales documents without address
 - stock purchase invoices with scan
@@ -26,4 +26,3 @@
 - cost centers
 - merge settings
 - more flexible consolidated financial statement
-

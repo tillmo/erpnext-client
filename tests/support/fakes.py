@@ -1,20 +1,20 @@
-"""In-Memory-Nachbildung des Frappe-REST-Clients für Offline-Tests.
+"""In-memory replica of the Frappe REST client for offline tests.
 
-``FakeFrappeClient`` hat dieselbe Schnittstelle wie :class:`frappeclient.FrappeClient`
-und hält Dokumente pro DocType in einem dict. Nachgebildet wird bewusst nur, was der
-Client tatsächlich braucht - aber diese Punkte möglichst so, wie sich ein echter
-Frappe-Server verhält, damit Tests reale Fehler finden:
+``FakeFrappeClient`` has the same interface as :class:`frappeclient.FrappeClient`
+and keeps documents per DocType in a dict. Deliberately, only what the client
+actually needs is simulated - but those points as closely as possible to how a
+real Frappe server behaves, so that tests find real errors:
 
-* ``get_list`` liefert NUR die angeforderten Felder (Standard: ``name``) und
-  ohne ``limit_page_length`` höchstens 20 Datensätze (Frappe-Default).
-* Kindtabellen-Felder (``\\`tabJournal Entry Account\\`.account as account``)
-  ergeben wie beim LEFT JOIN eine Zeile pro Kindzeile.
-* ``insert`` berechnet die serverseitigen Felder (Summen, Status, Name),
-  ``delete`` verweigert gebuchte Dokumente, unausgeglichene Buchungssätze
-  werden abgelehnt.
+* ``get_list`` returns ONLY the requested fields (default: ``name``) and,
+  without ``limit_page_length``, at most 20 records (Frappe default).
+* child table fields (``\\`tabJournal Entry Account\\`.account as account``)
+  yield one row per child row, as with a LEFT JOIN.
+* ``insert`` computes the server-side fields (totals, status, name),
+  ``delete`` refuses submitted documents, unbalanced journal entries
+  are rejected.
 
-``FakeSession``/``FakeResponse`` bilden ``requests`` nach, um den echten
-``FrappeClient`` ohne Netz zu testen.
+``FakeSession``/``FakeResponse`` simulate ``requests`` in order to test the real
+``FrappeClient`` without a network.
 """
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ from typing import Any, Iterable, Iterator
 import frappe
 from frappeclient import FrappeException
 
-# Kind-DocType -> Feldname der Kindtabelle im Elterndokument
+# child DocType -> field name of the child table in the parent document
 CHILD_TABLES = {
     "Journal Entry Account": "accounts",
     "Purchase Invoice Item": "items",
@@ -45,7 +45,7 @@ CHILD_TABLES = {
     "Payment Entry Reference": "references",
 }
 
-# Namensvergabe pro DocType (Frappe-Namensserien nachgebildet)
+# naming per DocType (simulating Frappe naming series)
 NAME_SERIES = {
     "Purchase Invoice": "EK {year}-{n:05d}",
     "Sales Invoice": "R {year}-{n:05d}",
@@ -60,7 +60,7 @@ NAME_SERIES = {
     "File": "file{n:08x}",
 }
 
-# DocTypes, deren Name aus einem Feld gebildet wird
+# DocTypes whose name is formed from a field
 NATURAL_KEYS = {
     "Supplier": "supplier_name",
     "Customer": "customer_name",
@@ -124,7 +124,7 @@ def _matches(value: Any, op: str, target: Any) -> bool:
 
 
 def _parse_fields(fields: str | list[str] | None) -> tuple[list[tuple[str, str]], list[tuple[str, str, str]]]:
-    """Liefert (Elternfelder, [(kind_doctype, feld, alias)])."""
+    """Returns (parent fields, [(child_doctype, field, alias)])."""
     if fields is None:
         fields = ["name"]
     if isinstance(fields, str):
@@ -154,17 +154,17 @@ class FakeFrappeClient:
         self.api_secret: str | None = api_secret
         self.store: dict[str, dict[str, dict[str, Any]]] = {}          # doctype -> {name: doc}
         self.counters: dict[str, int] = {}
-        self.calls: list[tuple[str, tuple[Any, ...], dict[str, Any]]] = []          # (methode, args, kwargs)
+        self.calls: list[tuple[str, tuple[Any, ...], dict[str, Any]]] = []          # (method, args, kwargs)
         self.files: dict[str, bytes] = {}          # file_url -> bytes
         self.attachments: list[tuple[str, str, str]] = []    # (doctype, docname, file_url)
         self.report_handlers: dict[str, Any] = {}  # lower(report_name) -> callable(filters)
-        self.versions: dict[str, list[dict[str, Any]]] = {}       # docname -> [version dicts] für load_doc
+        self.versions: dict[str, list[dict[str, Any]]] = {}       # docname -> [version dicts] for load_doc
         self.communications: dict[str, list[dict[str, Any]]] = {}  # docname -> [comm dicts]
         self.assignments: list[tuple[str, str, list[str]]] = []
         self.background_jobs: list[Any] = []
         self.year: int = datetime.date.today().year
 
-    # ------------------------------------------------------------ Hilfen
+    # ----------------------------------------------------------- Helpers
     def _log(self, method: str, *args: Any, **kwargs: Any) -> None:
         self.calls.append((method, args, kwargs))
 
@@ -175,7 +175,7 @@ class FakeFrappeClient:
         return self.store.setdefault(doctype, {})
 
     def add(self, doctype: str, **fields: Any) -> str:
-        """Dokument direkt (ohne Server-Logik) ablegen; liefert den Namen."""
+        """Store a document directly (without server logic); returns the name."""
         doc = dict(fields)
         doc["doctype"] = doctype
         doc.setdefault("docstatus", 0)
@@ -217,9 +217,9 @@ class FakeFrappeClient:
             raise FrappeException("FrappeClient Request Failed\n\n{} {} not found (DoesNotExistError)".format(doctype, name))
         return docs[name]
 
-    # ----------------------------------------------- Server-Seiteneffekte
+    # ------------------------------------------------ Server side effects
     def _defaults(self, doc: dict[str, Any]) -> None:
-        """Feld-Defaults, wie sie Frappe beim Anlegen setzt (nur fehlende Felder)."""
+        """Field defaults as Frappe sets them on creation (only missing fields)."""
         doctype = doc["doctype"]
         doc.setdefault("docstatus", 0)
         doc.setdefault("owner", "test@example.com")
@@ -256,7 +256,7 @@ class FakeFrappeClient:
         self._number_children(doc)
 
     def _compute(self, doc: dict[str, Any]) -> None:
-        """Berechnete Felder und Validierungen, wie sie der Server bei insert/update ausführt."""
+        """Computed fields and validations as the server performs them on insert/update."""
         doctype = doc["doctype"]
         if doctype in ("Purchase Invoice", "Sales Invoice"):
             total = 0.0
@@ -295,7 +295,7 @@ class FakeFrappeClient:
         self._compute(doc)
         self._number_children(doc)
 
-    # ----------------------------------------------------------- Abfragen
+    # ------------------------------------------------------------ Queries
     def _filter(self, doctype: str, docs: list[dict[str, Any]], filters: Any) -> list[dict[str, Any]]:
         if not filters:
             return docs
@@ -421,7 +421,7 @@ class FakeFrappeClient:
         keys = list(rows[0].keys()) if rows else []
         return {"keys": keys, "values": [[r[k] for k in keys] for r in rows]}
 
-    # ---------------------------------------------------------- Änderungen
+    # ------------------------------------------------------ Modifications
     def insert(self, doc: dict[str, Any]) -> frappe._dict:
         self._log("insert", copy.deepcopy(doc))
         doc = copy.deepcopy(dict(doc))
@@ -511,7 +511,7 @@ class FakeFrappeClient:
         self.docs(doctype)[new_name] = stored
         return new_name
 
-    # -------------------------------------------------------- Dateien etc.
+    # ----------------------------------------------------------- Files etc.
     def get_file(self, path: str) -> bytes:
         self._log("get_file", path)
         if path not in self.files:
@@ -592,7 +592,7 @@ class FakeFrappeClient:
         pass
 
 
-# ------------------------------------------------ requests-Nachbildung
+# -------------------------------------------------- requests simulation
 class FakeResponse:
     def __init__(self, payload: Any = None, status_code: int = 200, text: str | None = None, ok: bool | None = None,
                  content: bytes = b"") -> None:
@@ -613,11 +613,11 @@ class FakeResponse:
 
 
 class FakeSession:
-    """Zeichnet Requests auf und liefert vorbereitete Antworten (FIFO)."""
+    """Records requests and returns prepared responses (FIFO)."""
 
     def __init__(self, responses: Iterable[FakeResponse | Exception] | None = None) -> None:
         self.responses: list[FakeResponse | Exception] = list(responses or [])
-        self.requests: list[tuple[str, str, dict[str, Any]]] = []   # (methode, url, kwargs)
+        self.requests: list[tuple[str, str, dict[str, Any]]] = []   # (method, url, kwargs)
 
     def _pop(self, method: str, url: str, kwargs: dict[str, Any]) -> FakeResponse:
         self.requests.append((method, url, kwargs))

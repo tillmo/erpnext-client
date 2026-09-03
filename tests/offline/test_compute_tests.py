@@ -1,4 +1,4 @@
-"""Tests für compute_tests.py (Vergleich Google-JSON <-> Einkaufsrechnung)."""
+"""Tests for compute_tests.py (comparison Google JSON <-> purchase invoice)."""
 from __future__ import annotations
 
 import json
@@ -86,7 +86,7 @@ class TestComputeJson:
         assert "items" not in json1
 
     def test_invalid_result_is_not_stored(self, fake_api: FakeFrappeClient, items: None) -> None:
-        fake_api.add("Purchase Invoice", name="EK 3", total=1.0, items=[], taxes=[])   # kein supplier
+        fake_api.add("Purchase Invoice", name="EK 3", total=1.0, items=[], taxes=[])   # no supplier
         fake_api.add("PreRechnung", name="PreR00003", purchase_invoice="EK 3")
         compute_tests.compute_json(fake_api.get_doc("PreRechnung", "PreR00003"))
         assert "json1" not in fake_api.get_doc("PreRechnung", "PreR00003")

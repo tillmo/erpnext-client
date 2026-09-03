@@ -1,4 +1,4 @@
-"""Tests für table.Table (Datenaufbereitung, CSV- und PDF-Export; die GUI-Anzeige bleibt außen vor)."""
+"""Tests for table.Table (data preparation, CSV and PDF export; the GUI display is left out)."""
 from __future__ import annotations
 
 import csv
@@ -66,13 +66,13 @@ class TestExport:
     def test_pdf_elements_apply_bold_levels(self) -> None:
         entries = [{"a": 1, "bold": 3}, {"a": 2}, {"a": 3, "bold": 1}, {"a": 4, "bold": 2}]
         elements = table.Table(entries, ["a"], ["A"], "T").pdf_elements()
-        assert len(elements) == 2                      # Abstandhalter + Tabelle
+        assert len(elements) == 2                      # spacer + table
         t = elements[1]
         assert t._nrows == len(entries) + 1
         fonts = [t._cellStyles[row][0].fontname for row in range(t._nrows)]
-        assert fonts == ["Helvetica-Bold",             # Kopfzeile
+        assert fonts == ["Helvetica-Bold",             # header row
                          "Helvetica-Bold",             # bold 3
-                         "Helvetica",                  # ohne bold
+                         "Helvetica",                  # without bold
                          "Helvetica-Oblique",          # bold 1
                          "Helvetica-BoldOblique"]      # bold 2
 

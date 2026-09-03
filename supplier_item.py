@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class SupplierItem:
-    # normalerweise die Rechnung; purchase_invoice_google_parser uebergibt stattdessen den Parser
+    # normally the invoice; purchase_invoice_google_parser passes the parser instead
     purchase_invoice: PurchaseInvoice | PurchaseInvoiceGoogleParser
     description: str | None
     long_description: str | None

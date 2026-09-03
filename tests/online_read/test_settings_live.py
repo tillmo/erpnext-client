@@ -1,4 +1,4 @@
-"""Passen die in settings.py hinterlegten Stammdaten (Konten, Lager, Artikel, Gruppen) zur Instanz?"""
+"""Do the master data stored in settings.py (accounts, warehouses, items, groups) match the instance?"""
 from __future__ import annotations
 
 from collections.abc import Iterable

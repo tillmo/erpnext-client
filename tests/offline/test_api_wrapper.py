@@ -1,4 +1,4 @@
-"""Tests für api_wrapper.py: Ausgabe-/Fehler-Erfassung um API-Aufrufe."""
+"""Tests for api_wrapper.py: capturing output/errors around API calls."""
 from __future__ import annotations
 
 import sys
@@ -75,7 +75,7 @@ class TestApiWrapper:
         assert len(lines) == 10 + 1 + 14
 
     def test_plain_output_counts_as_error_message(self) -> None:
-        # so werden Server-Antworten sichtbar, die FrappeClient.post_process nur ausgibt
+        # this makes server responses visible that FrappeClient.post_process only prints
         r = api_wrapper.api_wrapper(noisy)
         assert r["err_msg"] == "Hallo"
 

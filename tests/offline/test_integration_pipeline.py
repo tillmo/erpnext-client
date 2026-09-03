@@ -1,8 +1,8 @@
-"""Integrationstests über mehrere Module hinweg - offline gegen den FakeFrappeClient.
+"""Integration tests across several modules - offline against the FakeFrappeClient.
 
-Diese Tests spielen die Arbeitsabläufe des Clients Ende-zu-Ende durch:
-PDF -> Einkaufsrechnung, Kontoauszug -> Banktransaktionen -> Zuordnung -> Buchung,
-PreRechnung mit Google-JSON -> Lagerrechnung mit Artikelzuordnung.
+These tests run through the client's workflows end-to-end:
+PDF -> purchase invoice, bank statement -> bank transactions -> assignment -> posting,
+PreRechnung with Google JSON -> stock invoice with item assignment.
 """
 from __future__ import annotations
 
@@ -31,13 +31,13 @@ from purchase_invoice import PurchaseInvoice  # noqa: E402
 
 @pytest.fixture
 def erp(fake_api: FakeFrappeClient, user_settings: UserSettings) -> FakeFrappeClient:
-    """Eine 'Instanz' mit Firma, Konten und Bankkonto, geladen wie beim Programmstart."""
+    """An 'instance' with company, accounts and bank account, loaded as at program start."""
     F.seed_company_data(fake_api)
     fake_api.add("Bank Account", **F.bank_account_doc())
     user_settings["-company-"] = F.COMPANY
     menu.initial_loads()
     comp = Company.get_company(F.COMPANY)
-    # cost_center & Co. kommen bei init_companies nicht mit (get_list liefert nur name), s. test_company
+    # cost_center etc. are not included by init_companies (get_list only returns name), see test_company
     comp.cost_center = "Haupt - SoMiKo"
     comp.payable_account = F.company_doc()["default_payable_account"]
     comp.receivable_account = F.company_doc()["default_receivable_account"]
@@ -58,12 +58,12 @@ class TestInvoicePipeline:
         assert doc["taxes"][0]["account_head"] == F.TAXES_SOMIKO[19.0]
         assert doc["supplier_invoice"] == "/private/files/r.pdf" and erp.files[doc["supplier_invoice"]].startswith(b"%PDF")
         assert erp.get_doc("Supplier", "Muster Solartechnik GmbH")["supplier_group"] == "Lieferant"
-        # zweiter Durchlauf mit derselben Rechnung: Duplikat, PDF wird angehängt, keine zweite Rechnung
+        # second run with the same invoice: duplicate, PDF is attached, no second invoice
         gui.answers["msgbox"] = None
         dup = PurchaseInvoice.read_and_transfer(None, str(pdf), False, cli_overrides={"konto": "4210"})
         assert dup.is_duplicate and dup.doc["name"] == doc["name"]
         assert len(erp.get_list("Purchase Invoice")) == 1
-        # das Duplikat hängt das PDF genau einmal an die bestehende Rechnung
+        # the duplicate attaches the PDF exactly once to the existing invoice
         assert len([a for a in erp.attachments if a[1] == doc["name"]]) == 2
         assert len(erp.get_list("Supplier")) == 1
 
@@ -89,7 +89,7 @@ class TestInvoicePipeline:
         bt = erp.get_list("Bank Transaction", fields=["status", "unallocated_amount", "payment_entries"])[0]
         assert bt["status"] == "Reconciled" and bt["unallocated_amount"] == 0
         assert bt["payment_entries"][0]["payment_entry"] == pe["name"]
-        # der Client sieht danach keine offenen Dokumente mehr
+        # afterwards the client sees no more open documents
         comp = Company.get_company(F.COMPANY)
         assert comp.open_bank_transactions() == [] and comp.unbooked_payment_entries() == []
 
@@ -120,13 +120,13 @@ class TestBankPipeline:
         assert miete["accounts"][1]["account"] == "4210 - Miete und Nebenkosten - SoMiKo"
         spende = by_remark["Spende Foerderer"]
         assert spende["accounts"][0]["debit"] == 100.0
-        # Buchen über den Menüpfad 'Buchungssätze' -> submit_entry
+        # submitting via the menu path 'Buchungssätze' -> submit_entry
         for j in jes:
             bank.BankTransaction.submit_entry(j["name"])
         assert comp.open_journal_entries() == []
         assert all(bt["docstatus"] == 1 for bt in erp.get_list("Bank Transaction", fields=["docstatus"]))
         assert b.baccount.balance == pytest.approx(-400.0)
-        # Kontenblatt-Sicht: das Bankkonto taucht in comp.journal mit dem Gegenkonto auf
+        # ledger view: the bank account appears in comp.journal with the contra account
         assert {j["account"] for j in comp.journal} == {"4210 - Miete und Nebenkosten - SoMiKo",
                                                           "8401 - Selbstbauanlagen 19% - SoMiKo"}
 
@@ -169,10 +169,10 @@ class TestPreInvoicePipeline:
         assert doc["grand_total"] == 238.0 and doc["bill_no"] == "G-1"
         assert erp.get_doc("PreRechnung", name)["purchase_invoice"] == doc["name"]
         assert comp.get_open_pre_invoices(False) == []
-        # Artikelpreis wurde für den Lagerartikel angelegt
+        # an item price was created for the stock item
         assert erp.get_list("Item Price", fields=["item_code", "price_list_rate"]) == \
             [{"item_code": "010.100.001", "price_list_rate": 100.0}]
-        # in der Zusammenfassung erscheint der Artikelname
+        # the item name appears in the summary
         assert "Solarmodul 400 Wp" in pinv.summary()
 
     def test_pre_invoice_with_aggregate_item(self, erp: FakeFrappeClient, tmp_path: Path, gui: EasyguiStub,
@@ -186,7 +186,7 @@ class TestPreInvoicePipeline:
                        buchungskonto="Herstellungskosten", selbst_bezahlt=False, lieferant="Muster Solartechnik GmbH",
                        processed=True, eingepflegt=False, typ="Rechnung", datum="2026-09-03", chance="PROJ-0002",
                        json=None, nuruk=True, nurelektromaterial=False)
-        gui.answers["msgbox"] = None     # "Bitte Artikel in ERPNext manuell eintragen" (generischer Parser + Lager)
+        gui.answers["msgbox"] = None     # "Bitte Artikel in ERPNext manuell eintragen" (generic parser + stock)
         pinv = prerechnung.read_and_transfer(erp.get_doc("PreRechnung", name), cli_overrides={})
         doc = erp.get_doc("Purchase Invoice", pinv.doc["name"])
         assert "manuell eintragen" in gui.calls[-1][1][0]

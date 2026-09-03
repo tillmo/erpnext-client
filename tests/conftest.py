@@ -1,17 +1,17 @@
-"""Gemeinsame Test-Konfiguration.
+"""Shared test configuration.
 
-Reihenfolge ist wichtig: zuerst Stubs installieren, dann erst Projektmodule
-importieren (die Projektmodule liegen im Repo-Wurzelverzeichnis).
+Order matters: install the stubs first, only then import the project modules
+(the project modules live in the repository root).
 
-Drei Testkategorien (Verzeichnis = Marker):
+Three test categories (directory = marker):
 
-* tests/offline       - ohne Netz, Api.api ist ein FakeFrappeClient
-* tests/online_read   - lesend gegen eine Instanz (ERPNEXT_TEST_SERVER/KEY/SECRET[/COMPANY])
-* tests/online_write  - schreibend gegen eine TESTinstanz (zusätzlich ERPNEXT_TEST_WRITE=1)
+* tests/offline       - no network, Api.api is a FakeFrappeClient
+* tests/online_read   - read-only against an instance (ERPNEXT_TEST_SERVER/KEY/SECRET[/COMPANY])
+* tests/online_write  - writing against a TEST instance (additionally ERPNEXT_TEST_WRITE=1)
 
-Die Zugangsdaten werden bewusst NUR aus Umgebungsvariablen gelesen, nie aus
-der erpnext.json des Benutzers - damit Schreibtests nie versehentlich auf der
-Produktivinstanz laufen.
+The credentials are deliberately read ONLY from environment variables, never from
+the user's erpnext.json - so that write tests never accidentally run against the
+production instance.
 """
 from __future__ import annotations
 
@@ -41,7 +41,7 @@ if TYPE_CHECKING:
     from support.fakes import FakeFrappeClient
 
 
-# ------------------------------------------------------------- Marker
+# ------------------------------------------------------------ Markers
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     for item in items:
         path = str(item.fspath)
@@ -53,7 +53,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             item.add_marker(pytest.mark.online_write)
 
 
-# --------------------------------------------------------- Umgebung
+# ------------------------------------------------------ Environment
 class OnlineConfig:
     def __init__(self) -> None:
         self.server: str | None = os.environ.get("ERPNEXT_TEST_SERVER")
@@ -75,7 +75,7 @@ def online_config() -> OnlineConfig:
     return OnlineConfig()
 
 
-# ------------------------------------------------- Zustand zurücksetzen
+# ------------------------------------------------------- Reset state
 DEFAULT_SETTINGS: dict[str, Any] = {
     "-company-": "Bremer SolidarStrom",
     "-server-": "https://erpnext.test.invalid",
@@ -91,7 +91,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
 
 
 def _reset_project_state() -> None:
-    """Klassenweite Caches der Projektmodule leeren (nur wenn schon importiert)."""
+    """Clear the class-wide caches of the project modules (only if already imported)."""
     api = sys.modules.get("api")
     if api is not None:
         api.Api.api = None
@@ -117,19 +117,19 @@ def _clean_state() -> Iterator[None]:
 
 @pytest.fixture
 def user_settings() -> stubs.UserSettings:
-    """Zugriff auf den (gestubbten) sg.UserSettings-Speicher."""
+    """Access to the (stubbed) sg.UserSettings store."""
     return sg.UserSettings()
 
 
 @pytest.fixture
 def gui() -> stubs.EasyguiStub:
-    """Antworten für easygui-Dialoge hinterlegen: gui.answers['choicebox'] = 'Wert'."""
+    """Provide answers for easygui dialogs: gui.answers['choicebox'] = 'value'."""
     return easygui
 
 
 @pytest.fixture
 def fake_api() -> FakeFrappeClient:
-    """FakeFrappeClient als Api.api installieren."""
+    """Install FakeFrappeClient as Api.api."""
     from support.fakes import FakeFrappeClient
     from api import Api
     client = FakeFrappeClient()
@@ -139,7 +139,7 @@ def fake_api() -> FakeFrappeClient:
 
 @pytest.fixture
 def somiko(fake_api: FakeFrappeClient) -> Company:
-    """Firma 'Bremer SolidarStrom' offline, mit Konten und Steuersätzen."""
+    """Company 'Bremer SolidarStrom' offline, with accounts and tax rates."""
     from support import factories
     return factories.make_company()
 
@@ -163,6 +163,6 @@ def restore_locale() -> Iterator[None]:
 
 @pytest.fixture
 def in_tmp_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Tests, die Dateien ins Arbeitsverzeichnis schreiben, laufen in tmp_path."""
+    """Tests that write files into the working directory run in tmp_path."""
     monkeypatch.chdir(tmp_path)
     return tmp_path

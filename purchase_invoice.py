@@ -170,7 +170,7 @@ def ask_if_to_continue(err: str, msg: str = "") -> bool:
 class PurchaseInvoice(Invoice):
     suppliers: dict[str, dict[str, Any]] = {}
 
-    # in __init__ gesetzte Instanzattribute
+    # instance attributes set in __init__
     update_stock: bool
     aggregate_item_code: str | None
     order_id: str | None
@@ -184,7 +184,7 @@ class PurchaseInvoice(Invoice):
     gross_total: float
     default_vat: float
     vat_rates: list[float]
-    # enthalten nach parse_generic zeitweise "" statt einer Zahl, daher Any
+    # temporarily contain "" instead of a number after parse_generic, hence Any
     vat: dict[float, Any]
     totals: dict[float, Any]
     multi: bool
@@ -195,7 +195,7 @@ class PurchaseInvoice(Invoice):
     skonto: float
     parser: str | None
     cli_overrides: dict[str, Any] | None
-    # erst von den Parsern bzw. in compute_total/create_taxes gesetzt
+    # only set by the parsers or in compute_total/create_taxes
     supplier: str | None
     supplier_address: str | None
     shipping_address: str | None
@@ -348,7 +348,7 @@ class PurchaseInvoice(Invoice):
             val = input("MWSt ({}%): ".format(self.default_vat)).strip()
             self.vat[self.default_vat] = utils.read_float(val) if val else 0.0
         if not self.totals.get(self.default_vat):
-            # nach parse_generic ohne erkannte Beträge steht "" statt einer Zahl in totals/vat
+            # after parse_generic without recognised amounts, totals/vat contain "" instead of a number
             known_total = self.totals[self.default_vat] or 0.0
             known_vat = self.vat[self.default_vat] or 0.0
             cur_gross = amount or (known_total + known_vat if self.totals[self.default_vat] else "")
@@ -761,7 +761,7 @@ class PurchaseInvoice(Invoice):
 #            self.e_items[0]['expense_account'] = accounts[self.vat_rates[0]]
 
     def assign_aggregate_e_item(self) -> None:
-        # totals enthalten den Versand, den create_doc als eigene Zeile ergänzt
+        # totals include the shipping costs, which create_doc adds as a separate line
         net = sum(self.totals.values()) - self.shipping
         self.e_items = [{
             'item_code': self.aggregate_item_code,
@@ -933,7 +933,7 @@ class PurchaseInvoice(Invoice):
         if not self.parse_invoice(invoice_json, infile, account_abbrv, paid_by_submitter, supplier, check_dup=check_dup):
             return None
         print("Prüfe auf doppelte Rechung")
-        # parse_invoice hat ggf. schon geprüft (und das PDF angehängt)
+        # parse_invoice may already have checked (and attached the PDF)
         if self.is_duplicate or self.check_if_present(check_dup):
             return self
         if self.aggregate_item_code:
@@ -1031,8 +1031,8 @@ class PurchaseInvoice(Invoice):
         upload = self.upload_pdfs(docfield='supplier_invoice')
         if not upload:
             return None
-        # attach_file hat supplier_invoice serverseitig gesetzt (und den Zeitstempel geändert):
-        # neu laden statt speichern, sonst TimestampMismatchError
+        # attach_file has set supplier_invoice on the server side (and changed the timestamp):
+        # reload instead of saving, otherwise TimestampMismatchError
         self.load()
         # enter purchased material separately into stock, if needed
         stock.purchase_invoice_into_stock(self.doc['name'])

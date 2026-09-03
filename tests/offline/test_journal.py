@@ -1,4 +1,4 @@
-"""Tests für journal.py: Buchungssätze, USt-Buchungen, Anzahlungs-Umbuchungen, Hauptbuch-Abfragen."""
+"""Tests for journal.py: journal entries, VAT postings, advance payment transfers, general ledger queries."""
 from __future__ import annotations
 
 import os
@@ -17,7 +17,7 @@ from support.stubs import UserSettings
 
 
 def gl_handler(balances: dict[str, float], rows: list[dict[str, Any]] | None = None) -> Callable[[dict[str, Any]], dict[str, Any]]:
-    """General-Ledger-Report nachbilden: 'Total'-Saldo = Summe der Salden der gefilterten Konten."""
+    """Simulate the General Ledger report: 'Total' balance = sum of the balances of the filtered accounts."""
     def handler(filters: dict[str, Any]) -> dict[str, Any]:
         accounts = filters.get("account", [])
         total = sum(balances.get(a, 0.0) for a in accounts)
@@ -254,16 +254,16 @@ class TestAdvancePaymentJournalEntry:
 
     def test_rueckbuchung(self, somiko: Company, fake_api: FakeFrappeClient, advance_payment_with_invoice: str) -> None:
         advance_payment = advance_payment_with_invoice
-        journal.create_advance_payment_journal_entry(advance_payment, 19)          # Umbuchung
-        journal.create_advance_payment_journal_entry(advance_payment, 19, True)    # Rückbuchung
+        journal.create_advance_payment_journal_entry(advance_payment, 19)          # transfer
+        journal.create_advance_payment_journal_entry(advance_payment, 19, True)    # reversal
         jes = [entry(fake_api, j["name"]) for j in fake_api.get_list("Journal Entry")]
         assert len(jes) == 2
         um, rueck = jes
         assert rueck["title"] == "Rückbuchung Anzahlung ACC-PAY-2026-00001"
-        assert rueck["posting_date"] == "2026-07-15"           # Datum der Rechnung
+        assert rueck["posting_date"] == "2026-07-15"           # date of the invoice
         assert rueck["cheque_no"] == advance_payment and rueck["cheque_date"] == "2026-07-15"
         a = rueck["accounts"]
-        assert (a[0]["debit"], a[0]["credit"]) == (1190.0, 0)  # Vorzeichen gedreht
+        assert (a[0]["debit"], a[0]["credit"]) == (1190.0, 0)  # sign reversed
         assert a[0]["reference_type"] == "Journal Entry" and a[0]["reference_name"] == um["name"]
         assert a[0]["is_advance"] == "Yes"
         assert (a[1]["debit"], a[1]["credit"]) == (0, 1000.0) and "reference_type" not in a[1]
@@ -286,18 +286,18 @@ class TestAdvancePaymentJournalEntries:
     def _seed(self, fake_api: FakeFrappeClient, somiko: Company) -> None:
         fake_api.add("Purchase Invoice", name="EK 2026-1", posting_date="2027-01-15", company=somiko.name)
         fake_api.add("Purchase Invoice", name="EK 2026-2", posting_date="2026-03-15", company=somiko.name)
-        # ohne Rechnung -> Umbuchung
+        # without invoice -> transfer
         fake_api.add("Payment Entry", name="P-OHNE", paid_amount=119.0, company=somiko.name, party_type="Supplier",
                      party="L", payment_type="Pay", posting_date="2026-02-01", docstatus=1, references=[])
-        # Rechnung im Folgejahr -> Umbuchung + Rückbuchung
+        # invoice in the following year -> transfer + reversal
         fake_api.add("Payment Entry", name="P-SPAET", paid_amount=119.0, company=somiko.name, party_type="Supplier",
                      party="L", payment_type="Pay", posting_date="2026-02-02", docstatus=1,
                      references=[{"reference_doctype": "Purchase Invoice", "reference_name": "EK 2026-1"}])
-        # Rechnung im selben Jahr -> nichts
+        # invoice in the same year -> nothing
         fake_api.add("Payment Entry", name="P-GLEICH", paid_amount=119.0, company=somiko.name, party_type="Supplier",
                      party="L", payment_type="Pay", posting_date="2026-02-03", docstatus=1,
                      references=[{"reference_doctype": "Purchase Invoice", "reference_name": "EK 2026-2"}])
-        # Entwurf -> ignoriert
+        # draft -> ignored
         fake_api.add("Payment Entry", name="P-DRAFT", paid_amount=119.0, company=somiko.name, party_type="Supplier",
                      party="L", payment_type="Pay", posting_date="2026-02-04", docstatus=0, references=[])
 
@@ -326,7 +326,7 @@ class TestVatFunctions:
     def test_unconfigured_company(self, fake_api: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
         assert journal.income("Colab-neu", "a", "b") == {}
         assert journal.pretax("Colab-neu", "a", "b") == 0.0
-        assert journal.pretax("Soli e.V.", "a", "b") == 0.0          # konfiguriert, aber ohne Vorsteuerkonten
+        assert journal.pretax("Soli e.V.", "a", "b") == 0.0          # configured, but without input tax accounts
         assert "Keine Ertragskonten für Colab-neu" in capsys.readouterr().out
         assert fake_api.calls_of("query_report") == []
 
@@ -334,7 +334,7 @@ class TestVatFunctions:
                                                             capsys: pytest.CaptureFixture[str]) -> None:
         fake_api.add("Company", **F.company_doc())
         fake_api.add("Company", **dict(F.company_doc("Colab-neu", "CN"), parent_company=somiko.name))
-        Company(F.company_doc("Colab-neu", "CN"))     # somiko ist schon registriert, init_companies lädt nicht mehr
+        Company(F.company_doc("Colab-neu", "CN"))     # somiko is already registered, init_companies does not load again
         fake_api.set_report("General ledger", gl_handler({INCOME_ACCOUNTS[somiko.name][19][0]: -500.0}))
         journal.vat_declaration(somiko.name, "2026-02")
         out = capsys.readouterr().out
@@ -382,11 +382,11 @@ class TestVatFunctions:
                 {"account": acc, "voucher_type": "Journal Entry", "voucher_no": "ACC-JV-1"}]
         fake_api.set_report("General ledger", gl_handler({}, rows))
         fake_api.add("Purchase Invoice", name="EK 2026-00001", supplier_invoice="/private/files/r.pdf")
-        fake_api.add("Purchase Invoice", name="EK 2026-00002")   # ohne PDF -> Fehler wird gemeldet
+        fake_api.add("Purchase Invoice", name="EK 2026-00002")   # without PDF -> error is reported
         fake_api.add_file("/private/files/r.pdf", b"%PDF-1.4 test")
         d = journal.save_purchase_invoices(somiko.name, acc)
         assert d == "EK-Rechnungen-Bremer_SolidarStrom-2026-4210"
         assert sorted(os.listdir(in_tmp_cwd / d)) == ["EK_2026-00001.pdf"]
         out = capsys.readouterr().out
-        assert "supplier_invoice" in out           # KeyError der zweiten Rechnung wird ausgegeben
+        assert "supplier_invoice" in out           # the KeyError of the second invoice is printed
         assert "Expoertiert nach " + d in out

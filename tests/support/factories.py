@@ -1,7 +1,7 @@
-"""Testdaten-Fabriken: Firmen, Konten, synthetische PDFs, Kontoauszüge, Parser-Zeilen.
+"""Test data factories: companies, accounts, synthetic PDFs, bank statements, parser lines.
 
-Alles hier ist bewusst frei erfunden (keine echten Lieferanten-, Kunden- oder
-Kontodaten), orientiert sich aber an den Strukturen, die der Client erwartet.
+Everything here is deliberately made up (no real supplier, customer or
+account data), but follows the structures the client expects.
 """
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from purchase_invoice import PurchaseInvoice
     from support.fakes import FakeFrappeClient
 
-# --------------------------------------------------------------- Konten
+# ------------------------------------------------------------- Accounts
 SOMIKO = "SoMiKo"
 COMPANY = "Bremer SolidarStrom"
 LADEN = "Laden"
@@ -95,7 +95,7 @@ def company_doc(name: str = COMPANY, abbr: str = SOMIKO) -> dict[str, Any]:
 
 def make_company(name: str = COMPANY, abbr: str = SOMIKO, taxes: dict[float, str] | None = None,
                  accounts: list[tuple[str, str, int]] | None = None) -> Company:
-    """Company-Objekt mit den Daten, die sonst load_data() vom Server holt."""
+    """Company object with the data that load_data() otherwise fetches from the server."""
     import company as company_mod
     if taxes is None:
         taxes = TAXES_LADEN if name == LADEN else TAXES_SOMIKO
@@ -121,7 +121,7 @@ def make_company(name: str = COMPANY, abbr: str = SOMIKO, taxes: dict[float, str
 
 def seed_company_data(api: FakeFrappeClient, name: str = COMPANY, abbr: str = SOMIKO,
                       taxes: dict[float, str] | None = None, accounts: list[tuple[str, str, int]] | None = None) -> None:
-    """Legt im Fake alles an, was Company.load_data() abfragt."""
+    """Creates everything in the fake that Company.load_data() queries."""
     if taxes is None:
         taxes = TAXES_LADEN if name == LADEN else TAXES_SOMIKO
     if accounts is None:
@@ -135,7 +135,7 @@ def seed_company_data(api: FakeFrappeClient, name: str = COMPANY, abbr: str = SO
 
 
 def iban_de(blz: int, kto: int) -> str:
-    """Korrekte IBAN-Berechnung (mit zweistelliger Prüfziffer) als Referenz."""
+    """Correct IBAN computation (with two-digit check digits) as reference."""
     bban = "{:08d}{:010d}".format(blz, kto)
     check = 98 - int(bban + "131400") % 97
     return "DE{:02d}{}".format(check, bban)
@@ -146,7 +146,7 @@ BLZ_SPARDA = 25090500
 BLZ_ETHIK = 83094495
 IBAN_SPARKASSE = iban_de(BLZ_SPARKASSE, 1234567890)
 IBAN_SPARDA = iban_de(BLZ_SPARDA, 987654321)
-IBAN_FREMD = iban_de(20050550, 1122334455)  # Haspa, nicht unterstützt
+IBAN_FREMD = iban_de(20050550, 1122334455)  # Haspa, not supported
 
 
 def bank_account_doc(name: str = "Sparkasse Bremen - SoMiKo", company: str = COMPANY, iban: str = IBAN_SPARKASSE,
@@ -156,7 +156,7 @@ def bank_account_doc(name: str = "Sparkasse Bremen - SoMiKo", company: str = COM
 
 
 def make_bank_account(api: FakeFrappeClient, comp: Company, **kwargs: Any) -> BankAccount:
-    """Bank Account im Fake anlegen und als bank.BankAccount instanziieren."""
+    """Create a Bank Account in the fake and instantiate it as bank.BankAccount."""
     import bank
     doc = bank_account_doc(company=comp.name, **kwargs)
     api.add("Bank Account", **doc)
@@ -175,14 +175,14 @@ def bank_transaction_doc(bank_account: str, company: str = COMPANY, date: str = 
     return doc
 
 
-# ------------------------------------------------------------ Rechnungen
+# ------------------------------------------------------------- Invoices
 def make_purchase_invoice(comp: Company, update_stock: bool = False, aggregate_item_code: str | None = None,
                           parser_fields: bool = True) -> PurchaseInvoice:
-    """PurchaseInvoice-Objekt für die Firma comp (setzt -company- in den Settings).
+    """PurchaseInvoice object for the company comp (sets -company- in the settings).
 
-    Der Konstruktor legt supplier/no/shipping/total_vat/items nicht an - das tun erst
-    parse_invoice bzw. die Parser. Damit einzelne Methoden isoliert testbar sind,
-    werden diese Felder hier mit ihren Startwerten belegt (parser_fields=True).
+    The constructor does not create supplier/no/shipping/total_vat/items - only
+    parse_invoice or the parsers do. So that individual methods can be tested in isolation,
+    these fields are initialised here with their start values (parser_fields=True).
     """
     import PySimpleGUI as sg
     import purchase_invoice
@@ -215,7 +215,7 @@ GENERIC_INVOICE_LINES = [
 
 
 def write_pdf(path: str | PathLike[str], lines: Iterable[str], font: str = "Courier", size: int = 10) -> str:
-    """Einfaches einseitiges PDF mit festen Zeilen (Courier -> spaltentreu bei pdftotext)."""
+    """Simple one-page PDF with fixed lines (Courier -> column-faithful with pdftotext)."""
     from reportlab.lib.pagesizes import A4
     from reportlab.pdfgen import canvas
     c = canvas.Canvas(str(path), pagesize=A4)
@@ -254,11 +254,11 @@ def write_generic_invoice_pdf(path: str | PathLike[str], no: str = "2026-0815", 
     return write_pdf(path, lines)
 
 
-# ---------------------------------------------------------- Kontoauszüge
+# ------------------------------------------------------ Bank statements
 def write_sparkasse_csv(path: str | PathLike[str], rows: Iterable[dict[str, str]], iban: str = IBAN_SPARKASSE) -> str:
-    """CSV im Sparkasse-Bremen-Export-Format (ISO-8859-4, ';', 17 Spalten).
+    """CSV in the Sparkasse Bremen export format (ISO-8859-4, ';', 17 columns).
 
-    rows: Liste von dicts mit date ('dd.mm.yy'), purpose, partner, partner_iban, amount ('1.234,56' oder '-12,00').
+    rows: list of dicts with date ('dd.mm.yy'), purpose, partner, partner_iban, amount ('1.234,56' or '-12,00').
     """
     header = ["Auftragskonto", "Buchungstag", "Valutadatum", "Buchungstext", "Verwendungszweck",
               "Glaeubiger ID", "Mandatsreferenz", "Kundenreferenz (End-to-End)", "Sammlerreferenz",
@@ -277,14 +277,14 @@ def write_sparkasse_csv(path: str | PathLike[str], rows: Iterable[dict[str, str]
 
 def write_sparda_csv(path: str | PathLike[str], rows: Iterable[dict[str, str]], iban: str = IBAN_SPARDA,
                      start_balance: str = "1.000,00") -> str:
-    """CSV im Sparda/Ethikbank-Format (UTF-8, ';', Datum dd.mm.yyyy in Spalte 5, Saldo in Spalte 13).
+    """CSV in the Sparda/Ethikbank format (UTF-8, ';', date dd.mm.yyyy in column 5, balance in column 13).
 
-    Die erste Buchungszeile enthält den Endsaldo (neueste Buchung zuerst).
-    rows: dicts mit date, partner, partner_iban, purpose, amount, balance.
+    The first transaction row contains the closing balance (newest transaction first).
+    rows: dicts with date, partner, partner_iban, purpose, amount, balance.
     """
     buf = io.StringIO()
     w = csv.writer(buf, delimiter=";")
-    # keine kurzen Vorspann-Zeilen: read_sparda_ethik greift bei jeder Zeile mit >1 Spalte auf row[5] zu
+    # no short preamble rows: read_sparda_ethik accesses row[5] on every row with >1 column
     w.writerow(["Kontonummer", "IBAN", "Konto", "Bank", "Buchungstag", "Valuta", "Auftraggeber/Empfänger",
                 "IBAN Gegenkonto", "BIC", "Buchungstext", "Verwendungszweck", "Betrag", "Währung", "Saldo",
                 "Währung Saldo"])
@@ -297,11 +297,11 @@ def write_sparda_csv(path: str | PathLike[str], rows: Iterable[dict[str, str]], 
     return str(path)
 
 
-# ---------------------------------------------------- Parser-Testzeilen
+# ----------------------------------------------------- Parser test lines
 def layout(columns: dict[int, Any], width: int | None = None, newline: bool = True) -> str:
-    """Zeile mit Text an festen Spaltenpositionen bauen, wie pdftotext -table sie liefert.
+    """Build a line with text at fixed column positions, as pdftotext -table delivers it.
 
-    columns: {offset: text}. Wie bei pdftotext endet jede Zeile mit '\\n'.
+    columns: {offset: text}. As with pdftotext, every line ends with '\\n'.
     """
     s = ""
     for offset in sorted(columns):
@@ -315,7 +315,7 @@ def layout(columns: dict[int, Any], width: int | None = None, newline: bool = Tr
 
 
 def right_aligned(prefix: str, value: str, width: int) -> str:
-    """Zeile fester Breite, deren letzte Zeichen vor dem '\\n' der Wert ist (für line[-9:-1]-Zugriffe)."""
+    """Fixed-width line whose last characters before the '\\n' are the value (for line[-9:-1] accesses)."""
     body = prefix.ljust(width - len(value)) + value
     return body + "\n"
 
@@ -325,25 +325,25 @@ def de_amount(x: float) -> str:
 
 
 def krannich_lines(update_stock: bool = True) -> list[str]:
-    """Synthetische Krannich-Rechnung in der Spaltengeometrie, die der Parser erwartet.
+    """Synthetic Krannich invoice in the column geometry the parser expects.
 
-    Positionen: qty/unit ab Spalte 73, Betrag ab Spalte 157; MwSt-Zeile: Netto ab 146,
-    Steuer rechtsbündig am Zeilenende; Fracht rechtsbündig am Zeilenende.
-    Netto 1.200,00 (2x 500,00 + 100,00 Kabel + 100,00 Fracht), MwSt 228,00, Endsumme 1.428,00.
+    Positions: qty/unit from column 73, amount from column 157; VAT line: net from 146,
+    tax right-aligned at the end of the line; freight right-aligned at the end of the line.
+    Net 1.200,00 (2x 500,00 + 100,00 cable + 100,00 freight), VAT 228,00, total 1.428,00.
     """
     lines = [
         layout({0: "Krannich Solar GmbH & Co KG   Rechnung"}),
         layout({0: "Rechnung 41234567 15.03.2024"}),
         layout({0: "Auftragsbestätigung AB998877 vom 01.03.2024"}),
         layout({0: "Pos  Artikel-Nr.   Bezeichnung", 73: "Menge", 157: "Gesamt"}),
-        # Position 1: 2 Stk à 500,00
+        # position 1: 2 pcs at 500,00
         layout({0: "1", 5: "KS-MOD-400", 73: "2 Stk", 157: de_amount(1000.0)}),
         layout({5: "Solarmodul 400 Wp schwarz"}),
         layout({5: "Einzelpreis 500,00"}),
-        # Position 2: Rolle Kabel -> 50 Meter
+        # position 2: roll of cable -> 50 metres
         layout({0: "2", 5: "KS-KAB-50", 73: "1 Rol", 157: de_amount(100.0)}),
         layout({5: "Solarkabel schwarz Rolle 50 m"}),
-        # Summenblock (eigene Gruppe, beginnt mit Ziffer)
+        # totals block (own group, starts with a digit)
         layout({0: "2024 Summenblock"}),
         right_aligned(layout({0: "Freight / Frachtkosten"}, newline=False), de_amount(100.0), 170),
         right_aligned(layout({0: "MwSt 19%", 146: de_amount(1200.0)}, newline=False), de_amount(228.0), 170),
@@ -353,10 +353,10 @@ def krannich_lines(update_stock: bool = True) -> list[str]:
 
 
 def heckert_lines() -> list[str]:
-    """Synthetische Heckert-Rechnung. qty ab Spalte 60, Preis ab 98, Betrag ab 135.
+    """Synthetic Heckert invoice. qty from column 60, price from 98, amount from 135.
 
-    2 Module à 300,00 = 600,00 abzüglich Rabatt 50,00 -> 550,00; Transport 30,00
-    -> Netto 580,00; MwSt 110,20; Brutto 690,20.
+    2 modules at 300,00 = 600,00 less discount 50,00 -> 550,00; transport 30,00
+    -> net 580,00; VAT 110,20; gross 690,20.
     """
     lines = [
         layout({0: "Heckert Solar GmbH", 60: "Schlußrechnung"}),
@@ -378,9 +378,9 @@ def heckert_lines() -> list[str]:
 
 
 def wagner_lines(rechnung: bool = True) -> list[str]:
-    """Synthetische Wagner-Solar-Rechnung (bzw. Vorkasserechnung).
+    """Synthetic Wagner Solar invoice (or pro forma invoice).
 
-    3 Stück à 200,00 = 600,00 plus Fracht 45,00; Nettosumme 645,00; MwSt 122,55.
+    3 pieces at 200,00 = 600,00 plus freight 45,00; net total 645,00; VAT 122,55.
     """
     if rechnung:
         kopf = layout({0: "Rechnung RE-88001", 50: "BEGeno / SolidarStrom"})
@@ -407,7 +407,7 @@ def wagner_lines(rechnung: bool = True) -> list[str]:
 
 
 def pvxchange_lines() -> list[str]:
-    """Synthetische pvXchange-Rechnung (raw-Text). 4 Module à 150,00 = 600,00; Transport 40,00."""
+    """Synthetic pvXchange invoice (raw text). 4 modules at 150,00 = 600,00; transport 40,00."""
     lines = [
         "pvXchange Trading GmbH\n",
         "Rechnung Nr. PVX-2024-100\n",
@@ -424,7 +424,7 @@ def pvxchange_lines() -> list[str]:
 
 
 def nkk_lines() -> list[str]:
-    """Naturkost-Kontor-Rechnung (Laden): Datum, dann Steuerzeilen '19,00% netto rabatt ... steuer'."""
+    """Naturkost Kontor invoice (shop): date, then tax lines '19,00% netto rabatt ... steuer'."""
     lines = [
         "Naturkost Kontor Bremen GmbH Rechnung\n",
         "Rechnung 555123 12.06.2024\n",
@@ -436,7 +436,7 @@ def nkk_lines() -> list[str]:
 
 
 def kornkraft_lines() -> list[str]:
-    """Kornkraft-Rechnung (Laden, multi): 'Rechnung <nr>', Datum, Steuerzeilen mit Satz in words[0:3]."""
+    """Kornkraft invoice (shop, multi): 'Rechnung <nr>', date, tax lines with rate in words[0:3]."""
     lines = [
         "Kornkraft Naturkost GmbH\n",
         "Rechnung 777001\n",
@@ -452,7 +452,7 @@ def google_invoice_json(supplier: str = "Muster Solartechnik GmbH", bill_no: str
                         total: str = "1.190,00 EUR", net: str = "1.000,00", tax: str = "190,00",
                         posting_date: str = "15.03.2024", due_date: str | None = None, order_id: str = "BEST-1",
                         items: Iterable[dict[str, Any]] | None = None) -> dict[str, Any]:
-    """Nachbildung des von prerechnung.extract_invoice_info gelieferten JSON."""
+    """Replica of the JSON returned by prerechnung.extract_invoice_info."""
     ents: list[dict[str, Any]] = []
 
     def ent(typ: str, value: str | None, conf: float = 0.9) -> None:
@@ -469,7 +469,7 @@ def google_invoice_json(supplier: str = "Muster Solartechnik GmbH", bill_no: str
     ent("order_id", order_id)
     for item in items or []:
         props: list[dict[str, Any]] = []
-        if "props" in item:   # explizite Reihenfolge (Dokumentreihenfolge ist für den Parser relevant)
+        if "props" in item:   # explicit order (document order matters for the parser)
             props = [{"type": t, "value": v, "confidence": 0.8} for t, v in item["props"]]
         for key, typ in (("description", "item-description"), ("code", "item-code"), ("qty", "item-quantity"),
                          ("rate", "item-unit-price"), ("amount", "item-amount")):

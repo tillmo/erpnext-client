@@ -1,4 +1,4 @@
-"""PreRechnungen, Leads und Artikelstamm - lesend."""
+"""PreRechnungen, leads and item master - read-only."""
 from __future__ import annotations
 
 from typing import Any
@@ -80,7 +80,7 @@ class TestItems:
         for supplier, trans in Api.item_code_translation.items():
             for part_no, code in trans.items():
                 assert code in Api.items_by_code
-        # Artikel ohne item_defaults hätte load_item_data angelegt - im Nur-Lese-Modus wird das blockiert
+        # load_item_data would have created items without item_defaults - this is blocked in read-only mode
         blocked = [b for b in api.blocked if b[0] == "update"]
         if blocked:
             print("{} Artikel ohne item_defaults für {} (würden beim Start ergänzt): {}".format(

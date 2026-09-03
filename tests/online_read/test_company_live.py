@@ -1,4 +1,4 @@
-"""company.Company gegen echte Daten: Stammdaten, offene Dokumente, Rechnungslisten."""
+"""company.Company against real data: master data, open documents, invoice lists."""
 from __future__ import annotations
 
 from typing import Any

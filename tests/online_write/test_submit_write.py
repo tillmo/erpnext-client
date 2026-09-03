@@ -1,8 +1,8 @@
-"""Buchen (docstatus 1) und Abbrechen - nur mit ERPNEXT_TEST_ALLOW_SUBMIT=1.
+"""Submit (docstatus 1) and cancel - only with ERPNEXT_TEST_ALLOW_SUBMIT=1.
 
-Gebuchte Dokumente lassen sich nicht löschen, sondern nur abbrechen; das Aufräumen bricht sie
-ab und löscht sie danach. Auf der Instanz bleiben dabei keine Belege, aber ggf. Lücken in den
-Nummernkreisen.
+Submitted documents cannot be deleted, only cancelled; the cleanup cancels them and deletes
+them afterwards. No documents remain on the instance, but there may be gaps in the naming
+series.
 """
 from __future__ import annotations
 

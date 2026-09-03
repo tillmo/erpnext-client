@@ -1,13 +1,13 @@
-"""Fixtures für schreibende Tests gegen eine ERPNext-TESTINSTANZ.
+"""Fixtures for write tests against an ERPNext TEST INSTANCE.
 
-Aktivierung zusätzlich zu den Lese-Variablen:
+Activation in addition to the read variables:
 
-    ERPNEXT_TEST_WRITE=1            Schreibtests freischalten
-    ERPNEXT_TEST_ALLOW_SUBMIT=1     zusätzlich Tests, die Dokumente buchen (docstatus 1) und wieder abbrechen
+    ERPNEXT_TEST_WRITE=1            enable write tests
+    ERPNEXT_TEST_ALLOW_SUBMIT=1     additionally tests that submit documents (docstatus 1) and cancel them again
 
-Alle angelegten Dokumente tragen 'pytest-<id>' im Namen bzw. in einer Referenz und werden
-am Testende über die Cleanup-Fixture gelöscht. Trotzdem: nur gegen eine Instanz laufen lassen,
-deren Daten entbehrlich sind.
+All created documents carry 'pytest-<id>' in their name or in a reference and are deleted
+at the end of the test via the cleanup fixture. Nevertheless: only run against an instance
+whose data is expendable.
 """
 from __future__ import annotations
 
@@ -57,7 +57,7 @@ def cleanup(live: LiveState) -> Iterator[Cleanup]:
 
 @pytest.fixture
 def test_supplier(api: FrappeClient, cleanup: Cleanup) -> str:
-    """Ein frischer Lieferant nur für diesen Test."""
+    """A fresh supplier just for this test."""
     name = tag("Lieferant")
     api.insert({"doctype": "Supplier", "supplier_name": name, "supplier_group": settings.DEFAULT_SUPPLIER_GROUP})
     cleanup.add("Supplier", name)

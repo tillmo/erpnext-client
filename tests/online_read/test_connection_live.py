@@ -1,4 +1,4 @@
-"""Verbindung und Grundverhalten der REST-API - prüft auch die Annahmen des Offline-Fakes."""
+"""Connection and basic behaviour of the REST API - also checks the assumptions of the offline fake."""
 from __future__ import annotations
 
 from typing import Any
@@ -15,7 +15,7 @@ class TestConnection:
     def test_initialize_returns_companies(self, live: LiveState, user_settings: UserSettings) -> None:
         companies = Api.initialize()
         assert live.company_name in [c["name"] for c in companies]
-        live.install(read_only=True)   # Api.initialize hat den ungeschützten Client eingesetzt
+        live.install(read_only=True)   # Api.initialize has installed the unprotected client
 
     def test_initialize_with_settings_marks_setup_done(self, live: LiveState, user_settings: UserSettings) -> None:
         Api.initialize_with_settings()
@@ -28,7 +28,7 @@ class TestConnection:
 
 
 class TestGetListSemantics:
-    """Diese Eigenschaften bildet support.fakes.FakeFrappeClient nach; hier werden sie am Server verifiziert."""
+    """support.fakes.FakeFrappeClient simulates these properties; here they are verified against the server."""
 
     def test_default_fields_are_name_only(self, api: Any) -> None:
         rows = api.get_list("Company")
@@ -71,7 +71,7 @@ class TestGetListSemantics:
         assert all(set(r) == {"name", "supplier", "expense_account"} for r in rows)
 
     def test_child_table_filter(self, api: Any, live: LiveState) -> None:
-        # Filter über Kindtabelle wie in bank.BankTransaction.submit_entry
+        # filter via child table as in bank.BankTransaction.submit_entry
         rows = api.get_list("Bank Transaction", fields=["name"],
                             filters=[["Bank Transaction Payments", "payment_entry", "like", "%ACC%"]], limit_page_length=2)
         assert isinstance(rows, list)

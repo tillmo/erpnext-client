@@ -1,4 +1,4 @@
-"""Tests für report.py: Berichtsaufbereitung (Abrechnung, Bilanz, Hauptbuch, Chancen, Projekte)."""
+"""Tests for report.py: report preparation (Abrechnung, balance sheet, general ledger, opportunities, projects)."""
 from __future__ import annotations
 
 import datetime
@@ -58,7 +58,7 @@ class TestHelpers:
     def test_remove_dup(self) -> None:
         cols = [{"fieldname": "a"}, {"fieldname": "b"}, {"fieldname": "c"}]
         rep: dict[str, Any] = {"result": [{"account_name": "x", "a": 1, "b": 2, "c": 1}, {"account_name": "y", "a": 3, "b": 4, "c": 3},
-                          {"a": 9, "b": 9, "c": 0}]}   # Zeile ohne account_name zählt nicht
+                          {"a": 9, "b": 9, "c": 0}]}   # a row without account_name does not count
         assert report.remove_dup(cols, rep) == {"fieldname": "c"}
         rep["result"][0]["c"] = 5
         assert report.remove_dup(cols, rep) is None
@@ -117,7 +117,7 @@ def pl_report(filters: dict[str, Any]) -> dict[str, Any]:
                 {"account_name": "4985 - Werkzeug", "account": "4985 - Werkzeug - SoMiKo", "indent": 1, "total": 0.2, "leer": 0},
                 {"account_name": "Total Expense (Debit)", "account": None, "total": 400.0, "leer": 0},
                 {"account_name": "Profit for the year", "account": None, "total": 600.0, "leer": 0},
-                {"total": 0, "leer": 0},  # Trennzeile ohne account_name
+                {"total": 0, "leer": 0},  # separator row without account_name
             ]}
 
 
@@ -129,10 +129,10 @@ class TestBuildReport:
         assert isinstance(tbl, table.Table)
         assert tbl.title.startswith("Quartalsabrechnung Bremer SolidarStrom  01.01.2024 - 31.12.2024")
         assert tbl.filename == "Quartalsabrechnung_Bremer_SolidarStrom_2024-01-01.pdf"
-        assert tbl.headings == ["Einnahmen/Ausgaben", "Total (EUR"]      # Null-Spalte 'Leer' entfernt
+        assert tbl.headings == ["Einnahmen/Ausgaben", "Total (EUR"]      # zero column 'Leer' removed
         names = [e["account_name"].strip() for e in tbl.entries]
         assert names == ["8401 - Selbstbauanlagen 19%", "Income", "Summe Einnahmen", "4210 - Miete", "Expense",
-                         "Summe Ausgaben", "Überschuss/Defizit"]         # 4985 (rundet auf 0) fällt weg
+                         "Summe Ausgaben", "Überschuss/Defizit"]         # 4985 (rounds to 0) is dropped
         bold = {e["account_name"].strip(): e.get("bold") for e in tbl.entries}
         assert bold["Income"] == 3 and bold["8401 - Selbstbauanlagen 19%"] is None
         filters = fake_api.calls_of("query_report")[0][1][1]
@@ -157,7 +157,7 @@ class TestBuildReport:
         assert tbl.headings == ["Einnahmen/Ausgaben", "Total (EUR"]
         call = fake_api.calls_of("query_report")[0]
         assert "periodicity" not in call[1][1]
-        assert call[2]["ignore_prepared_report"] is True      # sonst nur im Hintergrund erstellt (Frappe 14)
+        assert call[2]["ignore_prepared_report"] is True      # otherwise only created in the background (Frappe 14)
 
     def test_report_without_data_returns_none(self, somiko: Company, fake_api: FakeFrappeClient,
                                               capsys: pytest.CaptureFixture[str]) -> None:
@@ -194,11 +194,11 @@ class TestBuildReport:
         assert tbl.title.startswith("Bilanz Bremer SolidarStrom")
         assert tbl.headings == ["Bilanz", "Dec 2024", "Total"]
         rows = {e["account_name"].strip(): e for e in tbl.entries}
-        assert rows["Anzahlungen Verkauf"]["total"] == 50.0       # negative Forderung wandert auf die Passivseite
+        assert rows["Anzahlungen Verkauf"]["total"] == 50.0       # a negative receivable moves to the liabilities side
         assert rows["1400 - Forderungen"]["total"] == 0
-        assert rows["Summe Vermögenswerte (Aktiva)"]["total"] == 150.0   # 'Aktiva' umbenannt, Summe der Kinder
+        assert rows["Summe Vermögenswerte (Aktiva)"]["total"] == 150.0   # 'Aktiva' renamed, sum of the children
         assert rows["Passiva"]["total"] == 50.0
-        assert rows["Summe Vermögensquellen (Passiva)"]["total"] == 70.0   # Passiva + Überschuss
+        assert rows["Summe Vermögensquellen (Passiva)"]["total"] == 70.0   # liabilities + surplus
         assert fake_api.calls_of("query_report")[0][1][1]["report"] == "Balance Sheet"
 
 
@@ -232,7 +232,7 @@ class TestGeneralLedgerHelpers:
         rows = [{"account": "'Opening'", "debit": 0, "credit": 0, "balance": 10.0, "remarks": "No Remarks"},
                 {"account": "Bank - SoMiKo", "debit": 5.0, "credit": 0, "balance": 15.0, "posting_date": "2026-02-01",
                  "against": "4210 - Miete - SoMiKo", "remarks": "Miete", "voucher_no": "JV-1"},
-                {"account": "'Opening'", "debit": 0, "credit": 0, "balance": 0},      # Doppelung wird entfernt
+                {"account": "'Opening'", "debit": 0, "credit": 0, "balance": 0},      # duplicate is removed
                 {"account": "'Total'", "debit": 5.0, "credit": 0, "balance": 5.0},
                 {"account": "'Closing (Opening + Total)'", "debit": 0, "credit": 0, "balance": 15.0},
                 {"kein": "Hauptbucheintrag"}]
@@ -281,7 +281,7 @@ class TestOpportunities:
         opp = {"selbstbau": 1, "mit_speicher": 0, "global_margin": 0, "soliaufschlag": 5, "title": "  " + "x" * 30,
                "none": None, "other": 3}
         out = report.format_opp(opp)
-        assert out["selbstbau"] == "✓" and out["mit_speicher"] == ""     # Leerzeichen wird anschließend gestript
+        assert out["selbstbau"] == "✓" and out["mit_speicher"] == ""     # whitespace is stripped afterwards
         assert out["global_margin"] == "" and out["soliaufschlag"] == 5
         assert out["title"] == "x" * 23 and out["none"] == "" and out["other"] == 3
 
@@ -313,7 +313,7 @@ class TestOpportunities:
         assert set(opps) == {"OPP-1", "QTN-2", "SO-2", "R-2"}
         o = opps["OPP-1"]
         assert o["quotation"] == "QTN-1" and o["global_margin"] == 10 and o["ballastierung"] == 1
-        assert o["sales_order"] == "SO-1*"           # nicht Draft -> Stern
+        assert o["sales_order"] == "SO-1*"           # not Draft -> asterisk
         assert o["sales_invoice"] == "R-1*" and o["is_paid"] is True
         assert opps["QTN-2"]["title"] == "Ohne Chance?A"
         assert opps["SO-2"]["title"] == "Schulz?AB" and opps["SO-2"]["sales_order"] == "SO-2"

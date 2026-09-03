@@ -1,4 +1,4 @@
-"""Rauchtest: alle Projektmodule sind unter den Stubs importierbar."""
+"""Smoke test: all project modules can be imported under the stubs."""
 from __future__ import annotations
 
 import importlib
@@ -43,7 +43,7 @@ def test_fake_api_roundtrip(fake_api: FakeFrappeClient) -> None:
 
 @pytest.mark.parametrize("name", MODULES + PDF_MODULES)
 def test_module_importable_as_first_import(name: str) -> None:
-    """Kein Modul darf auf eine bestimmte Importreihenfolge angewiesen sein (Importzyklen)."""
+    """No module may depend on a particular import order (import cycles)."""
     import subprocess, sys, os
     if name in PDF_MODULES and not HAVE_PDFTOTEXT:
         pytest.skip("pdftotext fehlt")

@@ -1,8 +1,8 @@
-"""Entscheidungslogik von cleanup_public_attachments.Cleaner mit einem aufzeichnenden Stub-Client.
+"""Decision logic of cleanup_public_attachments.Cleaner with a recording stub client.
 
-Die Datei-Semantik von Frappe (content_hash, Verschieben beim Umstellen auf privat) wird hier
-nur so weit nachgestellt, wie das Skript sie voraussetzt; die echten Effekte wurden auf der
-Testinstanz geprüft.
+Frappe's file semantics (content_hash, moving the file when switching to private) are only
+simulated here as far as the script relies on them; the real effects were checked on the
+test instance.
 """
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import sys
 
 import pytest
 
-# das Skript liegt im privaten Verzeichnis mytools/ (nicht Teil dieses Repos)
+# the script lives in the private directory mytools/ (not part of this repo)
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "mytools"))
 cpa = pytest.importorskip("cleanup_public_attachments", reason="mytools/cleanup_public_attachments.py nicht vorhanden")
 from frappeclient import FrappeException  # noqa: E402
@@ -24,7 +24,7 @@ class StubApi:
                  file_missing: bool = False) -> None:
         self.calls: list[tuple[Any, ...]] = []
         self.field_value = field_value
-        self.private_twin = private_twin        # Inhalt einer gleichnamigen privaten Datei (Kollision)
+        self.private_twin = private_twin        # content of a private file with the same name (collision)
         self.file_missing = file_missing
         self.contents: dict[str, bytes] = {}
 
@@ -79,7 +79,7 @@ class TestSameContent:
         c = run(api, [f("P1", "/private/files/a.pdf", 1, field="supplier_invoice"),
                       f("O1", "/files/a.pdf", 0), f("O2", "/files/a.pdf", 0)])
         assert api.calls == [("set_value", "File", "O1", "content_hash", "cleanup-O1"), ("delete", "File", "O1"),
-                             ("delete", "File", "O2")]          # zweite Kopie: Datei schon weg, nur Dokument
+                             ("delete", "File", "O2")]          # second copy: file already gone, only the document
         assert c.total["deleted"] == 2 and c.total["fields"] == 0
 
     def test_keep_is_bound_to_field_and_field_set_when_public(self) -> None:
@@ -122,7 +122,7 @@ class TestOnlyPublic:
         api = StubApi(field_value=None)
         c = run(api, [f("O1", "/files/a.pdf", 0), f("O2", "/files/a.pdf", 0)])
         assert api.calls[0] == ("update", {"doctype": "File", "name": "O1", "is_private": 1})
-        # nach dem Umstellen liest das Skript die (von Frappe mit umgezogenen) Duplikate neu und löscht sie
+        # after switching to private, the script re-reads the duplicates (moved along by Frappe) and deletes them
         assert ("delete", "File", "F3") in api.calls
         assert ("set_value", "Purchase Invoice", "EK 1", "supplier_invoice", "/private/files/moved.pdf") in api.calls
         assert c.total["privatised"] == 1 and c.total["deleted"] == 1 and c.total["fields"] == 1

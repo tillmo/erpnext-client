@@ -1,4 +1,4 @@
-"""Tests für stock.py und project.py (Projekt-Lagerhaltung)."""
+"""Tests for stock.py and project.py (project stock keeping)."""
 from __future__ import annotations
 
 from typing import Any

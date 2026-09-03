@@ -359,7 +359,7 @@ class BankTransaction(Doc):
 
 class BankStatementEntry:
     bank_statement: BankStatement
-    # werden von BankStatement.read_* gesetzt
+    # set by BankStatement.read_*
     posting_date: str | None
     purpose: str
     partner: str

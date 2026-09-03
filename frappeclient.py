@@ -388,8 +388,8 @@ class FrappeClient:
                         'decode_base64': 1
 		}
 		if docfield:
-			# verknuepft die Datei mit dem Attach-Feld und setzt es; ohne das legt Frappe beim
-			# naechsten Speichern eine weitere, oeffentliche Kopie der Datei an
+			# links the file to the Attach field and sets it; without this, Frappe creates
+			# another, public copy of the file on the next save
 			params['docfield'] = docfield
 		return self.post_request(params)
 
@@ -404,7 +404,7 @@ class FrappeClient:
 			params["filters"] = json.dumps(filters)
 		params['report_name'] = report_name
 		if ignore_prepared_report:
-			# "Prepared Reports" (z.B. Consolidated Financial Statement) sonst nur im Hintergrund erstellt
+			# otherwise "Prepared Reports" (e.g. Consolidated Financial Statement) are only created in the background
 			params['ignore_prepared_report'] = 1
 		return self.get_api('frappe.desk.query_report.run',params)
 
@@ -511,7 +511,7 @@ class FrappeClient:
 
 			raise FrappeException(exc)
 		if rjson and rjson.get("exc_type") and response.status_code >= 400:
-			# Frappe 14 liefert bei 404/417 oft nur exc_type und _server_messages, ohne "exc"
+			# on 404/417 Frappe 14 often only returns exc_type and _server_messages, without "exc"
 			raise FrappeException("FrappeClient Request Failed\n\n{}: {}".format(
 				rjson["exc_type"], rjson.get("exception") or rjson.get("_server_messages") or response.status_code))
 		if "message" in rjson:

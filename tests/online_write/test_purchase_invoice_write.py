@@ -1,4 +1,4 @@
-"""Einkaufsrechnung aus PDF anlegen - Ende-zu-Ende gegen die Testinstanz."""
+"""Create a purchase invoice from a PDF - end-to-end against the test instance."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -53,10 +53,10 @@ class TestReadAndTransfer:
         assert doc["supplier_invoice"] and api.get_file(doc["supplier_invoice"])[:4] == b"%PDF"
         files = attachments(api, name)
         assert len(files) == 1, files
-        # genau eine private Datei, an das Feld gebunden (keine oeffentliche Kopie durch Frappe)
+        # exactly one private file, bound to the field (no public copy by Frappe)
         assert files[0]["is_private"] == 1 and files[0]["attached_to_field"] == "supplier_invoice"
         assert files[0]["file_url"] == doc["supplier_invoice"] and doc["supplier_invoice"].startswith("/private/")
-        # sichtbar als offene Einkaufsrechnung (Entwurf)
+        # visible as an open purchase invoice (draft)
         assert name in {inv.name for inv in live.company.get_purchase_invoices(True)}
         assert "Später buchen" in gui.calls[-1][1][2]
 

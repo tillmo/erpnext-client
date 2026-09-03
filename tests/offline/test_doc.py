@@ -1,4 +1,4 @@
-"""Tests für doc.Doc (dünne Hülle um get_doc/insert/update/submit)."""
+"""Tests for doc.Doc (thin wrapper around get_doc/insert/update/submit)."""
 from __future__ import annotations
 
 import pytest
