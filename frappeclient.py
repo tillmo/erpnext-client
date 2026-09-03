@@ -16,12 +16,6 @@ try:
 except:
 	from io import BytesIO
 
-try:
-    unicode
-except NameError:
-    unicode = str
-
-
 class AuthError(Exception):
 	pass
 
@@ -42,7 +36,7 @@ class NotUploadableException(FrappeException):
 	message: str
 
 	def __init__(self, doctype: str) -> None:
-		self.message = "The doctype `{1}` is not uploadable, so you can't download the template".format(doctype)
+		self.message = "The doctype `{0}` is not uploadable, so you can't download the template".format(doctype)
 
 
 class FrappeClient:
@@ -53,7 +47,7 @@ class FrappeClient:
 	api_key: str | None
 	api_secret: str | None
 	frappe_authorization_source: str | None
-	can_download: Any
+	can_download: list[str] | None
 
 	def __init__(
 		self,
@@ -77,6 +71,7 @@ class FrappeClient:
 		self.api_key = api_key
 		self.api_secret = api_secret
 		self.frappe_authorization_source = frappe_authorization_source
+		self.can_download = None
 
 		self.setup_key_authentication_headers()
 

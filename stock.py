@@ -98,5 +98,8 @@ def purchase_invoice_into_stock(pinv_name: str,ingoing: bool=True) -> None:
     doc = stock_entry_for_item(pinv['company'],pinv['posting_date'],
                                item_code,PROJECT_WAREHOUSE,
                                ingoing,amount,account,pinv_name,pname)
-    print('Lagerbuchung {} angelegt. Bitte noch buchen.'.format(doc['name']))
+    if doc:
+        print('Lagerbuchung {} angelegt. Bitte noch buchen.'.format(doc['name']))
+    else:
+        print('Lagerbuchung für Einkaufsrechnung {} konnte nicht angelegt werden'.format(pinv_name))
     

@@ -168,7 +168,7 @@ def compute_json1_diff(inv: dict[str, Any]) -> Any:
     if json_str:
         invoice_json = json.loads(json_str)
     update_stock = 'chance' in inv and inv['chance'] and project.project_type(inv['chance']) in settings.STOCK_PROJECT_TYPES
-    old_json1 = json.loads(inv.get('json1'))
+    old_json1 = json.loads(inv['json1'])
     purchase_invoice_google_parser = PurchaseInvoiceGoogleParser(PurchaseInvoice(update_stock), invoice_json, supplier, True)
     purchase_invoice_google_parser.set_purchase_info()
     new_json1 = purchase_invoice_google_parser.get_purchase_data()

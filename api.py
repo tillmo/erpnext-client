@@ -17,7 +17,7 @@ LIMIT = 100000 # limit_page_length
 class Api(object):
     api: FrappeClient = None  # type: ignore[assignment]
     items_by_code: dict[str, dict[str, Any]] = {}
-    item_code_translation: dict[str, dict[str, str]] = []
+    item_code_translation: dict[str, dict[str, str]] = defaultdict(dict)
     accounts_by_company: dict[str, list[dict[str, Any]]] = {}
     @classmethod
     def initialize(cls) -> list[dict[str, Any]]:

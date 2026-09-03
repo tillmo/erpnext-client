@@ -1,6 +1,7 @@
 """Create stock entries, items and item prices."""
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Any
 
 import pytest
@@ -63,7 +64,6 @@ class TestStockEntry:
 
 class TestItems:
     def test_new_item_and_price(self, live: LiveState, api: Any, cleanup: Cleanup, test_supplier: str) -> None:
-        from collections import defaultdict
         pinv = F.make_purchase_invoice(live.company, True)
         Api.items_by_code = {}
         Api.item_code_translation = defaultdict(dict)    # otherwise Api.load_item_data() sets this
@@ -93,7 +93,7 @@ class TestItems:
 
     def test_load_item_data_completes_item_defaults(self, live: LiveState, api: Any) -> None:
         Api.items_by_code = {}
-        Api.item_code_translation = []
+        Api.item_code_translation = defaultdict(dict)
         Api.load_item_data()
         assert Api.items_by_code
         rows = api.get_list("Item", filters={"disabled": 0},

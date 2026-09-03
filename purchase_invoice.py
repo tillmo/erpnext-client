@@ -899,7 +899,10 @@ class PurchaseInvoice(Invoice):
     @classmethod
     def parse_and_dump(cls, infile: str, update_stock: bool, account_abbrv: str | None = None,
                        paid_by_submitter: bool = False) -> None:
-        inv = PurchaseInvoice(update_stock).parse_invoice(infile, account_abbrv, paid_by_submitter)
+        inv = PurchaseInvoice(update_stock).parse_invoice(None, infile, account_abbrv, paid_by_submitter)
+        if inv is None:
+            print("Rechnung {} konnte nicht gelesen werden".format(infile))
+            return
         pprint(vars(inv))
         pprint(list(map(lambda x: pprint(vars(x)), inv.items)))
 

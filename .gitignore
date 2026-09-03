@@ -7,7 +7,7 @@ temp/
 samples/
 test.py
 test2.py
-test_api.py
+/test_api.py
 test-*
 test/data
 win

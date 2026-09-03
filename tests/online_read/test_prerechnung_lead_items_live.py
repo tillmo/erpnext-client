@@ -1,6 +1,7 @@
 """PreRechnungen, leads and item master - read-only."""
 from __future__ import annotations
 
+from collections import defaultdict
 from typing import Any
 
 import pytest
@@ -71,7 +72,7 @@ class TestLeads:
 class TestItems:
     def test_load_item_data(self, live: LiveState, api: Any, capsys: pytest.CaptureFixture[str]) -> None:
         Api.items_by_code = {}
-        Api.item_code_translation = []
+        Api.item_code_translation = defaultdict(dict)
         Api.load_item_data()
         assert Api.items_by_code, "keine Artikel geladen"
         for code, item in list(Api.items_by_code.items())[:50]:

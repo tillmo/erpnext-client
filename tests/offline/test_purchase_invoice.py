@@ -495,6 +495,27 @@ class TestGenericParsing:
         assert (pinv.supplier, pinv.no, pinv.date, pinv.gross_total) == ("L", "N", "2026-01-01", 119.0)
 
 
+class TestParseAndDump:
+    def test_dumps_parsed_invoice(self, somiko: Company, generic_pdf: str, monkeypatch: pytest.MonkeyPatch,
+                                  capsys: pytest.CaptureFixture[str]) -> None:
+        seen: list[tuple[Any, ...]] = []
+
+        def fake_parse(self: PurchaseInvoice, *args: Any, **kwargs: Any) -> PurchaseInvoice:
+            seen.append(args)
+            self.items = []
+            return self
+        monkeypatch.setattr(PurchaseInvoice, "parse_invoice", fake_parse)
+        PurchaseInvoice.parse_and_dump(generic_pdf, False, "4985")
+        assert seen == [(None, generic_pdf, "4985", False)]
+        assert "update_stock" in capsys.readouterr().out
+
+    def test_failed_parse_is_reported(self, somiko: Company, generic_pdf: str, monkeypatch: pytest.MonkeyPatch,
+                                     capsys: pytest.CaptureFixture[str]) -> None:
+        monkeypatch.setattr(PurchaseInvoice, "parse_invoice", lambda self, *a, **k: None)
+        PurchaseInvoice.parse_and_dump(generic_pdf, False)
+        assert "konnte nicht gelesen werden" in capsys.readouterr().out
+
+
 class TestParseInvoice:
     def test_generic_pdf_is_test(self, pinv: PurchaseInvoice, generic_pdf: str, fake_api: FakeFrappeClient) -> None:
         result = pinv.parse_invoice(None, generic_pdf, is_test=True)

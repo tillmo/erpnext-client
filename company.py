@@ -12,7 +12,7 @@ import invoice
 import bank
 import settings
 import itertools
-import urllib
+import urllib.parse
 from collections import defaultdict
 
 class Company(Doc):

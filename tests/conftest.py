@@ -15,6 +15,7 @@ production instance.
 """
 from __future__ import annotations
 
+from collections import defaultdict
 import os
 import sys
 from typing import TYPE_CHECKING, Any, Iterator
@@ -96,7 +97,7 @@ def _reset_project_state() -> None:
     if api is not None:
         api.Api.api = None
         api.Api.items_by_code = {}
-        api.Api.item_code_translation = []
+        api.Api.item_code_translation = defaultdict(dict)
         api.Api.accounts_by_company = {}
     company = sys.modules.get("company")
     if company is not None:

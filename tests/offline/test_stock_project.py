@@ -10,6 +10,7 @@ import stock
 from settings import PROJECT_WAREHOUSE, PROJECT_ITEM_GROUP, PROJECT_UNIT, SOMIKO_ACCOUNTS, LUMP_SUM_STOCK_PROJECT_TYPES
 from support import factories as F
 from support.fakes import FakeFrappeClient
+from frappeclient import FrappeException
 
 
 def strip_meta(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -99,6 +100,15 @@ class TestPurchaseInvoiceIntoStock:
         stock.purchase_invoice_into_stock("EK 2026-00003")
         assert stock_project.get_list("Stock Entry") == []
         assert "Keine Projekt-Lagerhaltung für Projekt PROJ-0008" in capsys.readouterr().out
+
+    def test_failed_insert_is_reported(self, stock_project: FakeFrappeClient, monkeypatch: pytest.MonkeyPatch,
+                                       capsys: pytest.CaptureFixture[str]) -> None:
+        def failing_insert(doc: dict[str, Any]) -> None:
+            raise FrappeException("FrappeClient Request Failed\n\nValidationError")
+        monkeypatch.setattr(stock_project, "insert", failing_insert)
+        stock.purchase_invoice_into_stock("EK 2026-00001")
+        assert stock_project.get_list("Stock Entry") == []
+        assert "konnte nicht angelegt werden" in capsys.readouterr().out
 
     def test_project_into_stock_skips_cancelled(self, stock_project: FakeFrappeClient) -> None:
         stock.project_into_stock("PROJ-0007")

@@ -12,7 +12,7 @@ import requests
 
 import frappe
 import frappeclient
-from frappeclient import FrappeClient, FrappeException, AuthError
+from frappeclient import FrappeClient, FrappeException, AuthError, NotUploadableException
 from support.fakes import FakeResponse, FakeSession
 
 URL = "https://erp.example"
@@ -68,6 +68,12 @@ class TestAuthentication:
             pass
         method, url, kwargs = last(client)
         assert method == "GET" and kwargs["params"] == {"cmd": "logout"}
+
+    def test_downloadable_templates_not_loaded_initially(self, client: FrappeClient) -> None:
+        assert client.can_download is None
+
+    def test_not_uploadable_exception_names_doctype(self) -> None:
+        assert "`Foo`" in NotUploadableException("Foo").message
 
 
 class TestGetList:
