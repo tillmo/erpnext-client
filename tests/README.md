@@ -92,11 +92,13 @@ pro Kindzeile; `insert` berechnet Summen/Status; unausgeglichene Buchungssätze 
 Löschen gebuchter Dokumente werden abgelehnt. `tests/online_read/test_connection_live.py`
 prüft genau diese Annahmen gegen den echten Server.
 
-## Bekannte Befunde (`xfail`)
+## Befunde dokumentieren (`xfail`)
 
-Tests, die einen vermuteten Fehler im Client dokumentieren, sind mit `xfail(strict=True)`
-markiert: Sie „bestehen“ derzeit, weil sie fehlschlagen, und schlagen an, sobald der Fehler
-behoben ist (dann Marker entfernen). Übersicht: `python3 -m pytest tests/offline -ra | grep XFAIL`.
+Ein Test, der einen vermuteten Fehler im Client festhält, bekommt `@pytest.mark.xfail(strict=True,
+reason=...)`: Er „besteht“, solange der Fehler da ist, und schlägt an, sobald er behoben wurde
+(dann Marker entfernen). Die 22 Befunde aus dem Aufbau der Suite (2026-09-03) sind inzwischen
+korrigiert; aktuell gibt es keine `xfail`-Tests. Übersicht jederzeit:
+`python3 -m pytest tests/offline -ra | grep XFAIL`.
 
 ## Parser-Regression mit echten Rechnungen
 

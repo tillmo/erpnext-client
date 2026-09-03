@@ -31,11 +31,6 @@ STUBS = stubs.install()
 import PySimpleGUI as sg  # noqa: E402  (Stub)
 import easygui  # noqa: E402  (Stub)
 
-# company -> invoice -> company ist ein Importzyklus: 'import invoice' als erstes
-# schlägt fehl (ImportError: cannot import name 'Invoice'). Das Programm importiert
-# immer zuerst company (über menu/erpnext.py); die Tests tun dasselbe hier zentral.
-import company  # noqa: E402,F401
-
 
 # ------------------------------------------------------------- Marker
 def pytest_collection_modifyitems(config, items):

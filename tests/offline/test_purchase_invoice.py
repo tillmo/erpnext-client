@@ -186,6 +186,9 @@ class TestTotalsAndItems:
         p.totals[19.0] = 250.0
         p.assign_aggregate_e_item()
         assert p.e_items == [{"item_code": "000.100.301", "qty": 2.5, "rate": 100.0, "cost_center": "Haupt - SoMiKo"}]
+        p.shipping = 50.0        # Versand ist in totals enthalten und wird separat gebucht
+        p.assign_aggregate_e_item()
+        assert p.e_items[0]["qty"] == 2.0
 
     def test_create_taxes(self, pinv):
         pinv.vat[19.0] = 19.0
@@ -392,6 +395,7 @@ class TestGenericParsing:
         assert pinv.supplier == "Muster Solartechnik GmbH"
         assert pinv.no == "2026-0815" and pinv.date == "2026-09-03"
         assert pinv.vat[19.0] == 19.0 and pinv.totals[19.0] == 100.0 and pinv.shipping == 0.0
+        assert pinv.total == 100.0 and pinv.gross_total == 119.0
 
     def test_parse_generic_without_lines(self, pinv):
         pinv.supplier = "Vorgabe"
@@ -411,9 +415,6 @@ class TestGenericParsing:
         with pytest.raises(GuiCalled):
             pinv.parse_generic(F.GENERIC_INVOICE_LINES)
 
-    @pytest.mark.xfail(strict=True, raises=TypeError,
-                       reason="Nach parse_generic ohne erkannte Beträge steht '' in totals/vat; die Brutto-Abfrage "
-                              "rechnet totals + vat und scheitert mit TypeError, sobald die MWSt eingegeben wurde")
     def test_complete_data_by_cli_prompts_for_vat(self, pinv, fake_api, monkeypatch):
         answers = iter(["Prompt GmbH", "P-1", "05.06.2026", "19,00", "119,00", "0"])
         monkeypatch.setattr("builtins.input", lambda prompt="": next(answers))
@@ -423,6 +424,9 @@ class TestGenericParsing:
         pinv.totals[19.0] = ""
         assert pinv.complete_data_by_cli() is True
         assert pinv.vat[19.0] == 19.0 and pinv.totals[19.0] == 100.0
+        assert pinv.supplier == "Prompt GmbH" and pinv.no == "P-1" and pinv.date == "2026-06-05"
+        assert pinv.gross_total == 119.0
+        assert pinv.e_items[0]["expense_account"] == pinv.company.leaf_accounts_for_credit[0]["name"]
 
     def test_complete_data_by_cli_prompts_with_known_amount(self, pinv, fake_api, monkeypatch):
         prompts = []
@@ -506,14 +510,14 @@ class TestParseInvoice:
         assert pinv.gross_total == 1190.0 and pinv.totals[19.0] == 1000.0 and pinv.vat[19.0] == 190.0
         assert pinv.date == "2024-03-15"
 
-    def test_solarwatt_falls_back_to_generic(self, pinv, tmp_path, fake_api):
-        # set_generic_info ruft parse_generic ohne is_test auf und läuft ins GUI; parse_invoice fängt
-        # das ab und nutzt anschließend den generischen Parser im Testmodus
+    def test_solarwatt_uses_generic_parser_headless(self, pinv, tmp_path, fake_api):
         pdf = F.write_pdf(tmp_path / "sw.pdf", ["SOLARWATT GmbH", "Rechnungsnummer: SW-1", "Rechnungsdatum 01.02.2026",
                                                   "Netto 100,00", "MwSt 19,00", "Brutto 119,00"])
         assert pinv.parse_invoice(None, pdf, is_test=True) is pinv
-        assert pinv.parser == "generic" and pinv.no == "SW-1" and pinv.supplier == "SOLARWATT GmbH"
-        assert pinv.totals[19.0] == 100.0
+        assert pinv.parser == "generic" and pinv.no == "SW-1"
+        assert pinv.supplier == "Solarwatt GmbH"          # konfigurierter Lieferantenname
+        assert pinv.totals[19.0] == 100.0 and pinv.date == "2026-02-01"
+        assert fake_api.calls == []
 
 
 class TestReadPdfAndTransfer:

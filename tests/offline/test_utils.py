@@ -195,7 +195,6 @@ class TestIban:
         # verbreitetes Beispiel aus der IBAN-Dokumentation
         assert utils.iban_de(37040044, 532013000) == "DE89370400440532013000"
 
-    @pytest.mark.xfail(strict=True, reason="iban_de füllt einstellige Prüfziffern nicht mit 0 auf (DE2... statt DE02...)")
     def test_iban_de_single_digit_check(self):
         assert utils.iban_de(12030000, 202051) == "DE02120300000000202051"
 

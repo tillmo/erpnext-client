@@ -57,7 +57,10 @@ class TestAsJson:
         s = frappe.as_json({2: "b", 1: "a"})
         assert json.loads(s) == {"1": "a", "2": "b"}
 
-    @pytest.mark.xfail(strict=True, raises=NameError,
-                       reason="json_handler benutzt datetime/decimal/LocalProxy ohne Import")
     def test_date_serialisation(self):
         assert json.loads(frappe.as_json({"d": date(2026, 1, 2)}))["d"] == "2026-01-02"
+        import datetime, decimal
+        out = json.loads(frappe.as_json({"t": datetime.timedelta(hours=1), "n": decimal.Decimal("1.5"), "s": {1, 2}}))
+        assert out == {"t": "1:00:00", "n": 1.5, "s": [1, 2]}
+        with pytest.raises(TypeError):
+            frappe.as_json({"o": object()})

@@ -57,13 +57,10 @@ class TestInvoicePipeline:
         dup = PurchaseInvoice.read_and_transfer(None, str(pdf), False, cli_overrides={"konto": "4210"})
         assert dup.is_duplicate and dup.doc["name"] == doc["name"]
         assert len(erp.get_list("Purchase Invoice")) == 1
-        # das PDF wird beim Duplikat zweimal angehängt (parse_generic und read_pdf prüfen beide),
-        # siehe test_duplicate_attaches_pdf_once
-        assert len([a for a in erp.attachments if a[1] == doc["name"]]) == 3
+        # das Duplikat hängt das PDF genau einmal an die bestehende Rechnung
+        assert len([a for a in erp.attachments if a[1] == doc["name"]]) == 2
         assert len(erp.get_list("Supplier")) == 1
 
-    @pytest.mark.xfail(strict=True, reason="check_if_present läuft beim Duplikat zweimal (parse_generic und "
-                                           "read_pdf) und hängt das PDF zweimal an die bestehende Rechnung")
     def test_duplicate_attaches_pdf_once(self, erp, tmp_path, gui):
         pdf = F.write_generic_invoice_pdf(tmp_path / "r.pdf")
         gui.answers["buttonbox"] = "Später buchen"

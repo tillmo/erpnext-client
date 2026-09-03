@@ -76,8 +76,6 @@ class TestTables:
         items = report.sold_items(projects[0]["name"])
         assert isinstance(items, list)
 
-    @pytest.mark.xfail(raises=KeyError, strict=False,
-                       reason="opportunities_data liest Felder aus get_list ohne 'fields' (liefert nur name)")
     def test_opportunities(self, live):
         tbl = report.opportunities(live.company_name)
         assert isinstance(tbl, table.Table)

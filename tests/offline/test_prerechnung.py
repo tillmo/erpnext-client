@@ -72,14 +72,13 @@ class TestProcessInv:
         stored = fake_api.get_doc("PreRechnung", pre["name"])
         assert stored["processed"] is True
         assert pre["doctype"] == "PreRechnung"
-        out = capsys.readouterr().out
-        assert "unexpected keyword argument 'account'" in out
+        assert "Error" not in capsys.readouterr().out
 
-    @pytest.mark.xfail(strict=True, reason="process_inv ruft parse_invoice mit account= statt account_abbrv= auf; "
-                                           "der TypeError wird verschluckt, betrag/auftragsnr bleiben leer")
     def test_local_parser_extracts_amount(self, pre, fake_api):
         prerechnung.process_inv(pre)
-        assert fake_api.get_doc("PreRechnung", pre["name"])["betrag"] == 119.0
+        stored = fake_api.get_doc("PreRechnung", pre["name"])
+        assert stored["betrag"] == 119.0
+        assert "auftragsnr" not in stored          # generischer Parser kennt keine Auftragsnummer
 
     def test_google_parser_path(self, pre, fake_api, user_settings, monkeypatch):
         user_settings["-google-credentials-"] = {"project_id": "p"}

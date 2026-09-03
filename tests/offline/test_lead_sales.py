@@ -93,13 +93,7 @@ class TestSalesInvoiceItems:
                                                               {"item_name": "B", "item_code": "B", "qty": 1}]
 
 
-ONLY_NAME = pytest.mark.xfail(strict=True, raises=KeyError,
-                              reason="get_sales_invoices liest taxes_and_charges/total aus get_list, das ohne "
-                                     "fields nur 'name' liefert")
-
-
 class TestGetSalesInvoices:
-    @ONLY_NAME
     def test_writes_csv_and_pdfs(self, fake_api, in_tmp_cwd, capsys):
         fake_api.add("Print Format", name="Rechnung DE", doc_type="Sales Invoice")
         fake_api.add("Sales Invoice", name="R 2026-00001", company=F.COMPANY, posting_date="2026-04-10", status="Paid",
@@ -120,7 +114,6 @@ class TestGetSalesInvoices:
         assert sorted(f for f in os.listdir(in_tmp_cwd / d) if f.endswith(".pdf")) == ["R_2026-00001.pdf", "R_2026-00002.pdf"]
         assert fake_api.calls_of("get_pdf")[0][1] == ("Sales Invoice", "R 2026-00001", "Rechnung DE")
 
-    @ONLY_NAME
     def test_tax_rate_filter(self, fake_api, in_tmp_cwd):
         fake_api.add("Print Format", name="Rechnung DE", doc_type="Sales Invoice")
         fake_api.add("Sales Invoice", name="R 2026-00001", company=F.COMPANY, posting_date="2026-04-10", status="Paid",

@@ -38,14 +38,14 @@ class TestRegistry:
         Company.init_companies()  # zweiter Aufruf lädt nicht erneut
         assert len(fake_api.calls_of("get_list")) == 1
 
-    @pytest.mark.xfail(strict=True, reason="get_list('Company') liefert nur 'name'; cost_center/payable_account "
-                                           "bleiben None und werden auch in load_data nicht nachgeladen")
     def test_init_companies_fills_accounts(self, fake_api):
         F.seed_company_data(fake_api)
         Company.init_companies()
         comp = Company.get_company(F.COMPANY)
+        assert comp.cost_center == "Haupt - SoMiKo"          # schon aus get_list(fields=Company.FIELDS)
+        assert comp.payable_account.startswith("1600") and comp.receivable_account.startswith("1400")
         comp.load_data()
-        assert comp.cost_center == "Haupt - SoMiKo"
+        assert comp.cost_center == "Haupt - SoMiKo" and comp.expense_account.startswith("4996")
 
 
 class TestLeafAccounts:

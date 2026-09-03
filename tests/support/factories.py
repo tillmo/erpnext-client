@@ -393,7 +393,8 @@ def pvxchange_lines():
     """Synthetische pvXchange-Rechnung (raw-Text). 4 Module à 150,00 = 600,00; Transport 40,00."""
     lines = [
         "pvXchange Trading GmbH\n",
-        "Rechnung Nr. PVX-2024-100 12.05.2024\n",
+        "Rechnung Nr. PVX-2024-100\n",
+        "Rechnungsdatum: 12.05.2024\n",
         "Pos. Menge Bezeichnung Einzelpreis Gesamt\n",
         "1 4 Solarmodul Mono 410 Wp Artikelnummer: PVX-410 150,00 EUR 600,00 EUR\n",
         "2 1 Transportkosten 40,00 EUR 40,00 EUR\n",

@@ -38,12 +38,14 @@ def test_fake_api_roundtrip(fake_api):
     assert Api.api.get_doc("Supplier", "Test")["doctype"] == "Supplier"
 
 
-@pytest.mark.xfail(strict=True, reason="Importzyklus company -> invoice -> company: 'import invoice' als erster "
-                                       "Import schlägt fehl; das Programm importiert immer zuerst company")
-def test_invoice_importable_standalone():
+@pytest.mark.parametrize("name", MODULES + PDF_MODULES)
+def test_module_importable_as_first_import(name):
+    """Kein Modul darf auf eine bestimmte Importreihenfolge angewiesen sein (Importzyklen)."""
     import subprocess, sys, os
+    if name in PDF_MODULES and not HAVE_PDFTOTEXT:
+        pytest.skip("pdftotext fehlt")
     root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    code = ("import sys; sys.path[:0] = [%r, %r]; from support import stubs; stubs.install(); import invoice"
-            % (os.path.join(root, "tests"), root))
+    code = ("import sys; sys.path[:0] = [%r, %r]; from support import stubs; stubs.install(); import %s"
+            % (os.path.join(root, "tests"), root, name))
     r = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, cwd=root)
-    assert r.returncode == 0, r.stderr[-500:]
+    assert r.returncode == 0, r.stderr[-600:]

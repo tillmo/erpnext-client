@@ -293,8 +293,6 @@ class TestAdvancePaymentJournalEntries:
         titles = sorted(entry(fake_api, j["name"])["title"] for j in fake_api.get_list("Journal Entry"))
         assert titles == ["Rückbuchung Anzahlung P-SPAET", "Umbuchung Anzahlung P-OHNE", "Umbuchung Anzahlung P-SPAET"]
 
-    @pytest.mark.xfail(strict=True, reason="Filter-dict enthält 'posting_date' doppelt; der '>=' Start-Filter geht "
-                                           "verloren, Zahlungen aus Vorjahren werden mitverarbeitet")
     def test_previous_year_payments_are_ignored(self, somiko, fake_api):
         fake_api.add("Payment Entry", name="P-ALT", paid_amount=119.0, company=somiko.name, party_type="Supplier",
                      party="L", payment_type="Pay", posting_date="2024-02-01", docstatus=1, references=[])

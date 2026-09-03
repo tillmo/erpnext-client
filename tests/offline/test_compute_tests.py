@@ -47,8 +47,6 @@ class TestValidate:
         assert "validation failed" in capsys.readouterr().out
         assert compute_tests.validate_json1({"supplier": "S", "grand_total": 1.0, "taxes": [{"rate": 19.5, "tax_amount": 1}]}) is False
 
-    @pytest.mark.xfail(strict=True, raises=KeyError,
-                       reason="get_list ohne fields liefert nur 'name'; validate_prerechnungs greift auf pr['json1'] zu")
     def test_validate_prerechnungs(self, fake_api, capsys):
         fake_api.add("PreRechnung", name="PreR00001", json1=json.dumps({"supplier": "S", "grand_total": 1.0, "taxes": []}))
         fake_api.add("PreRechnung", name="PreR00002", json1=None)
@@ -108,8 +106,6 @@ class TestDiffs:
         assert "supplier" in diff and "qty" in diff
         assert "PreR00001" in capsys.readouterr().out
 
-    @pytest.mark.xfail(strict=True, raises=TypeError,
-                       reason="compute_json1_diff erzeugt PurchaseInvoiceGoogleParser ohne das Pflichtargument is_test")
     def test_compute_json1_diff(self, somiko, fake_api, monkeypatch):
         import purchase_invoice_google_parser as gp
         monkeypatch.setattr(gp, "find_date", lambda s: "2024-03-15")

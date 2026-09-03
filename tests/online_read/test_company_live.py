@@ -30,11 +30,12 @@ class TestCompanyData:
             assert comp.leaf_accounts_for_credit[0]["root_type"] == "Expense"
 
     def test_company_attributes_from_full_doc(self, comp):
-        # Dokumentiert den Befund aus test_company.py: init_companies liefert nur 'name'
         full = comp.doc
         assert full["name"] == comp.name
-        if comp.cost_center is None:
-            pytest.xfail("cost_center/payable_account werden aus get_list('Company') nicht befüllt (nur 'name')")
+        assert comp.payable_account == full["default_payable_account"]
+        assert comp.receivable_account == full["default_receivable_account"]
+        assert comp.cost_center == full.get("cost_center")
+        assert comp.payable_account and comp.receivable_account, "Firma ohne Standard-Verbindlichkeiten-/Forderungskonto"
 
     def test_journal_rows(self, comp):
         for je in comp.journal:

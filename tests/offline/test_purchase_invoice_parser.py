@@ -36,12 +36,13 @@ class TestKrannich:
         # Rolle -> Meter aus der Beschreibung
         assert (kabel.item_code, kabel.qty, kabel.qty_unit, kabel.rate) == ("KS-KAB-50", 50, "Meter", 2.0)
 
-    @pytest.mark.xfail(strict=True, reason="Rollen-Erkennung '[0-9]+ *[mM]' greift bei '6mm2' die 6 statt der 50 m")
     def test_roll_length_with_mm_in_description(self, somiko):
         lines = F.krannich_lines()
         lines[8] = F.layout({5: "Solarkabel 6mm2 Rolle 50 m"})
         pinv, parser = parse(somiko, "krannich", lines)
-        assert pinv.items[1].qty == 50
+        assert pinv.items[1].qty == 50 and pinv.items[1].qty_unit == "Meter"
+        lines[8] = F.layout({5: "Solarkabel 6mm2 Rolle 100 Meter"})
+        assert parse(somiko, "krannich", lines)[0].items[1].qty == 100
 
     def test_totals(self, somiko):
         pinv, parser = parse(somiko, "krannich", F.krannich_lines())
@@ -163,14 +164,9 @@ class TestPvXchange:
         assert pinv.totals[19.0] == 640.0 and pinv.vat[19.0] == 121.60
         assert pinv.check_total() == ""
 
-    def test_number_lands_on_parser_object(self, somiko):
-        pinv, parser = parse(somiko, "pvxchange", F.pvxchange_lines())
-        assert parser.no == "PVX-2024-100"
-
-    @pytest.mark.xfail(strict=True, reason="pvxchange-Parser schreibt no/date auf sich selbst statt auf die Rechnung")
     def test_number_and_date_on_invoice(self, somiko):
         pinv, parser = parse(somiko, "pvxchange", F.pvxchange_lines())
-        assert pinv.no == "PVX-2024-100"
+        assert pinv.no == "PVX-2024-100" and pinv.date == "2024-05-12"
 
 
 class TestNkkAndKornkraft:
@@ -201,9 +197,13 @@ class TestNkkAndKornkraft:
 
 
 class TestGeneric:
-    @pytest.mark.xfail(strict=True, raises=GuiCalled,
-                       reason="set_generic_info reicht is_test nicht an parse_generic durch")
     def test_generic_supplier_headless(self, somiko, fake_api):
         pinv = F.make_purchase_invoice(somiko)
-        PurchaseInvoiceParser(pinv, "generic", F.GENERIC_INVOICE_LINES).set_purchase_info()
-        assert pinv.no == "2026-0815"
+        PurchaseInvoiceParser(pinv, "generic", F.GENERIC_INVOICE_LINES, is_test=True).set_purchase_info()
+        assert pinv.no == "2026-0815" and pinv.totals[19.0] == 100.0
+        assert fake_api.calls == []
+
+    def test_generic_supplier_without_is_test_reaches_gui(self, somiko, fake_api):
+        pinv = F.make_purchase_invoice(somiko)
+        with pytest.raises(GuiCalled):
+            PurchaseInvoiceParser(pinv, "generic", F.GENERIC_INVOICE_LINES).set_purchase_info()

@@ -52,12 +52,10 @@ class TestAuthentication:
         with pytest.raises(AuthError):
             FrappeClient(URL, username="u", password="falsch")
 
-    @pytest.mark.xfail(strict=True, raises=NameError,
-                       reason="SiteUnreachableError/SiteExpiredError sind in frappeclient.py nicht definiert")
     def test_login_502(self, monkeypatch):
         session = FakeSession([FakeResponse({"message": "x"}, status_code=502)])
         monkeypatch.setattr(requests, "session", lambda: session)
-        with pytest.raises(FrappeException):
+        with pytest.raises(frappeclient.SiteUnreachableError):
             FrappeClient(URL, username="u", password="p")
 
     def test_context_manager_logs_out(self, client):

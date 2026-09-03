@@ -209,12 +209,22 @@ class TestGeneralLedgerHelpers:
         assert report.format_gl({"account": "1234 - Konto - X", "remarks": "r"})["account"] == "1234 "
         assert report.format_gl({"remarks": ""})["remarks"] is None
 
-    @pytest.mark.xfail(strict=True, raises=TypeError,
-                       reason="report.general_ledger ist doppelt definiert; die zweite Definition (1 Argument) "
-                              "überschreibt die Kontenansicht mit (company, account), die menu.py aufruft")
-    def test_general_ledger_for_account(self, somiko, fake_api):
-        fake_api.set_report("General ledger", {"result": [], "columns": []})
-        report.general_ledger(somiko.name, "Bank - SoMiKo")
+    def test_general_ledger_account(self, somiko, fake_api):
+        rows = [{"account": "'Opening'", "debit": 0, "credit": 0, "balance": 10.0, "remarks": "No Remarks"},
+                {"account": "Bank - SoMiKo", "debit": 5.0, "credit": 0, "balance": 15.0, "posting_date": "2026-02-01",
+                 "against": "4210 - Miete - SoMiKo", "remarks": "Miete", "voucher_no": "JV-1"},
+                {"account": "'Opening'", "debit": 0, "credit": 0, "balance": 0},      # Doppelung wird entfernt
+                {"account": "'Total'", "debit": 5.0, "credit": 0, "balance": 5.0},
+                {"account": "'Closing (Opening + Total)'", "debit": 0, "credit": 0, "balance": 15.0},
+                {"kein": "Hauptbucheintrag"}]
+        fake_api.set_report("General ledger", {"result": rows, "columns": []})
+        tbl = report.general_ledger_account(somiko.name, "Bank - SoMiKo")
+        assert tbl.title == "Hauptbuch für Bank - SoMiKo"
+        assert [e["account"] for e in tbl.entries] == ["Eröffnung", "Bank - SoMiKo", "Total", "Abschluss (Eröffnung + Total)"]
+        assert tbl.entries[0]["remarks"] == "" and tbl.entries[0]["bold"] == 3
+        assert tbl.headings[0] == "Datum" and tbl.keys[0] == "posting_date"
+        filters = fake_api.calls_of("query_report")[0][1][1]
+        assert filters["account"] == ["Bank - SoMiKo"] and filters["company"] == somiko.name
 
 
 class TestKontenblaetter:
@@ -276,11 +286,6 @@ class TestOpportunities:
         fake_api.add("Sales Invoice", name="R-3", company=comp, status="Paid", balkonmodul=1, title="Balkon",
                      posting_date="2026-01-13", items=[])
 
-    ONLY_NAME = pytest.mark.xfail(strict=True, raises=KeyError,
-                                  reason="opportunities_data liest Felder aus get_list-Ergebnissen, die ohne "
-                                         "'fields' nur 'name' enthalten")
-
-    @ONLY_NAME
     def test_opportunities_data_links_documents(self, somiko, fake_api):
         self._seed(fake_api, somiko.name)
         opps = report.opportunities_data(somiko.name)
@@ -293,14 +298,12 @@ class TestOpportunities:
         assert opps["SO-2"]["title"] == "Schulz?AB" and opps["SO-2"]["sales_order"] == "SO-2"
         assert opps["R-2"]["title"] == "Direkt?R" and opps["R-2"]["transaction_date"] == "2026-01-12"
 
-    @ONLY_NAME
     def test_opportunities_data_balkon(self, somiko, fake_api):
         self._seed(fake_api, somiko.name)
         opps = report.opportunities_data(somiko.name, balkon=1)
         assert set(opps) == {"R-3"}
         assert opps["R-3"]["sales_invoice"] == "R-3*" and opps["R-3"]["is_paid"] is True
 
-    @ONLY_NAME
     def test_opportunities_table(self, somiko, fake_api):
         self._seed(fake_api, somiko.name)
         tbl = report.opportunities(somiko.name)

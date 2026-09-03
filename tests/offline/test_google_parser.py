@@ -123,16 +123,12 @@ class TestItems:
         assert item.long_description == "Solarmodul 400"
         # 261,80 - 41,80 - 200 = 20 -> als Rundungsrest zu den Versandkosten
         assert pinv.shipping == 20.0
-        assert pinv.totals[19.0] == 200.0
-        # compute_total überschreibt den Bruttobetrag aus dem JSON mit totals+vat, also OHNE Versand
-        # (siehe test_gross_total_includes_shipping); in ERPNext stimmt der Betrag, weil create_doc
-        # den Versand als eigene Steuerzeile ergänzt
-        assert pinv.gross_total == 241.80
+        # totals enthalten wie bei den internen Parsern den Versand
+        assert pinv.totals[19.0] == 220.0 and pinv.gross_total == 261.80
+        assert pinv.check_total() == ""
         assert pinv.extract_items is True
         assert "Keine Mengen- oder Wertangabe gefunden für Kleinteile" in capsys.readouterr().out
 
-    @pytest.mark.xfail(strict=True, reason="gross_total wird nach Abzug des Versands neu berechnet und enthält "
-                                           "den Versand nicht mehr; die Bank-/Zahlungszuordnung nutzt aber gross_total")
     def test_gross_total_includes_shipping(self, somiko):
         j = F.google_invoice_json(total="261,80", tax="41,80", net="220,00", items=ITEMS_OK)
         pinv, _ = run(somiko, j, update_stock=True)
@@ -146,17 +142,16 @@ class TestItems:
         j = F.google_invoice_json(total="267,75", tax="42,75", net="225,00", items=items)
         pinv, _ = run(somiko, j, update_stock=True)
         assert [i.description for i in pinv.items] == ["Modul"]
-        assert pinv.shipping == pytest.approx(25.0 + 25.0)   # siehe test_freight_is_not_double_counted
+        assert pinv.shipping == pytest.approx(25.0)
+        assert pinv.totals[19.0] == 225.0 and pinv.check_total() == ""
 
-    @pytest.mark.xfail(strict=True, reason="Frachtpositionen werden über den 'Rundungsrest' ein zweites Mal "
-                                           "zu den Versandkosten addiert (sum_amount enthält keine Fracht)")
     def test_freight_is_not_double_counted(self, somiko):
         items = [{"description": "Modul", "qty": "1", "rate": "200,00", "amount": "200,00"},
                  {"description": "Fracht", "qty": "1", "rate": "20,00", "amount": "20,00"}]
         j = F.google_invoice_json(total="261,80", tax="41,80", net="220,00", items=items)
         pinv, _ = run(somiko, j, update_stock=True)
         assert pinv.shipping == 20.0
-        assert pinv.totals[19.0] == 200.0
+        assert pinv.totals[19.0] == 220.0
 
     @pytest.mark.parametrize("qty_str, expected", [("3X", 3.0), ("2 Stk", 2.0), ("4 ST", 4.0), ("5STX", 5.0), ("-1", 0)])
     def test_quantity_parsing(self, somiko, qty_str, expected):
@@ -210,7 +205,7 @@ class TestGetPurchaseData:
         data = parser.get_purchase_data()
         assert data["supplier"] == "Muster Solartechnik GmbH"
         assert data["bill_no"] == "RE2024-77" and data["order_id"] == "BEST-1" and data["posting_date"] == "2024-03-15"
-        assert data["total"] == 200.0 and data["grand_total"] == 241.80 and data["shipping"] == 20.0
+        assert data["total"] == 220.0 and data["grand_total"] == 261.80 and data["shipping"] == 20.0
         assert data["taxes"] == [{"rate": 19, "tax_amount": 41.80}]
         assert data["items"] == [{"item_code": "M1", "description": "Solarmodul 400", "qty": 2.0, "uom": "Stk",
                                   "rate": 100.0, "amount": 200.0}]

@@ -44,8 +44,6 @@ class TestProcessInv:
         stored = api.get_doc("PreRechnung", inv["name"])
         assert stored["processed"] == 1
 
-    @pytest.mark.xfail(strict=True, reason="process_inv ruft parse_invoice mit account= statt account_abbrv= auf "
-                                           "(TypeError wird verschluckt) - betrag bleibt leer")
     def test_process_inv_sets_amount(self, api, pre):
         inv, no = pre
         prerechnung.process_inv(inv)
