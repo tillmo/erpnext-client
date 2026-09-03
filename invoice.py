@@ -1,10 +1,28 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 from api import Api, LIMIT
 from doc import Doc
 import payment
 import company
 
+if TYPE_CHECKING:
+    from bank import BankTransaction
+
 class Invoice(Doc):
-    def __init__(self,doc,is_sales):
+    is_sales: bool
+    company_name: str
+    date: str
+    status: str
+    amount: float
+    outstanding: float
+    is_return: bool
+    reference: str
+    party: str
+    party_type: str
+
+    def __init__(self,doc: dict[str, Any],is_sales: bool) -> None:
         self.doctype = 'Sales Invoice' if is_sales else 'Purchase Invoice'
         super().__init__(doc=doc)
         self.is_sales = is_sales
@@ -28,16 +46,16 @@ class Invoice(Doc):
             self.party = doc['supplier']
             self.party_type = 'Supplier'
             
-    def payment_from_bank_transaction(self,bt):
+    def payment_from_bank_transaction(self,bt: BankTransaction) -> None:
         print("Erstelle und buche Zahlung")
         p = bt.payment(self)
         if p:
             Api.submit_doc('Payment Entry',p['name'])
             
-    def payment(self,account,amount,date):
+    def payment(self,account: str,amount: float,date: str) -> dict[str, Any] | None:
         if not amount:
             print("Ausstehender Betrag ist 0")
-            return
+            return None
         ref = self.reference if self.reference else ""
         references =  \
             [{'reference_doctype' : 'Sales Invoice' if self.is_sales else 'Purchase Invoice',
@@ -48,7 +66,7 @@ class Invoice(Doc):
                                       amount,date,self.party,self.party_type,
                                       ref,references)
     
-    def use_advance_payment(self,py):
+    def use_advance_payment(self,py: Doc) -> None:
         print("Verwende Anzahlung")
         advance =\
             {'reference_type': 'Payment Entry',
@@ -59,7 +77,7 @@ class Invoice(Doc):
         self.doc['advances'] = [advance]
         self.update()
 
-def accrual(company,year):
+def accrual(company: str,year: int) -> tuple[list[str], list[str], list[str], list[str]]:
     start_date = '{}-01-01'.format(year)
     end_date = '{}-12-31'.format(year)
     sinvs = Api.api.get_list("Sales Invoice",
@@ -89,10 +107,10 @@ def accrual(company,year):
                         fields=['name'],
                         limit_page_length=LIMIT)
     print(".",end="")
-    paid_sinvs = []
-    paid_pinvs = []
-    sinvs_old = []
-    pinvs_old = []
+    paid_sinvs: list[str] = []
+    paid_pinvs: list[str] = []
+    sinvs_old: list[str] = []
+    pinvs_old: list[str] = []
     for p1 in ps:
         p = Api.api.get_doc('Payment Entry',p1['name'])
         for r in p['references']:

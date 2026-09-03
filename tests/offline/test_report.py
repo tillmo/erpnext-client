@@ -1,18 +1,25 @@
 """Tests für report.py: Berichtsaufbereitung (Abrechnung, Bilanz, Hauptbuch, Chancen, Projekte)."""
+from __future__ import annotations
+
 import datetime
 import os
+from pathlib import Path
+from typing import Any
 
 import pytest
 
 import report
 import table
 from api import Api
+from company import Company
 from settings import PLANNING_ITEM
 from support import factories as F
+from support.fakes import FakeFrappeClient
+from support.stubs import UserSettings
 
 
 class TestHelpers:
-    def test_get_dates(self, user_settings):
+    def test_get_dates(self, user_settings: UserSettings) -> None:
         this_year = datetime.date.today().year
         user_settings["-year-"] = this_year
         start, end = report.get_dates()
@@ -22,7 +29,7 @@ class TestHelpers:
         user_settings["-year-"] = this_year - 2
         assert report.get_dates()[1] == datetime.date(this_year - 2, 12, 31)
 
-    def test_format_float(self):
+    def test_format_float(self) -> None:
         assert report.format_float(1234.6) == "1.235"
         assert report.format_float(1234567) == "1.234.567"
         assert report.format_float("Text") == "Text"
@@ -40,23 +47,23 @@ class TestHelpers:
         ("Unclosed Fiscal Years Profit / Loss (Credit)", "Gewinn-/Verlustvortrag"),
         ("4210 - Miete", "4210 - Miete"),
     ])
-    def test_format_account(self, name, expected):
+    def test_format_account(self, name: str, expected: str) -> None:
         assert report.format_account({"account_name": name})["account_name"] == expected
 
-    def test_format_account_indent_and_truncation(self):
+    def test_format_account_indent_and_truncation(self) -> None:
         r = report.format_account({"account_name": "X" * 50, "indent": 2.0})
         assert r["account_name"] == "      " + "X" * 33
         assert len(r["account_name"]) == 39
 
-    def test_remove_dup(self):
+    def test_remove_dup(self) -> None:
         cols = [{"fieldname": "a"}, {"fieldname": "b"}, {"fieldname": "c"}]
-        rep = {"result": [{"account_name": "x", "a": 1, "b": 2, "c": 1}, {"account_name": "y", "a": 3, "b": 4, "c": 3},
+        rep: dict[str, Any] = {"result": [{"account_name": "x", "a": 1, "b": 2, "c": 1}, {"account_name": "y", "a": 3, "b": 4, "c": 3},
                           {"a": 9, "b": 9, "c": 0}]}   # Zeile ohne account_name zählt nicht
         assert report.remove_dup(cols, rep) == {"fieldname": "c"}
         rep["result"][0]["c"] = 5
         assert report.remove_dup(cols, rep) is None
 
-    def test_is_relevant(self):
+    def test_is_relevant(self) -> None:
         assert report.is_relevant({"account_name": "Total Asset (Debit)", "t": 5}, ["t"]) is False
         assert report.is_relevant({"account_name": "a", "t": 0.4, "indent": 1}, ["t"]) is False
         assert report.is_relevant({"account_name": "a", "t": 0.6, "indent": 1}, ["t"]) is True
@@ -75,7 +82,7 @@ class TestTree:
         {"account_name": "4210", "indent": 2, "t": 30},
     ]
 
-    def test_build_tree(self):
+    def test_build_tree(self) -> None:
         tr = report.build_tree(self.ROWS)
         assert [c.name for c in tr.children] == ["Income", "Expense"]
         income, expense = tr.children
@@ -84,7 +91,7 @@ class TestTree:
         assert [c.name for c in expense.children[0].children] == ["4210"]
         assert income.children[0].is_leaf and not income.is_leaf
 
-    def test_build_sums(self):
+    def test_build_sums(self) -> None:
         tr = report.build_tree(self.ROWS)
         report.build_sums(tr, ["t"])
         income, expense = tr.children
@@ -92,12 +99,12 @@ class TestTree:
         assert expense.children[0].data["t"] == 30
         assert "data" not in tr.__dict__ or tr.name == "root"
 
-    def test_build_tree_without_indent(self):
+    def test_build_tree_without_indent(self) -> None:
         tr = report.build_tree([{"account_name": "a"}, {"account_name": "b"}])
         assert [c.name for c in tr.children] == ["a", "b"]
 
 
-def pl_report(filters):
+def pl_report(filters: dict[str, Any]) -> dict[str, Any]:
     return {"columns": [{"fieldname": "account", "label": "Account"}, {"fieldname": "currency", "label": "Currency"},
                         {"fieldname": "total", "label": "Total (EUR)"}, {"fieldname": "leer", "label": "Leer"}],
             "result": [
@@ -115,7 +122,7 @@ def pl_report(filters):
 
 
 class TestBuildReport:
-    def test_profit_and_loss(self, somiko, fake_api, user_settings):
+    def test_profit_and_loss(self, somiko: Company, fake_api: FakeFrappeClient, user_settings: UserSettings) -> None:
         user_settings["-year-"] = 2024
         fake_api.set_report("Profit and Loss Statement", pl_report)
         tbl = report.build_report(somiko.name, periodicity="Quarterly")
@@ -134,10 +141,11 @@ class TestBuildReport:
         assert filters["report"] == "Profit and Loss Statement"
         assert fake_api.calls_of("query_report")[0][1][0] == "Profit and Loss Statement"
 
-    def test_consolidated_removes_duplicate_columns(self, somiko, fake_api, user_settings):
+    def test_consolidated_removes_duplicate_columns(self, somiko: Company, fake_api: FakeFrappeClient,
+                                                    user_settings: UserSettings) -> None:
         user_settings["-year-"] = 2024
 
-        def cons(filters):
+        def cons(filters: dict[str, Any]) -> dict[str, Any]:
             rep = pl_report(filters)
             rep["columns"] += [{"fieldname": "dup", "label": "Doppelt"}]
             for r in rep["result"]:
@@ -151,23 +159,25 @@ class TestBuildReport:
         assert "periodicity" not in call[1][1]
         assert call[2]["ignore_prepared_report"] is True      # sonst nur im Hintergrund erstellt (Frappe 14)
 
-    def test_report_without_data_returns_none(self, somiko, fake_api, capsys):
+    def test_report_without_data_returns_none(self, somiko: Company, fake_api: FakeFrappeClient,
+                                              capsys: pytest.CaptureFixture[str]) -> None:
         fake_api.set_report("Profit and Loss Statement", {"prepared_report": True, "doc": {}})
         assert report.build_report(somiko.name) is None
         assert "liefert keine Daten" in capsys.readouterr().out
         fake_api.set_report("Balance Sheet", lambda f: (_ for _ in ()).throw(RuntimeError("weg")))
         assert report.build_report(somiko.name, balance=True) is None
 
-    def test_default_periodicity(self, somiko, fake_api, user_settings):
+    def test_default_periodicity(self, somiko: Company, fake_api: FakeFrappeClient, user_settings: UserSettings) -> None:
         fake_api.set_report("Profit and Loss Statement", pl_report)
         tbl = report.build_report(somiko.name, periodicity=None, filename="x.pdf")
         assert tbl.title.startswith("Abrechnung ")
         assert tbl.filename == "x.pdf"
 
-    def test_balance_sheet_swaps_negative_advances(self, somiko, fake_api, user_settings):
+    def test_balance_sheet_swaps_negative_advances(self, somiko: Company, fake_api: FakeFrappeClient,
+                                                   user_settings: UserSettings) -> None:
         user_settings["-year-"] = 2024
 
-        def bs(filters):
+        def bs(filters: dict[str, Any]) -> dict[str, Any]:
             return {"columns": [{"fieldname": "account", "label": "Account"}, {"fieldname": "currency", "label": "C"},
                                 {"fieldname": "dec_2024", "label": "Dec 2024"}],
                     "result": [
@@ -193,22 +203,22 @@ class TestBuildReport:
 
 
 class TestGeneralLedgerHelpers:
-    def test_format_GL(self):
+    def test_format_GL(self) -> None:
         assert report.format_GL({"account": "'Opening'", "remarks": "No Remarks"}) == \
             {"account": "Eröffnung", "remarks": "", "bold": 3}
         assert report.format_GL({"account": "'Total'"})["account"] == "Total"
         assert report.format_GL({"account": "'Closing (Opening + Total)'"})["account"] == "Abschluss (Eröffnung + Total)"
         assert report.format_GL({"account": "Bank", "remarks": "x"}) == {"account": "Bank", "remarks": "x"}
 
-    def test_is_relevat_GL(self):
+    def test_is_relevat_GL(self) -> None:
         assert report.is_relevat_GL({"debit": 0, "credit": 0, "balance": 0}) is True
         assert report.is_relevat_GL({"debit": 1}) is False
 
-    def test_keep_first(self):
+    def test_keep_first(self) -> None:
         data = [{"account": "'Opening'"}, {"account": "a"}, {"account": "'Opening'"}, {"account": "b"}]
         assert report.keep_first(data, ["'Opening'"]) == [{"account": "'Opening'"}, {"account": "a"}, {"account": "b"}]
 
-    def test_format_gl(self):
+    def test_format_gl(self) -> None:
         gle = report.format_gl({"account": "'Opening'", "remarks": "Keine Anmerkungen", "against": "4210 - Miete - X"})
         assert gle["posting_date"] == "Eröffnung" and gle["bold"] == 3 and gle["account"] == ""
         assert gle["remarks"] == "4210 - Miete - X" and gle["against"] == "4210 "
@@ -218,7 +228,7 @@ class TestGeneralLedgerHelpers:
         assert report.format_gl({"account": "1234 - Konto - X", "remarks": "r"})["account"] == "1234 "
         assert report.format_gl({"remarks": ""})["remarks"] is None
 
-    def test_general_ledger_account(self, somiko, fake_api):
+    def test_general_ledger_account(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         rows = [{"account": "'Opening'", "debit": 0, "credit": 0, "balance": 10.0, "remarks": "No Remarks"},
                 {"account": "Bank - SoMiKo", "debit": 5.0, "credit": 0, "balance": 15.0, "posting_date": "2026-02-01",
                  "against": "4210 - Miete - SoMiKo", "remarks": "Miete", "voucher_no": "JV-1"},
@@ -237,10 +247,12 @@ class TestGeneralLedgerHelpers:
 
 
 class TestKontenblaetter:
-    def test_general_ledger_exports_pdf_per_active_account(self, somiko, fake_api, monkeypatch, user_settings, tmp_path):
+    def test_general_ledger_exports_pdf_per_active_account(self, somiko: Company, fake_api: FakeFrappeClient,
+                                                           monkeypatch: pytest.MonkeyPatch,
+                                                           user_settings: UserSettings, tmp_path: Path) -> None:
         user_settings["-year-"] = 2024
 
-        def gl(filters):
+        def gl(filters: dict[str, Any]) -> dict[str, Any]:
             acc = filters["account"][0]
             if acc == "Bank - SoMiKo":
                 rows = [{"account": "'Opening'", "balance": 10.0, "debit": 0, "credit": 0, "posting_date": "2024-01-01"},
@@ -265,7 +277,7 @@ class TestKontenblaetter:
 
 
 class TestOpportunities:
-    def test_format_opp(self):
+    def test_format_opp(self) -> None:
         opp = {"selbstbau": 1, "mit_speicher": 0, "global_margin": 0, "soliaufschlag": 5, "title": "  " + "x" * 30,
                "none": None, "other": 3}
         out = report.format_opp(opp)
@@ -273,7 +285,7 @@ class TestOpportunities:
         assert out["global_margin"] == "" and out["soliaufschlag"] == 5
         assert out["title"] == "x" * 23 and out["none"] == "" and out["other"] == 3
 
-    def _seed(self, fake_api, comp):
+    def _seed(self, fake_api: FakeFrappeClient, comp: Company) -> None:
         fake_api.add("Opportunity", name="OPP-1", company=comp, status="Open", nur_balkonmodul=0, title="Meier",
                      transaction_date="2026-01-05", selbstbau=1)
         fake_api.add("Opportunity", name="OPP-2", company=comp, status="Cancelled", nur_balkonmodul=0, title="weg",
@@ -295,7 +307,7 @@ class TestOpportunities:
         fake_api.add("Sales Invoice", name="R-3", company=comp, status="Paid", balkonmodul=1, title="Balkon",
                      posting_date="2026-01-13", items=[])
 
-    def test_opportunities_data_links_documents(self, somiko, fake_api):
+    def test_opportunities_data_links_documents(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         self._seed(fake_api, somiko.name)
         opps = report.opportunities_data(somiko.name)
         assert set(opps) == {"OPP-1", "QTN-2", "SO-2", "R-2"}
@@ -307,13 +319,13 @@ class TestOpportunities:
         assert opps["SO-2"]["title"] == "Schulz?AB" and opps["SO-2"]["sales_order"] == "SO-2"
         assert opps["R-2"]["title"] == "Direkt?R" and opps["R-2"]["transaction_date"] == "2026-01-12"
 
-    def test_opportunities_data_balkon(self, somiko, fake_api):
+    def test_opportunities_data_balkon(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         self._seed(fake_api, somiko.name)
         opps = report.opportunities_data(somiko.name, balkon=1)
         assert set(opps) == {"R-3"}
         assert opps["R-3"]["sales_invoice"] == "R-3*" and opps["R-3"]["is_paid"] is True
 
-    def test_opportunities_table(self, somiko, fake_api):
+    def test_opportunities_table(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         self._seed(fake_api, somiko.name)
         tbl = report.opportunities(somiko.name)
         assert tbl.title == "Chancen für " + somiko.name
@@ -324,7 +336,7 @@ class TestOpportunities:
 
 
 class TestProjects:
-    def test_projects_table(self, fake_api):
+    def test_projects_table(self, fake_api: FakeFrappeClient) -> None:
         fake_api.add("Project", name="PROJ-1", project_name="A", creation="2026-01-01", status="Open", project_type="Solaranlage")
         fake_api.add("Project", name="PROJ-2", project_name="B", creation="2026-02-01", status="Completed", project_type="Balkonmodule")
         fake_api.add("Sales Invoice", name="R-1", project="PROJ-1", status="Paid", total=1000.0,
@@ -341,7 +353,7 @@ class TestProjects:
 
 
 class TestBalancesAndBalkon:
-    def test_balance_adapts_and_sets_dates(self, fake_api):
+    def test_balance_adapts_and_sets_dates(self, fake_api: FakeFrappeClient) -> None:
         rows = [{"account": "'Opening'", "balance": 10.0, "posting_date": "x"},
                 {"account": "Bank - X", "balance": 20.0, "posting_date": "2024-02-01"},
                 {"account": "'Total'", "balance": 30.0},
@@ -351,21 +363,22 @@ class TestBalancesAndBalkon:
         assert [(e["posting_date"], e["balance"]) for e in r] == [("2024-01-01", -10.0), ("2024-02-01", -20.0),
                                                                   ("2024-12-31", -30.0)]
 
-    def test_balances_plots(self, fake_api, user_settings, monkeypatch):
+    def test_balances_plots(self, fake_api: FakeFrappeClient, user_settings: UserSettings,
+                            monkeypatch: pytest.MonkeyPatch) -> None:
         fake_api.set_report("General ledger", {"result": [{"account": "'Opening'", "balance": 1.0, "posting_date": "a"},
                                                           {"account": "'Closing'", "balance": 1.0, "posting_date": "b"}]})
-        figs = []
+        figs: list[Any] = []
 
         class Fig:
-            def show(self):
+            def show(self) -> None:
                 figs.append("shown")
-        monkeypatch.setattr(report.px, "line", lambda data, **kw: (figs.append((data, kw)), Fig())[1])
+        monkeypatch.setattr(report.px, "line", lambda data, **kw: (figs.append((data, kw)), Fig())[1])  # type: ignore[func-returns-value]
         report.balances("F", {"Bank": (["Bank - X"], 1), "Lager": (["I. Vorräte - X"], -1)})
         data, kw = figs[0]
         assert {e["Bilanzposten"] for e in data} == {"Bank", "Lager"}
         assert kw["color"] == "Bilanzposten" and figs[-1] == "shown"
 
-    def _items(self):
+    def _items(self) -> None:
         Api.items_by_code = {
             "B1": {"item_code": "B1", "item_name": "Balkon-Anlage 2x400"},
             "B2": {"item_code": "B2", "item_name": "Balkon Paket klein"},
@@ -374,7 +387,7 @@ class TestBalancesAndBalkon:
             "X": {"item_code": "X", "item_name": "Sonstiges"},
         }
 
-    def test_balkonmodule_month(self, fake_api):
+    def test_balkonmodule_month(self, fake_api: FakeFrappeClient) -> None:
         self._items()
         fake_api.add("Sales Invoice", name="R-1", company="F", balkonmodul=1, posting_date="2026-03-05", status="Paid",
                      items=[{"item_code": "B1", "qty": 2}, {"item_code": "G", "qty": 2}, {"item_code": "X", "qty": 1}])
@@ -385,7 +398,8 @@ class TestBalancesAndBalkon:
         aggr = report.balkonmodule_month("F", "2026-03-01", "2026-03-31")
         assert dict(aggr) == {"Balkonmodule": 5.0, "Grundkosten": 2.0, "Soli-Preis": 3.0}
 
-    def test_balkonmodule_plot(self, fake_api, user_settings, monkeypatch):
+    def test_balkonmodule_plot(self, fake_api: FakeFrappeClient, user_settings: UserSettings,
+                               monkeypatch: pytest.MonkeyPatch) -> None:
         self._items()
         user_settings["-year-"] = 2024
         fake_api.add("Sales Invoice", name="R-1", company="F", balkonmodul=1, posting_date="2024-02-05", status="Paid",
@@ -393,13 +407,13 @@ class TestBalancesAndBalkon:
         captured = {}
 
         class Fig:
-            def show(self):
+            def show(self) -> None:
                 captured["shown"] = True
         monkeypatch.setattr(report.px, "line", lambda data, **kw: captured.update(data=data) or Fig())
         report.balkonmodule("F")
         assert captured["shown"] and captured["data"] == [{"Datum": "2024-02-01", "Wert": "Balkonmodule", "Anzahl": 2.0}]
 
-    def test_balkonmodule_csv(self, fake_api, in_tmp_cwd, capsys):
+    def test_balkonmodule_csv(self, fake_api: FakeFrappeClient, in_tmp_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
         fake_api.add("Project", name="PROJ-B", project_type="Balkonmodule", status="Open")
         fake_api.add("Item", item_code="B1", item_name="Balkon-Anlage")
         fake_api.add("Item", item_code="A1", item_name="Adapter")
@@ -412,7 +426,7 @@ class TestBalancesAndBalkon:
         assert '"Adapter","A1",1' in text and '"Balkon-Anlage","B1",3' in text
         assert "Projekt PROJ-B" in capsys.readouterr().out
 
-    def test_sold_items(self, fake_api):
+    def test_sold_items(self, fake_api: FakeFrappeClient) -> None:
         self._items()
         fake_api.add("Sales Invoice", name="R-1", project="P", status="Paid", items=[{"item_code": "G", "qty": 2}])
         fake_api.add("Sales Invoice", name="R-2", project="P", status="Cancelled", items=[{"item_code": "G", "qty": 9}])

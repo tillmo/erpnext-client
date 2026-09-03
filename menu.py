@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+from __future__ import annotations
+
+from typing import Any
+
 import utils
 import PySimpleGUI as sg
 import report
@@ -28,7 +32,7 @@ import prerechnung
 import args
 import json
 
-def initial_loads():
+def initial_loads() -> None:
     if sg.UserSettings()['-setup-']:
         return
     company.Company.init_companies()
@@ -38,7 +42,7 @@ def initial_loads():
         user_settings['-company-'] = company.Company.all()[0]
     company.Company.current_load_data()
 
-def text_input(text,default_text =""):
+def text_input(text: str,default_text: str = "") -> str | None:
     layout = [  [sg.Text(text)],     
                 [sg.Input(default_text = default_text)],
                 [sg.Button('Ok')] ]
@@ -47,7 +51,7 @@ def text_input(text,default_text =""):
     window.close()
     return values[0]
 
-def checkbox_input(title,window_text,button_text,default=False):
+def checkbox_input(title: str,window_text: str,button_text: str,default: bool = False) -> bool | None:
     layout = [  [sg.Text(window_text)],     
                 [sg.Checkbox(button_text,default=default)],
                 [sg.Button('Ok')] ]
@@ -56,14 +60,14 @@ def checkbox_input(title,window_text,button_text,default=False):
     window.close()
     return values[0]
 
-def purchase_inv(update_stock):
+def purchase_inv(update_stock: bool) -> Any:
     filename = utils.get_file('Einkaufsrechnung als PDF')
     if filename:
         print("Lese {} ein ...".format(filename))
         return purchase_invoice.PurchaseInvoice.read_and_transfer(None,filename,update_stock)
     return False
 
-def show_data():
+def show_data() -> None:
     user_settings = sg.UserSettings()
     if not user_settings['-setup-']: 
         comp_name = user_settings['-company-']
@@ -111,7 +115,7 @@ def show_data():
                 print("{} offene Hintergrund-Jobs".format(num_bg_jobs))
 
 # ------ Process menu choices ------ #
-def event_handler(event,window):
+def event_handler(event: Any,window: sg.Window) -> str:
     user_settings = sg.UserSettings()
     show_company_data = False
     if event in (sg.WIN_CLOSED, 'Exit'):
@@ -726,7 +730,7 @@ def event_handler(event,window):
         show_company_data = False
     return "inner"
 
-def menus():
+def menus() -> bool:
     user_settings = sg.UserSettings()
 
     sg.set_options(element_padding=(0, 0))
@@ -793,7 +797,7 @@ def menus():
             print(res)
 
 #  loop needed for re-display of window in case of changed server settings
-def main_loop():
+def main_loop() -> None:
     # Use only colors in the format of #RRGGBB
     MyAmber = {"BACKGROUND": "#ebb41c",
                "TEXT": "#000000",

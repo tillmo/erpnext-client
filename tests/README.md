@@ -105,6 +105,15 @@ reason=...)`: Er „besteht“, solange der Fehler da ist, und schlägt an, soba
 korrigiert; aktuell gibt es keine `xfail`-Tests. Übersicht jederzeit:
 `python3 -m pytest tests/offline -ra | grep XFAIL`.
 
+## Typprüfung
+
+Der gesamte Code (Client und Tests) ist typannotiert; `mypy.ini` im Wurzelverzeichnis
+konfiguriert die Prüfung (`mypy` bzw. ohne Installation `uvx mypy`). Die verbleibenden
+Befunde sind keine Annotationsfehler, sondern ehrliche Hinweise auf Stellen, an denen der Code
+Rückgaben ungeprüft verwendet, die `None` sein können (v. a. Ergebnisse von `gui_api_wrapper`,
+`Company.get_company`, Parser-Felder vor dem Parsen). Sie werden am besten beim jeweiligen
+Umbau behoben, nicht durch Aufweichen der Annotationen.
+
 ## Parser-Regression mit echten Rechnungen
 
 `tests/online_read/test_parser_regression.py` ersetzt `test/test_pinv_parser.py`. Es lädt bis zu

@@ -4,19 +4,24 @@ Voraussetzung: ein Bankkonto der Firma mit unterstützter BLZ (Sparkasse Bremen 
 Sparda 25090500, Ethikbank 83094495). Das Feld last_integration_date des Bankkontos wird
 am Ende auf den alten Wert zurückgesetzt.
 """
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
 import pytest
 
 import bank
 from api import Api
 from frappeclient import FrappeException
 from support import factories as F
-from support.live import tag
+from support.live import Cleanup, LiveState, tag
 
 SUPPORTED = {"29050101": "sparkasse", "25090500": "sparda", "83094495": "sparda"}
 
 
 @pytest.fixture
-def bacc(live, api, cleanup):
+def bacc(live: LiveState, api: Any, cleanup: Cleanup) -> bank.BankAccount:
     baccs = [b for b in live.bank_accounts() if b.blz() in SUPPORTED]
     if not baccs:
         pytest.skip("kein Bankkonto der Firma mit unterstützter BLZ")
@@ -25,7 +30,7 @@ def bacc(live, api, cleanup):
     old_date = original.get("last_integration_date")
     old_doc = dict(b.doc)
 
-    def restore():
+    def restore() -> None:
         api.update_with_doctype({"name": b.name, "last_integration_date": old_date}, "Bank Account")
         b.doc = old_doc
         b.statement_balance = None
@@ -33,7 +38,7 @@ def bacc(live, api, cleanup):
     return b
 
 
-def write_statement(bacc, tmp_path, rows):
+def write_statement(bacc: bank.BankAccount, tmp_path: Path, rows: list[dict[str, str]]) -> str:
     if SUPPORTED[bacc.blz()] == "sparkasse":
         return F.write_sparkasse_csv(tmp_path / "auszug.csv", rows, iban=bacc.iban)
     sparda_rows = [{"date": F.datetime.datetime.strptime(r["date"], "%d.%m.%y").strftime("%d.%m.%Y"),
@@ -42,12 +47,13 @@ def write_statement(bacc, tmp_path, rows):
     return F.write_sparda_csv(tmp_path / "auszug.csv", sparda_rows, iban=bacc.iban)
 
 
-def find_transactions(api, marker):
+def find_transactions(api: Any, marker: str) -> list[dict[str, Any]]:
     return api.get_list("Bank Transaction", fields=bank.BT_FIELDS + ["docstatus"],
                         filters={"description": ["like", "%" + marker + "%"]}, limit_page_length=50)
 
 
-def test_import_reconcile_and_undo(live, api, cleanup, bacc, tmp_path, today, capsys):
+def test_import_reconcile_and_undo(live: LiveState, api: Any, cleanup: Cleanup, bacc: bank.BankAccount,
+                                   tmp_path: Path, today: str, capsys: pytest.CaptureFixture[str]) -> None:
     marker = tag("KA")
     rows = [{"date": "15.08.26", "purpose": "Miete " + marker, "partner": "Vermieter", "amount": "-12,34"},
             {"date": "16.08.26", "purpose": "Spende " + marker, "partner": "Foerderer", "amount": "56,78"}]
@@ -97,7 +103,8 @@ def test_import_reconcile_and_undo(live, api, cleanup, bacc, tmp_path, today, ca
     assert "angepasst" in capsys.readouterr().out
 
 
-def test_find_bank_transaction_by_bill_no(live, api, cleanup, bacc, tmp_path):
+def test_find_bank_transaction_by_bill_no(live: LiveState, api: Any, cleanup: Cleanup, bacc: bank.BankAccount,
+                                          tmp_path: Path) -> None:
     marker = tag("RE")
     fn = write_statement(bacc, tmp_path, [{"date": "17.08.26", "purpose": "Rechnung " + marker, "partner": "L",
                                            "amount": "-119,00"}])
@@ -110,7 +117,8 @@ def test_find_bank_transaction_by_bill_no(live, api, cleanup, bacc, tmp_path):
     assert bank.BankTransaction.find_bank_transaction(live.company_name, -118.0, marker) is None
 
 
-def test_submit_entry_books_transaction_and_journal(live, api, cleanup, bacc, tmp_path, submit_allowed):
+def test_submit_entry_books_transaction_and_journal(live: LiveState, api: Any, cleanup: Cleanup,
+                                                    bacc: bank.BankAccount, tmp_path: Path, submit_allowed: bool) -> None:
     marker = tag("BUCH")
     fn = write_statement(bacc, tmp_path, [{"date": "18.08.26", "purpose": "Buchen " + marker, "partner": "P",
                                            "amount": "-1,00"}])

@@ -1,7 +1,10 @@
+from __future__ import annotations
+
 import json
 import PySimpleGUI as sg
 
 import argparse
+from typing import Any
 import purchase_invoice
 from api import Api
 from api_wrapper import api_wrapper_test
@@ -9,7 +12,7 @@ from settings import VALIDITY_DATE
 from version import VERSION
 
 
-def arg_parser():
+def arg_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser\
               (description='ERPNext client für Solidarische Ökonomie Bremen')
     parser.add_argument('-e', dest='e', type=str,
@@ -72,7 +75,7 @@ def arg_parser():
     parser.set_defaults(price_dates=False)
     return parser
 
-def set_google_credentials(credentials):
+def set_google_credentials(credentials: Any) -> None:
     if type(credentials)==str:
         credentials = json.loads(credentials)
     for key in credentials.keys():
@@ -82,7 +85,7 @@ def set_google_credentials(credentials):
     sg.UserSettings()['-google-credentials-'] = credentials
 
 
-def init():
+def init() -> argparse.Namespace:
     # process command line arguments
     args = arg_parser().parse_args()
     if args.v:

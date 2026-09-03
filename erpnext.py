@@ -1,5 +1,7 @@
 #!/usr/bin/python3
 
+from __future__ import annotations
+
 JOURNAL_LIMIT = 100
 
 from args import init
@@ -13,6 +15,7 @@ import menu
 import easygui
 import PySimpleGUI as sg
 import prerechnung
+from typing import Any
 
 
 if __name__ == '__main__':
@@ -39,7 +42,7 @@ if __name__ == '__main__':
             gui_api_wrapper(Api.api.update,doc)
     elif args.p is not None:
         menu.initial_loads()
-        overrides = {
+        overrides: dict[str, Any] = {
             'betrag': args.betrag,
             'mwst': args.mwst,
             'rechnungsnr': args.rechnungsnr,

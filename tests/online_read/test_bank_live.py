@@ -1,14 +1,21 @@
 """bank.py gegen echte Bankkonten und Banktransaktionen (nur lesend)."""
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
 import pytest
 
 import bank
 from support import factories as F
+from support.live import LiveState
+from support.stubs import EasyguiStub
 
 SUPPORTED_BLZ = {"83094495": "sparda", "25090500": "sparda", "29050101": "sparkasse"}
 
 
 class TestBankAccounts:
-    def test_registries(self, live):
+    def test_registries(self, live: LiveState) -> None:
         baccs = list(bank.BankAccount.baccounts_by_name.values())
         if not baccs:
             pytest.skip("keine Bankkonten")
@@ -20,11 +27,11 @@ class TestBankAccounts:
             assert isinstance(b.balance, float) and b.e_account
             assert "last_integration_date" in b.doc
 
-    def test_baccount_names_for_company(self, live):
+    def test_baccount_names_for_company(self, live: LiveState) -> None:
         names = bank.BankAccount.get_baccount_names()
         assert set(names) == {b.name for b in live.bank_accounts()}
 
-    def test_iban_check_digits_valid(self, live):
+    def test_iban_check_digits_valid(self, live: LiveState) -> None:
         for b in live.bank_accounts():
             iban = b.iban.replace(" ", "")
             numeric = "".join(str(int(c, 36)) for c in iban[4:] + iban[:4])
@@ -32,7 +39,7 @@ class TestBankAccounts:
 
 
 class TestStatementDetection:
-    def test_get_baccount_recognises_real_iban(self, live, tmp_path):
+    def test_get_baccount_recognises_real_iban(self, live: LiveState, tmp_path: Path) -> None:
         baccs = live.bank_accounts()
         if not baccs:
             pytest.skip("keine Bankkonten")
@@ -41,7 +48,7 @@ class TestStatementDetection:
                                    iban=b.iban)
         assert bank.BankStatement.get_baccount(fn) == (b, b.iban)
 
-    def test_read_statement_for_supported_bank(self, live, tmp_path, gui):
+    def test_read_statement_for_supported_bank(self, live: LiveState, tmp_path: Path, gui: EasyguiStub) -> None:
         baccs = [b for b in live.bank_accounts() if b.blz() in SUPPORTED_BLZ]
         if not baccs:
             pytest.skip("kein Bankkonto mit unterstützter BLZ (Sparkasse Bremen, Sparda, Ethikbank)")
@@ -55,7 +62,7 @@ class TestStatementDetection:
         stmt = bank.BankStatement.read_statement(fn)
         assert stmt is not None and stmt.baccount is b and len(stmt.entries) == 1
 
-    def test_unsupported_bank_is_reported(self, live, tmp_path, gui):
+    def test_unsupported_bank_is_reported(self, live: LiveState, tmp_path: Path, gui: EasyguiStub) -> None:
         gui.answers["msgbox"] = None
         fn = F.write_sparkasse_csv(tmp_path / "k.csv", [{"date": "01.01.26", "purpose": "x", "partner": "y", "amount": "1,00"}],
                                    iban=F.IBAN_FREMD)
@@ -64,7 +71,7 @@ class TestStatementDetection:
 
 
 class TestQueries:
-    def test_find_bank_transaction_with_existing_description(self, live, api):
+    def test_find_bank_transaction_with_existing_description(self, live: LiveState, api: Any) -> None:
         bts = api.get_list("Bank Transaction", fields=bank.BT_FIELDS,
                            filters={"company": live.company_name, "status": "Pending"}, limit_page_length=5)
         if not bts:
@@ -77,7 +84,7 @@ class TestQueries:
         found = bank.BankTransaction.find_bank_transaction(live.company_name, total, word)
         assert found is None or found.name == bt["name"] or found.description
 
-    def test_bank_transaction_object(self, live, api):
+    def test_bank_transaction_object(self, live: LiveState, api: Any) -> None:
         bts = api.get_list("Bank Transaction", fields=bank.BT_FIELDS, filters={"company": live.company_name},
                            limit_page_length=3)
         for doc in bts:

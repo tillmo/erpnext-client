@@ -1,4 +1,8 @@
 """Lagerbuchungen, Artikel und Artikelpreise anlegen."""
+from __future__ import annotations
+
+from typing import Any
+
 import pytest
 
 import settings
@@ -6,7 +10,7 @@ import stock
 from api import Api, LIMIT
 from support import factories as F
 from support.deps import skip_module_without_pdftotext
-from support.live import tag
+from support.live import Cleanup, LiveState, tag
 
 skip_module_without_pdftotext()
 
@@ -14,7 +18,7 @@ from supplier_item import SupplierItem  # noqa: E402
 
 
 @pytest.fixture
-def stock_item(api):
+def stock_item(api: Any) -> dict[str, Any]:
     rows = api.get_list("Item", filters={"is_stock_item": 1, "disabled": 0}, fields=["name", "stock_uom"],
                         limit_page_length=1)
     if not rows:
@@ -23,7 +27,7 @@ def stock_item(api):
 
 
 @pytest.fixture
-def warehouse(api, live):
+def warehouse(api: Any, live: LiveState) -> str:
     rows = api.get_list("Warehouse", filters={"name": settings.WAREHOUSE})
     if rows:
         return settings.WAREHOUSE
@@ -34,7 +38,8 @@ def warehouse(api, live):
 
 
 class TestStockEntry:
-    def test_material_receipt_draft(self, live, api, cleanup, stock_item, warehouse, today):
+    def test_material_receipt_draft(self, live: LiveState, api: Any, cleanup: Cleanup, stock_item: dict[str, Any],
+                                    warehouse: str, today: str) -> None:
         doc = stock.stock_entry_for_item(live.company_name, today, stock_item["name"], warehouse, True, 3,
                                          live.expense_leaf(), project=None)
         assert doc and doc["name"]
@@ -46,7 +51,8 @@ class TestStockEntry:
         assert item["item_code"] == stock_item["name"] and item["t_warehouse"] == warehouse
         assert item["qty"] == pytest.approx(3) and item["basic_rate"] == pytest.approx(1)
 
-    def test_material_issue_draft(self, live, api, cleanup, stock_item, warehouse, today):
+    def test_material_issue_draft(self, live: LiveState, api: Any, cleanup: Cleanup, stock_item: dict[str, Any],
+                                  warehouse: str, today: str) -> None:
         doc = stock.stock_entry_for_item(live.company_name, today, stock_item["name"], warehouse, False, 1,
                                          live.expense_leaf())
         cleanup.add("Stock Entry", doc["name"])
@@ -56,7 +62,7 @@ class TestStockEntry:
 
 
 class TestItems:
-    def test_new_item_and_price(self, live, api, cleanup, test_supplier):
+    def test_new_item_and_price(self, live: LiveState, api: Any, cleanup: Cleanup, test_supplier: str) -> None:
         from collections import defaultdict
         pinv = F.make_purchase_invoice(live.company, True)
         Api.items_by_code = {}
@@ -85,7 +91,7 @@ class TestItems:
         assert prices[0]["price_list"] == settings.STANDARD_PRICE_LIST
         assert prices[0]["buying"] == 1 and prices[0]["selling"] == 1
 
-    def test_load_item_data_completes_item_defaults(self, live, api):
+    def test_load_item_data_completes_item_defaults(self, live: LiveState, api: Any) -> None:
         Api.items_by_code = {}
         Api.item_code_translation = []
         Api.load_item_data()

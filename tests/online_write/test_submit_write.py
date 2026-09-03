@@ -4,21 +4,26 @@ Gebuchte Dokumente lassen sich nicht löschen, sondern nur abbrechen; das Aufrä
 ab und löscht sie danach. Auf der Instanz bleiben dabei keine Belege, aber ggf. Lücken in den
 Nummernkreisen.
 """
+from __future__ import annotations
+
+from typing import Any
+
 import pytest
 
 import journal
 import payment
 from api import Api
-from support.live import tag
+from support.live import Cleanup, LiveState, tag
+from support.stubs import UserSettings
 
 
 @pytest.fixture(autouse=True)
-def _submit(submit_allowed):
+def _submit(submit_allowed: bool) -> bool:
     return submit_allowed
 
 
 class TestSubmitDoc:
-    def test_submit_and_cancel_journal_entry(self, live, api, cleanup, today):
+    def test_submit_and_cancel_journal_entry(self, live: LiveState, api: Any, cleanup: Cleanup, today: str) -> None:
         j = journal.journal_entry(live.company, live.bank_leaf(), live.expense_leaf(), 0, 2.5, "pytest buchen",
                                   "pytest " + tag(), today)
         cleanup.add("Journal Entry", j["name"])
@@ -31,7 +36,8 @@ class TestSubmitDoc:
         api.cancel("Journal Entry", j["name"])
         assert api.get_doc("Journal Entry", j["name"])["docstatus"] == 2
 
-    def test_buchen_setting_submits_payment(self, live, api, cleanup, test_supplier, today, user_settings):
+    def test_buchen_setting_submits_payment(self, live: LiveState, api: Any, cleanup: Cleanup, test_supplier: str,
+                                            today: str, user_settings: UserSettings) -> None:
         user_settings["-buchen-"] = True
         p = payment.create_payment(False, live.company, live.bank_leaf(), 3.0, today, test_supplier, "Supplier", tag(), [])
         cleanup.add("Payment Entry", p["name"])

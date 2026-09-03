@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from typing import Any
 from api import Api, LIMIT
 import utils
 from collections import defaultdict
@@ -6,14 +9,14 @@ import csv
 from settings import EBAY_ACCOUNT
 import invoice
 
-def get_items(sinvs):
+def get_items(sinvs: list[dict[str, Any]]) -> list[dict[str, Any]]:
     Api.load_item_data()
-    items = defaultdict(float)
+    items: defaultdict[str, float] = defaultdict(float)
     for sinv in sinvs:
         inv = Api.api.get_doc("Sales Invoice",sinv['name'])
         for item in inv['items']:
             items[item['item_code']] += int(item['qty'])
-    full_items = []
+    full_items: list[dict[str, Any]] = []
     for item_code,qty in items.items():
         # needed because item_name can have changed
         full_item = Api.items_by_code.get(item_code)
@@ -25,7 +28,7 @@ def get_items(sinvs):
                            'qty':qty})
     return full_items
 
-def get_sales_invoices(company_name,quarter,tax_rates=[]):
+def get_sales_invoices(company_name: str, quarter: str, tax_rates: list[int] = []) -> str:
     print_format = Api.api.get_list('Print Format',
                                     filters={'doc_type': 'Sales Invoice'})[0]['name']
     start_date,end_date = utils.quarter_to_dates(quarter)
@@ -67,7 +70,7 @@ def get_sales_invoices(company_name,quarter,tax_rates=[]):
         print()
     return dir    
 
-def ebay_sales(company_name,submit=False):
+def ebay_sales(company_name: str, submit: bool = False) -> None:
     invs = Api.api.get_list("Sales Invoice",
                             filters={'company':company_name,
                                      'outstanding_amount':['>',2],

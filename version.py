@@ -1,1 +1,1 @@
-VERSION='v1.0-410-gfd8be5c'
+VERSION: str = 'v1.0-410-gfd8be5c'

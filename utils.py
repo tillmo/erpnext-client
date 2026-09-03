@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 TITLE = "ERPNext-Client für "
 
 from version import VERSION 
@@ -14,8 +16,9 @@ import os
 import locale
 from collections import defaultdict
 import subprocess
+from typing import Any, Iterable, Iterator, Mapping
 
-def running_linux():
+def running_linux() -> bool:
     return sys.platform.startswith('linux')
 
 import PySimpleGUI as sg
@@ -25,10 +28,10 @@ else:
     sgwx = sg
 
 
-def similar(a, b):
+def similar(a: str, b: str) -> float:
     return SequenceMatcher(None, a, b).ratio()
 
-def convert_date_written_month(date):
+def convert_date_written_month(date: str) -> str | None:
     try:
         locale.setlocale(locale.LC_ALL, 'de_DE.utf8')
         d = datetime.strptime(date, '%d. %B %Y')
@@ -36,7 +39,7 @@ def convert_date_written_month(date):
     except Exception:
         return None
 
-def convert_date4(date):
+def convert_date4(date: str) -> str | None:
     try:
         d = datetime.strptime(date, '%d.%m.%Y')
         return d.strftime('%Y-%m-%d')
@@ -47,30 +50,30 @@ def convert_date4(date):
         except Exception:
             return None
 
-def convert_date2(date):
+def convert_date2(date: str) -> str | None:
     try:
         d = datetime.strptime(date, '%d.%m.%y')
         return d.strftime('%Y-%m-%d')
     except Exception:
         return None
 
-def show_date4(date):
+def show_date4(date: Any) -> str | None:
     try:
         d = datetime.strptime(date, '%Y-%m-%d')
         return d.strftime('%d.%m.%Y')
     except Exception:
         return None
 
-def yesterday(date):
+def yesterday(date: str) -> str:
     d = datetime.strptime(date, '%Y-%m-%d')
     d = d-timedelta(1)
     return d.strftime('%Y-%m-%d')
 
-def last_quarter(date):
+def last_quarter(date: date) -> str:
     d = date-timedelta(days=90)
     return "{}-{:02d}".format(d.year,(d.month+2)//3) 
 
-def quarter_to_dates(quarter):
+def quarter_to_dates(quarter: str) -> tuple[str, str]:
     year,q = quarter.split("-")
     d = date(int(year),int(q)*3-2,1)
     start_date = d.strftime('%Y-%m-%d')
@@ -79,13 +82,13 @@ def quarter_to_dates(quarter):
     return (start_date,end_date)
 
 
-def no_substr(l1,l2):
+def no_substr(l1: Iterable[str], l2: str) -> bool:
     for s in l1:
         if s in l2:
             return False
     return True    
 
-def read_float(s,sign="H"):
+def read_float(s: str | None, sign: str = "H") -> float:
     if not s:
         return 0.0
     s = s.replace("*","")
@@ -104,10 +107,10 @@ def read_float(s,sign="H"):
         res = -res
     return res
 
-def remove_space(str):
+def remove_space(str: str) -> str:
     return " ".join(str.split())
 
-def get_csv(codec,infile,delimiter=";",replacenl=False):
+def get_csv(codec: str, infile: str, delimiter: str = ";", replacenl: bool = False) -> Iterator[list[str]]:
     f = codecs.open(infile, 'r', codec)
     if replacenl:
         lines = f.read().replace('\r\n','§#')\
@@ -118,33 +121,33 @@ def get_csv(codec,infile,delimiter=";",replacenl=False):
         lines = f.readlines()
     return csv.reader(lines,delimiter=delimiter)
 
-def iban_de(blz,kto):
+def iban_de(blz: int, kto: int) -> str:
     lnd = 131400
     bak = blz*10000000000 + kto
     ban = bak*1000000 + lnd
     prf = 98 - ban % 97
     return "DE{0:02d}{1:08d}{2:010d}".format(prf,blz,kto)
 
-def showlist(l):
+def showlist(l: Iterable[Any]) -> str:
     res = ""
     for item in l:
         if item:
             res += " / "+str(item)
     return res[3:]    
 
-def get_file(title):
+def get_file(title: str) -> str | None:
     fname = sgwx.PopupGetFile(title, no_window=True)
 #    if running_linux():
 #        time.sleep(2)
     return fname
 
-def title():
+def title() -> str:
     settings = sg.UserSettings()
     company = settings.get('-company-', 'Unbekannt')
     server = settings.get('-server-', 'unbekannt')
     return f'{TITLE}{company}@{server} {VERSION}'
 
-def find_ref(line):
+def find_ref(line: str) -> str:
     for w in line.split():
         if "TAN" in w:
             return "unbekannt"
@@ -153,7 +156,7 @@ def find_ref(line):
                 return w
     return "unbekannt"
 
-def to_str(x):
+def to_str(x: Any) -> Any:
     if type(x) in [float,np.float32,np.float64]:
         return "{: >9.2f}".format(x).replace(".",",")
     d = show_date4(x)
@@ -162,16 +165,16 @@ def to_str(x):
     else:
         return x
 
-def get(e,k):
+def get(e: Mapping[str, Any], k: str) -> Any:
     if k in e:
         return e[k]
     else:
         return ""
 
-def format_entry(doc,keys,headings):
+def format_entry(doc: Mapping[str, Any], keys: Iterable[str], headings: Iterable[str]) -> str:
     return "\n".join([h+": "+to_str(get(doc,k)) for (k,h) in zip(keys,headings)])
 
-def format_dic(bool_fields,path_fields,dic):
+def format_dic(bool_fields: Iterable[str], path_fields: Iterable[str], dic: dict[str, Any]) -> dict[str, Any]:
     for field in bool_fields:
         if field in dic:
             if dic[field]:
@@ -185,13 +188,13 @@ def format_dic(bool_fields,path_fields,dic):
             dic[k]=dic[k][:35]
     return dic
 
-def store_temp_file(data,ext):
+def store_temp_file(data: bytes, ext: str) -> str:
     new_file, filename = tempfile.mkstemp(suffix=ext)
     with os.fdopen(new_file,'wb') as f:
         f.write(data)
     return filename
     
-def get_current_location(window):
+def get_current_location(window: Any) -> tuple[int | None, int | None]:
     import inspect
     if 'more_accurate' in inspect.signature(window.current_location).parameters:
         return window.current_location(more_accurate=True)
@@ -199,18 +202,18 @@ def get_current_location(window):
     # return invalid location because an inaccurate location is more annoying than no location
     return (None, None)
 
-def sum_dict(dic):
-    sums = defaultdict(lambda: 0.0)
+def sum_dict(dic: Mapping[Any, Mapping[Any, float]]) -> defaultdict[Any, float]:
+    sums: defaultdict[Any, float] = defaultdict(lambda: 0.0)
     for c,d in dic.items():
         for k,v in d.items():
             sums[k] += v
     return sums        
 
-def print_dict(dic):
+def print_dict(dic: Mapping[Any, float]) -> None:
     for x,y in dic.items():
         print("{} : {:.2f}".format(x,y))
 
-def print_dict2(dic):
+def print_dict2(dic: Mapping[Any, Mapping[Any, float]]) -> None:
     for x in dic:
         print (x)
         for y in dic[x]:
@@ -220,7 +223,7 @@ def print_dict2(dic):
 from bs4 import BeautifulSoup
 import re
 
-def html_to_text(html):
+def html_to_text(html: str) -> str:
     soup = BeautifulSoup(html, features="html.parser")
     for tag in soup.find_all('style'):
         tag.decompose()
@@ -230,13 +233,13 @@ def html_to_text(html):
     return text
 
 # extract no. of PreRechnung
-def extract_prnr(text):
+def extract_prnr(text: str) -> str | None:
     prnr = re.search(r"Pre(\d+)",text)
     if prnr:
         return prnr.group(1)
     return None
 
-def evince(filename):
+def evince(filename: str) -> None:
     subprocess.Popen(["evince", filename],
                      stdout=subprocess.PIPE,
                      stderr=subprocess.PIPE,

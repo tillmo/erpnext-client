@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 import random
 import string
+from typing import TYPE_CHECKING, Any
 import easygui
 import utils
 from api_wrapper import gui_api_wrapper
@@ -7,9 +10,24 @@ from api import Api, LIMIT
 from settings import STANDARD_ITEM_GROUP, STANDARD_PRICE_LIST, STOCK_ITEM_GROUPS, AGGREGATE_ITEMS, AGGREGATE_ITEM_VALUE,\
     DEFAULT_ITEMS, WAREHOUSE
 
+if TYPE_CHECKING:
+    from purchase_invoice import PurchaseInvoice
+    from purchase_invoice_google_parser import PurchaseInvoiceGoogleParser
+
 
 class SupplierItem:
-    def __init__(self, inv):
+    # normalerweise die Rechnung; purchase_invoice_google_parser uebergibt stattdessen den Parser
+    purchase_invoice: PurchaseInvoice | PurchaseInvoiceGoogleParser
+    description: str | None
+    long_description: str | None
+    qty: float | None
+    qty_unit: str | None
+    rate: float | None
+    pos: str | None
+    amount: float | None
+    item_code: str | None
+
+    def __init__(self, inv: PurchaseInvoice | PurchaseInvoiceGoogleParser) -> None:
         self.purchase_invoice = inv
         self.description = None
         self.long_description = None
@@ -20,7 +38,7 @@ class SupplierItem:
         self.amount = None
         self.item_code = None
 
-    def search_item(self, supplier, check_dup=True):
+    def search_item(self, supplier: str, check_dup: bool = True) -> dict[str, Any] | None:
         if self.item_code:
             if supplier in Api.item_code_translation:
                 trans_table_supplier = Api.item_code_translation[supplier]
@@ -29,7 +47,7 @@ class SupplierItem:
                     e_item = Api.items_by_code[e_item_code]
                     return e_item
         # look for most similar e_items
-        sim_items = []
+        sim_items: list[tuple[float, dict[str, Any]]] = []
         for e_code, e_item in Api.items_by_code.items():
             if e_code in DEFAULT_ITEMS:
                 sim = 1
@@ -106,7 +124,7 @@ class SupplierItem:
                 return e_item
         return None
 
-    def add_item_price(self, e_item, rate, uom, date):
+    def add_item_price(self, e_item: dict[str, Any], rate: float, uom: str, date: str) -> None:
         docs = gui_api_wrapper(Api.api.get_list, 'Item Price',
                                filters={'item_code': e_item['item_code']})
         if docs:
@@ -132,7 +150,7 @@ class SupplierItem:
             doc = gui_api_wrapper(Api.api.insert, price)
             # print(doc)
 
-    def process_item(self, supplier, date, check_dup=True):
+    def process_item(self, supplier: str, date: str, check_dup: bool = True) -> dict[str, Any] | None:
         e_item = self.search_item(supplier, check_dup)
         if e_item:
             if e_item['item_group'] in STOCK_ITEM_GROUPS:

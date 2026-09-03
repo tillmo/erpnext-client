@@ -1,9 +1,12 @@
 """Rauchtest: alle Projektmodule sind unter den Stubs importierbar."""
+from __future__ import annotations
+
 import importlib
 
 import pytest
 
 from support.deps import HAVE_PDFTOTEXT
+from support.fakes import FakeFrappeClient
 
 MODULES = ["version", "frappe", "frappeclient", "api_wrapper", "api", "settings", "utils", "doc",
            "company", "invoice", "payment", "journal", "bank", "stock", "project", "supplier_item",
@@ -13,24 +16,24 @@ PDF_MODULES = ["purchase_invoice", "prerechnung", "args", "menu"]
 
 
 @pytest.mark.parametrize("name", MODULES)
-def test_module_importable(name):
+def test_module_importable(name: str) -> None:
     assert importlib.import_module(name)
 
 
 @pytest.mark.parametrize("name", PDF_MODULES)
-def test_pdf_module_importable(name):
+def test_pdf_module_importable(name: str) -> None:
     if not HAVE_PDFTOTEXT:
         pytest.skip("pdftotext fehlt")
     assert importlib.import_module(name)
 
 
-def test_no_real_gui_modules_loaded():
+def test_no_real_gui_modules_loaded() -> None:
     import PySimpleGUI, easygui
     assert PySimpleGUI.UserSettings.__module__ == "support.stubs"
     assert type(easygui).__name__ == "EasyguiStub"
 
 
-def test_fake_api_roundtrip(fake_api):
+def test_fake_api_roundtrip(fake_api: FakeFrappeClient) -> None:
     from api import Api
     name = Api.api.insert({"doctype": "Supplier", "supplier_name": "Test"})["name"]
     assert name == "Test"
@@ -39,7 +42,7 @@ def test_fake_api_roundtrip(fake_api):
 
 
 @pytest.mark.parametrize("name", MODULES + PDF_MODULES)
-def test_module_importable_as_first_import(name):
+def test_module_importable_as_first_import(name: str) -> None:
     """Kein Modul darf auf eine bestimmte Importreihenfolge angewiesen sein (Importzyklen)."""
     import subprocess, sys, os
     if name in PDF_MODULES and not HAVE_PDFTOTEXT:

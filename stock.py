@@ -1,16 +1,21 @@
+from __future__ import annotations
+
+from typing import Any
+
 from api import Api
 from settings import PROJECT_WAREHOUSE, SOMIKO_ACCOUNTS, PROJECT_ITEM_GROUP, \
                      PROJECT_UNIT
 from api_wrapper import gui_api_wrapper
 import project
 
-def stock_reconciliation_for_item(company_name,date,item_code,warehouse,
-                                  qty,valuation_rate,account,pinv_name=None):
-        item = {'item_code': item_code,
+def stock_reconciliation_for_item(company_name: str,date: str,item_code: str,warehouse: str,
+                                  qty: float,valuation_rate: float,account: str,
+                                  pinv_name: str | None=None) -> dict[str, Any] | None:
+        item: dict[str, Any] = {'item_code': item_code,
                 'warehouse': warehouse,
                 'qty': qty,
                 'valuation_rate': valuation_rate}
-        r = {'company': company_name,
+        r: dict[str, Any] = {'company': company_name,
              'purpose': 'Stock Reconciliation',
              'posting_date': date,
              'set_posting_time': 1,
@@ -22,14 +27,14 @@ def stock_reconciliation_for_item(company_name,date,item_code,warehouse,
         doc = gui_api_wrapper(Api.api.insert,r)
         return doc
 
-def stock_entry_for_item(company_name,date,item_code,warehouse,
-                         ingoing,amount,account,
-                         pinv_name=None,project=None):
-        item = {'item_code': item_code,
+def stock_entry_for_item(company_name: str,date: str,item_code: str,warehouse: str,
+                         ingoing: bool,amount: float,account: str,
+                         pinv_name: str | None=None,project: str | None=None) -> dict[str, Any] | None:
+        item: dict[str, Any] = {'item_code': item_code,
                 'expense_account': account,
                 'qty': amount,
                 'basic_rate': 1}
-        e = {'company': company_name,
+        e: dict[str, Any] = {'company': company_name,
              'doctype': 'Stock Entry'}
         if ingoing: # only for adding to stock, use purchase invoice date
             item['t_warehouse'] = warehouse
@@ -49,14 +54,14 @@ def stock_entry_for_item(company_name,date,item_code,warehouse,
         doc = gui_api_wrapper(Api.api.insert,e)
         return doc
 
-def project_into_stock(pname,ingoing=True):
+def project_into_stock(pname: str,ingoing: bool=True) -> None:
     for pinv in Api.api.get_list("Purchase Invoice",
                                  filters={'project':pname,
                                           'status': ['!=','Cancelled']},
                                  limit_page_length=1000):
         purchase_invoice_into_stock(pinv['name'],ingoing)
 
-def purchase_invoice_into_stock(pinv_name,ingoing=True):
+def purchase_invoice_into_stock(pinv_name: str,ingoing: bool=True) -> None:
     pinv = Api.api.get_doc("Purchase Invoice",pinv_name)
     if (not 'project' in pinv) or (not pinv['project']):
         print("Keine Projekt-Lagerhaltung, da kein Projekt für Einkaufsrechnung {} gefunden".format(pinv_name))
@@ -70,7 +75,7 @@ def purchase_invoice_into_stock(pinv_name,ingoing=True):
     item_code = '000.900.{:03d}'.format(project_no)
     if not Api.api.get_list("Item",filters={'name':item_code}):
         desc = 'Material Projekt {} {}'.format(project_no,proj['project_name'])
-        item = {'doctype' : 'Item',
+        item: dict[str, Any] = {'doctype' : 'Item',
                 'item_code' : item_code,
                 'item_name' : desc,
                 'description' : desc,

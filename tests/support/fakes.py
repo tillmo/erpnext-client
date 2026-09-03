@@ -16,6 +16,8 @@ Frappe-Server verhält, damit Tests reale Fehler finden:
 ``FakeSession``/``FakeResponse`` bilden ``requests`` nach, um den echten
 ``FrappeClient`` ohne Netz zu testen.
 """
+from __future__ import annotations
+
 import copy
 import datetime
 import io
@@ -23,6 +25,7 @@ import json
 import os
 import re
 import urllib.parse
+from typing import Any, Iterable, Iterator
 
 import frappe
 from frappeclient import FrappeException
@@ -75,7 +78,7 @@ NATURAL_KEYS = {
 CHILD_META = ("idx", "parent", "parenttype", "parentfield", "doctype")
 
 
-def _sql_like(pattern, value):
+def _sql_like(pattern: Any, value: Any) -> bool:
     if pattern is None:
         return value in (None, "")
     if value is None:
@@ -84,7 +87,7 @@ def _sql_like(pattern, value):
     return re.fullmatch(regex, str(value), re.IGNORECASE) is not None
 
 
-def _matches(value, op, target):
+def _matches(value: Any, op: str, target: Any) -> bool:
     op = op.lower()
     if op in ("=", "=="):
         return value == target
@@ -120,13 +123,14 @@ def _matches(value, op, target):
     raise ValueError("Unbekannter Filter-Operator {!r}".format(op))
 
 
-def _parse_fields(fields):
+def _parse_fields(fields: str | list[str] | None) -> tuple[list[tuple[str, str]], list[tuple[str, str, str]]]:
     """Liefert (Elternfelder, [(kind_doctype, feld, alias)])."""
     if fields is None:
         fields = ["name"]
     if isinstance(fields, str):
         fields = json.loads(fields)
-    parent_fields, child_fields = [], []
+    parent_fields: list[tuple[str, str]] = []
+    child_fields: list[tuple[str, str, str]] = []
     for f in fields:
         m = re.match(r"`tab(.+?)`\.(\w+)(?:\s+as\s+(\w+))?$", f.strip())
         if m:
@@ -143,33 +147,34 @@ def _parse_fields(fields):
 class FakeFrappeClient:
     DEFAULT_PAGE_LENGTH = 20
 
-    def __init__(self, url="https://fake.example", api_key=None, api_secret=None, **kwargs):
-        self.url = url
-        self.api_key = api_key
-        self.api_secret = api_secret
-        self.store = {}          # doctype -> {name: doc}
-        self.counters = {}
-        self.calls = []          # (methode, args, kwargs)
-        self.files = {}          # file_url -> bytes
-        self.attachments = []    # (doctype, docname, file_url)
-        self.report_handlers = {}  # lower(report_name) -> callable(filters)
-        self.versions = {}       # docname -> [version dicts] für load_doc
-        self.communications = {}  # docname -> [comm dicts]
-        self.assignments = []
-        self.background_jobs = []
-        self.year = datetime.date.today().year
+    def __init__(self, url: str = "https://fake.example", api_key: str | None = None, api_secret: str | None = None,
+                 **kwargs: Any) -> None:
+        self.url: str = url
+        self.api_key: str | None = api_key
+        self.api_secret: str | None = api_secret
+        self.store: dict[str, dict[str, dict[str, Any]]] = {}          # doctype -> {name: doc}
+        self.counters: dict[str, int] = {}
+        self.calls: list[tuple[str, tuple[Any, ...], dict[str, Any]]] = []          # (methode, args, kwargs)
+        self.files: dict[str, bytes] = {}          # file_url -> bytes
+        self.attachments: list[tuple[str, str, str]] = []    # (doctype, docname, file_url)
+        self.report_handlers: dict[str, Any] = {}  # lower(report_name) -> callable(filters)
+        self.versions: dict[str, list[dict[str, Any]]] = {}       # docname -> [version dicts] für load_doc
+        self.communications: dict[str, list[dict[str, Any]]] = {}  # docname -> [comm dicts]
+        self.assignments: list[tuple[str, str, list[str]]] = []
+        self.background_jobs: list[Any] = []
+        self.year: int = datetime.date.today().year
 
     # ------------------------------------------------------------ Hilfen
-    def _log(self, method, *args, **kwargs):
+    def _log(self, method: str, *args: Any, **kwargs: Any) -> None:
         self.calls.append((method, args, kwargs))
 
-    def calls_of(self, method):
+    def calls_of(self, method: str) -> list[tuple[str, tuple[Any, ...], dict[str, Any]]]:
         return [c for c in self.calls if c[0] == method]
 
-    def docs(self, doctype):
+    def docs(self, doctype: str) -> dict[str, dict[str, Any]]:
         return self.store.setdefault(doctype, {})
 
-    def add(self, doctype, **fields):
+    def add(self, doctype: str, **fields: Any) -> str:
         """Dokument direkt (ohne Server-Logik) ablegen; liefert den Namen."""
         doc = dict(fields)
         doc["doctype"] = doctype
@@ -180,14 +185,14 @@ class FakeFrappeClient:
         self.docs(doctype)[doc["name"]] = doc
         return doc["name"]
 
-    def add_file(self, file_url, content):
+    def add_file(self, file_url: str, content: bytes) -> str:
         self.files[file_url] = content
         return file_url
 
-    def set_report(self, report_name, handler_or_result):
+    def set_report(self, report_name: str, handler_or_result: Any) -> None:
         self.report_handlers[report_name.lower()] = handler_or_result
 
-    def _new_name(self, doctype, doc):
+    def _new_name(self, doctype: str, doc: dict[str, Any]) -> str:
         key = NATURAL_KEYS.get(doctype)
         if key and doc.get(key):
             return doc[key]
@@ -196,7 +201,7 @@ class FakeFrappeClient:
         pattern = NAME_SERIES.get(doctype, doctype.replace(" ", "-").upper() + "-{n:05d}")
         return pattern.format(year=self.year, n=n)
 
-    def _number_children(self, doc):
+    def _number_children(self, doc: dict[str, Any]) -> None:
         for field, value in doc.items():
             if isinstance(value, list):
                 for i, row in enumerate(value):
@@ -206,14 +211,14 @@ class FakeFrappeClient:
                         row.setdefault("parenttype", doc.get("doctype"))
                         row.setdefault("parentfield", field)
 
-    def _get(self, doctype, name):
+    def _get(self, doctype: str, name: str) -> dict[str, Any]:
         docs = self.docs(doctype)
         if name not in docs:
             raise FrappeException("FrappeClient Request Failed\n\n{} {} not found (DoesNotExistError)".format(doctype, name))
         return docs[name]
 
     # ----------------------------------------------- Server-Seiteneffekte
-    def _defaults(self, doc):
+    def _defaults(self, doc: dict[str, Any]) -> None:
         """Feld-Defaults, wie sie Frappe beim Anlegen setzt (nur fehlende Felder)."""
         doctype = doc["doctype"]
         doc.setdefault("docstatus", 0)
@@ -250,7 +255,7 @@ class FakeFrappeClient:
             doc.setdefault("supplier_group", None)
         self._number_children(doc)
 
-    def _compute(self, doc):
+    def _compute(self, doc: dict[str, Any]) -> None:
         """Berechnete Felder und Validierungen, wie sie der Server bei insert/update ausführt."""
         doctype = doc["doctype"]
         if doctype in ("Purchase Invoice", "Sales Invoice"):
@@ -285,17 +290,18 @@ class FakeFrappeClient:
             allocated = sum(r.get("allocated_amount", 0.0) for r in doc.get("references", []))
             doc["unallocated_amount"] = round(paid - allocated, 2)
 
-    def _server_side(self, doc):
+    def _server_side(self, doc: dict[str, Any]) -> None:
         self._defaults(doc)
         self._compute(doc)
         self._number_children(doc)
 
     # ----------------------------------------------------------- Abfragen
-    def _filter(self, doctype, docs, filters):
+    def _filter(self, doctype: str, docs: list[dict[str, Any]], filters: Any) -> list[dict[str, Any]]:
         if not filters:
             return docs
         if isinstance(filters, str):
             filters = json.loads(filters)
+        conds: list[tuple[Any, ...]]
         if isinstance(filters, dict):
             conds = []
             for key, cond in filters.items():
@@ -312,7 +318,7 @@ class FakeFrappeClient:
                     conds.append((doctype, cond[0], cond[1], cond[2]))
                 else:
                     raise ValueError("Filter nicht verstanden: {!r}".format(cond))
-        result = []
+        result: list[dict[str, Any]] = []
         for doc in docs:
             ok = True
             for dt, field, op, target in conds:
@@ -331,7 +337,7 @@ class FakeFrappeClient:
         return result
 
     @staticmethod
-    def _order(docs, order_by):
+    def _order(docs: list[dict[str, Any]], order_by: str | None) -> list[dict[str, Any]]:
         if not order_by:
             return docs
         parts = [p.strip() for p in order_by.split(",") if p.strip()]
@@ -345,24 +351,24 @@ class FakeFrappeClient:
                           reverse=desc)
         return docs
 
-    def get_list(self, doctype, fields='["name"]', filters=None, limit_start=0, limit_page_length=None,
-                 order_by=None):
+    def get_list(self, doctype: str, fields: str | list[str] = '["name"]', filters: Any = None, limit_start: int = 0,
+                 limit_page_length: int | None = None, order_by: str | None = None) -> list[dict[str, Any]]:
         self._log("get_list", doctype, fields=fields, filters=filters, limit_start=limit_start,
                   limit_page_length=limit_page_length, order_by=order_by)
         docs = list(self.docs(doctype).values())
         docs = self._filter(doctype, docs, filters)
         docs = self._order(docs, order_by)
         parent_fields, child_fields = _parse_fields(fields)
-        rows = []
+        rows: list[dict[str, Any]] = []
         for doc in docs:
-            base = {}
+            base: dict[str, Any] = {}
             for field, alias in parent_fields:
                 if field == "*":
                     base.update(copy.deepcopy(doc))
                 else:
                     base[alias] = copy.deepcopy(doc.get(field, 0 if field == "docstatus" else None))
             if child_fields:
-                child_rows = []
+                child_rows: list[dict[str, Any]] = []
                 for child_dt, field, alias in child_fields:
                     table = CHILD_TABLES.get(child_dt)
                     child_rows = doc.get(table, []) or []
@@ -383,7 +389,8 @@ class FakeFrappeClient:
         length = limit_page_length if limit_page_length is not None else self.DEFAULT_PAGE_LENGTH
         return rows[limit_start:limit_start + length]
 
-    def get_doc(self, doctype, name="", filters=None, fields=None):
+    def get_doc(self, doctype: str, name: str = "", filters: Any = None,
+                fields: Any = None) -> dict[str, Any] | list[dict[str, Any]]:
         self._log("get_doc", doctype, name)
         name = urllib.parse.unquote(str(name))
         if not name:
@@ -391,14 +398,14 @@ class FakeFrappeClient:
             return [copy.deepcopy(d) for d in docs]
         return copy.deepcopy(self._get(doctype, name))
 
-    def load_doc(self, doctype, name=""):
+    def load_doc(self, doctype: str, name: str = "") -> dict[str, Any]:
         self._log("load_doc", doctype, name)
         doc = copy.deepcopy(self._get(doctype, name))
         return {"docs": [doc],
                 "docinfo": {"versions": copy.deepcopy(self.versions.get(name, [])),
                             "communications": copy.deepcopy(self.communications.get(name, []))}}
 
-    def get_value(self, doctype, fieldname=None, filters=None):
+    def get_value(self, doctype: str, fieldname: str | None = None, filters: Any = None) -> dict[str, Any] | None:
         self._log("get_value", doctype, fieldname, filters)
         docs = self._filter(doctype, list(self.docs(doctype).values()), filters)
         if not docs:
@@ -406,7 +413,8 @@ class FakeFrappeClient:
         fieldname = fieldname or "name"
         return {fieldname: docs[0].get(fieldname)}
 
-    def reportview_get(self, doctype, filters=None, fields=None, params=None):
+    def reportview_get(self, doctype: str, filters: Any = None, fields: list[str] | None = None,
+                       params: dict[str, Any] | None = None) -> dict[str, Any]:
         self._log("reportview_get", doctype, filters, fields)
         rows = self.get_list(doctype, fields=fields or ["name"], filters=filters,
                              limit_page_length=(params or {}).get("page_length"))
@@ -414,7 +422,7 @@ class FakeFrappeClient:
         return {"keys": keys, "values": [[r[k] for k in keys] for r in rows]}
 
     # ---------------------------------------------------------- Änderungen
-    def insert(self, doc):
+    def insert(self, doc: dict[str, Any]) -> frappe._dict:
         self._log("insert", copy.deepcopy(doc))
         doc = copy.deepcopy(dict(doc))
         doctype = doc.get("doctype")
@@ -428,10 +436,10 @@ class FakeFrappeClient:
         self.docs(doctype)[doc["name"]] = doc
         return frappe._dict(copy.deepcopy(doc))
 
-    def insert_many(self, docs):
+    def insert_many(self, docs: Iterable[dict[str, Any]]) -> list[str]:
         return [self.insert(d)["name"] for d in docs]
 
-    def update(self, doc):
+    def update(self, doc: dict[str, Any]) -> frappe._dict:
         self._log("update", copy.deepcopy(doc))
         doctype = doc.get("doctype")
         if not doctype:
@@ -453,21 +461,21 @@ class FakeFrappeClient:
             self._number_children(stored)
         return frappe._dict(copy.deepcopy(stored))
 
-    def update_with_doctype(self, doc, doctype):
+    def update_with_doctype(self, doc: dict[str, Any], doctype: str) -> frappe._dict:
         doc1 = dict(doc)
         doc1["doctype"] = doctype
         return self.update(doc1)
 
-    def bulk_update(self, docs):
+    def bulk_update(self, docs: Iterable[dict[str, Any]]) -> list[frappe._dict]:
         return [self.update(d) for d in docs]
 
-    def set_value(self, doctype, docname, fieldname, value):
+    def set_value(self, doctype: str, docname: str, fieldname: str, value: Any) -> dict[str, Any]:
         self._log("set_value", doctype, docname, fieldname, value)
         stored = self._get(doctype, docname)
         stored[fieldname] = value
         return copy.deepcopy(stored)
 
-    def delete(self, doctype, name):
+    def delete(self, doctype: str, name: str) -> str:
         self._log("delete", doctype, name)
         stored = self._get(doctype, name)
         if stored.get("docstatus", 0) == 1:
@@ -475,7 +483,7 @@ class FakeFrappeClient:
         del self.docs(doctype)[name]
         return "ok"
 
-    def submit(self, doc):
+    def submit(self, doc: dict[str, Any]) -> dict[str, Any]:
         self._log("submit", copy.deepcopy(doc))
         stored = self._get(doc["doctype"], doc["name"])
         if stored.get("docstatus", 0) != 0:
@@ -489,14 +497,14 @@ class FakeFrappeClient:
             stored["status"] = "Submitted"
         return copy.deepcopy(stored)
 
-    def cancel(self, doctype, name):
+    def cancel(self, doctype: str, name: str) -> dict[str, Any]:
         self._log("cancel", doctype, name)
         stored = self._get(doctype, name)
         stored["docstatus"] = 2
         stored["status"] = "Cancelled"
         return copy.deepcopy(stored)
 
-    def rename_doc(self, doctype, old_name, new_name):
+    def rename_doc(self, doctype: str, old_name: str, new_name: str) -> str:
         stored = self._get(doctype, old_name)
         del self.docs(doctype)[old_name]
         stored["name"] = new_name
@@ -504,13 +512,14 @@ class FakeFrappeClient:
         return new_name
 
     # -------------------------------------------------------- Dateien etc.
-    def get_file(self, path):
+    def get_file(self, path: str) -> bytes:
         self._log("get_file", path)
         if path not in self.files:
             raise FrappeException("FrappeClient Request Failed\n\nFile {} not found".format(path))
         return self.files[path]
 
-    def attach_file(self, doctype, docname, filename, filedata, is_private, docfield=None):
+    def attach_file(self, doctype: str, docname: str, filename: str, filedata: bytes, is_private: bool | int,
+                    docfield: str | None = None) -> frappe._dict:
         self._log("attach_file", doctype, docname, filename, is_private, docfield=docfield)
         stored = self._get(doctype, docname)
         file_url = ("/private/files/" if is_private else "/files/") + filename
@@ -519,30 +528,33 @@ class FakeFrappeClient:
         if docfield:
             stored[docfield] = file_url
             stored["modified"] = datetime.datetime.now().isoformat(sep=" ", timespec="microseconds")
-        file_doc = {"doctype": "File", "file_name": filename, "file_url": file_url,
+        file_doc: dict[str, Any] = {"doctype": "File", "file_name": filename, "file_url": file_url,
                     "attached_to_doctype": doctype, "attached_to_name": docname,
                     "attached_to_field": docfield, "is_private": 1 if is_private else 0}
         file_doc["name"] = self._new_name("File", file_doc)
         self.docs("File")[file_doc["name"]] = file_doc
         return frappe._dict(copy.deepcopy(file_doc))
 
-    def read_and_attach_file(self, doctype, docname, filename, is_private, docfield=None):
+    def read_and_attach_file(self, doctype: str, docname: str, filename: str, is_private: bool | int,
+                             docfield: str | None = None) -> frappe._dict:
         with open(filename, "rb") as f:
             data = f.read()
         return self.attach_file(doctype, docname, os.path.basename(filename), data, is_private, docfield)
 
-    def get_pdf(self, doctype, name, print_format="Standard", letterhead=True, language="de"):
+    def get_pdf(self, doctype: str, name: str, print_format: str = "Standard", letterhead: bool = True,
+                language: str = "de") -> io.BytesIO:
         self._log("get_pdf", doctype, name, print_format)
         self._get(doctype, name)
         return io.BytesIO(b"%PDF-1.4\n% fake pdf for " + name.encode() + b"\n")
 
-    def get_html(self, doctype, name, print_format="Standard", letterhead=True):
+    def get_html(self, doctype: str, name: str, print_format: str = "Standard", letterhead: bool = True) -> io.BytesIO:
         return io.BytesIO(b"<html>fake</html>")
 
-    def get_attachments(self, doctype, name):
+    def get_attachments(self, doctype: str, name: str) -> list[str]:
         return [a[2] for a in self.attachments if a[0] == doctype and a[1] == name]
 
-    def query_report(self, report_name="", filters=None, ignore_prepared_report=False):
+    def query_report(self, report_name: str = "", filters: dict[str, Any] | None = None,
+                     ignore_prepared_report: bool = False) -> Any:
         self._log("query_report", report_name, filters, ignore_prepared_report=ignore_prepared_report)
         handler = self.report_handlers.get(report_name.lower())
         if handler is None:
@@ -551,50 +563,51 @@ class FakeFrappeClient:
             return copy.deepcopy(handler(filters or {}))
         return copy.deepcopy(handler)
 
-    def assign_to(self, doctype, name, assign_to):
+    def assign_to(self, doctype: str, name: str, assign_to: Iterable[str]) -> str:
         self._log("assign_to", doctype, name, assign_to)
         stored = self._get(doctype, name)
         stored["_assign"] = json.dumps(list(assign_to))
         self.assignments.append((doctype, name, list(assign_to)))
         return stored["_assign"]
 
-    def get_background_jobs(self):
+    def get_background_jobs(self) -> list[Any]:
         self._log("get_background_jobs")
         return list(self.background_jobs)
 
-    def get_open_activities(self, doctype, name):
+    def get_open_activities(self, doctype: str, name: str) -> dict[str, Any]:
         return {"open_activities": []}
 
-    def get_unreconciled_entries(self, name):
+    def get_unreconciled_entries(self, name: str) -> dict[str, Any]:
         return {}
 
-    def get_api(self, method, params=None):
+    def get_api(self, method: str, params: dict[str, Any] | None = None) -> None:
         self._log("get_api", method, params)
         return None
 
-    def post_api(self, method, params=None):
+    def post_api(self, method: str, params: dict[str, Any] | None = None) -> None:
         self._log("post_api", method, params)
         return None
 
-    def logout(self):
+    def logout(self) -> None:
         pass
 
 
 # ------------------------------------------------ requests-Nachbildung
 class FakeResponse:
-    def __init__(self, payload=None, status_code=200, text=None, ok=None, content=b""):
-        self._payload = payload
-        self.status_code = status_code
-        self.text = text if text is not None else (json.dumps(payload) if payload is not None else "")
-        self.ok = ok if ok is not None else status_code < 400
-        self.content = content
+    def __init__(self, payload: Any = None, status_code: int = 200, text: str | None = None, ok: bool | None = None,
+                 content: bytes = b"") -> None:
+        self._payload: Any = payload
+        self.status_code: int = status_code
+        self.text: str = text if text is not None else (json.dumps(payload) if payload is not None else "")
+        self.ok: bool = ok if ok is not None else status_code < 400
+        self.content: bytes = content
 
-    def json(self):
+    def json(self) -> Any:
         if self._payload is None:
             raise ValueError("No JSON")
         return self._payload
 
-    def iter_content(self, size):
+    def iter_content(self, size: int) -> Iterator[bytes]:
         for i in range(0, len(self.content), size):
             yield self.content[i:i + size]
 
@@ -602,11 +615,11 @@ class FakeResponse:
 class FakeSession:
     """Zeichnet Requests auf und liefert vorbereitete Antworten (FIFO)."""
 
-    def __init__(self, responses=None):
-        self.responses = list(responses or [])
-        self.requests = []   # (methode, url, kwargs)
+    def __init__(self, responses: Iterable[FakeResponse | Exception] | None = None) -> None:
+        self.responses: list[FakeResponse | Exception] = list(responses or [])
+        self.requests: list[tuple[str, str, dict[str, Any]]] = []   # (methode, url, kwargs)
 
-    def _pop(self, method, url, kwargs):
+    def _pop(self, method: str, url: str, kwargs: dict[str, Any]) -> FakeResponse:
         self.requests.append((method, url, kwargs))
         if not self.responses:
             return FakeResponse({"data": []})
@@ -615,11 +628,11 @@ class FakeSession:
             raise resp
         return resp
 
-    def get(self, url, **kwargs):
+    def get(self, url: str, **kwargs: Any) -> FakeResponse:
         return self._pop("GET", url, kwargs)
 
-    def post(self, url, **kwargs):
+    def post(self, url: str, **kwargs: Any) -> FakeResponse:
         return self._pop("POST", url, kwargs)
 
-    def put(self, url, **kwargs):
+    def put(self, url: str, **kwargs: Any) -> FakeResponse:
         return self._pop("PUT", url, kwargs)

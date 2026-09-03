@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import json
+from typing import Any
 import jsondiff
 from jsonschema import validate
 
@@ -8,7 +11,7 @@ from api import Api, LIMIT
 from purchase_invoice import PurchaseInvoice
 from purchase_invoice_google_parser import PurchaseInvoiceGoogleParser
 
-JSON1_DATA_SCHEMA = {
+JSON1_DATA_SCHEMA: dict[str, Any] = {
     "title": "Intermediate format for Google AI Invoice parser",
     "required": ["supplier", "grand_total", "taxes"],
     "type": "object",
@@ -90,7 +93,7 @@ EXCLUDE_SUBFIELDS = ['name', 'owner', 'creation', 'modified',
                      'item_wise_tax_detail', 'doctype']
 
 
-def convert_item(item, supplier):
+def convert_item(item: tuple[str, Any], supplier: str | None) -> list[tuple[str, Any]]:
     k = item[0]
     v = item[1]
     if k == 'account_head':
@@ -111,12 +114,12 @@ def convert_item(item, supplier):
     return [item]
 
 
-def convert(d, supplier):
+def convert(d: dict[str, Any], supplier: str | None) -> list[tuple[str, Any]]:
     res = [convert_item((k, v), supplier) for k, v in d.items() if k in SUBFIELDS and v]
     return sum(res, [])
 
 
-def validate_json1(json):
+def validate_json1(json: dict[str, Any]) -> bool:
     try:
         validate(
             instance=json,
@@ -128,7 +131,7 @@ def validate_json1(json):
     return True
 
 
-def validate_prerechnungs():
+def validate_prerechnungs() -> bool:
     for pr in Api.api.get_list("PreRechnung", filters={'json1': ['is', 'set']}, fields=['name', 'json1'],
                                limit_page_length=LIMIT):
         print(pr['name'])
@@ -139,7 +142,7 @@ def validate_prerechnungs():
     return True
 
 
-def compute_json(pr):
+def compute_json(pr: dict[str, Any]) -> None:
     pinv = Api.api.get_doc("Purchase Invoice", pr['purchase_invoice'])
     json1 = {field: pinv[field] for field in INV_FIELDS if field in pinv}
     supp = json1.get('supplier')
@@ -158,7 +161,7 @@ def compute_json(pr):
         Api.api.update(pr)
 
 
-def compute_json1_diff(inv):
+def compute_json1_diff(inv: dict[str, Any]) -> Any:
     supplier = inv.get('lieferant')
     json_str = inv.get('json')
     invoice_json = None
@@ -173,8 +176,8 @@ def compute_json1_diff(inv):
     return diff
 
 
-def compute_diff(pr):
-    jsons = [1, 2]
+def compute_diff(pr: dict[str, Any]) -> None:
+    jsons: list[Any] = [1, 2]
     jsons[0] = json.loads(pr['json1'])
     jsons[1] = json.loads(pr['json2'])
     for field in EXCLUDE_INVOICE_FIELDS:

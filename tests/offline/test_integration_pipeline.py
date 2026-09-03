@@ -4,13 +4,18 @@ Diese Tests spielen die Arbeitsabläufe des Clients Ende-zu-Ende durch:
 PDF -> Einkaufsrechnung, Kontoauszug -> Banktransaktionen -> Zuordnung -> Buchung,
 PreRechnung mit Google-JSON -> Lagerrechnung mit Artikelzuordnung.
 """
+from __future__ import annotations
+
 import json
 from collections import defaultdict
+from pathlib import Path
 
 import pytest
 
 from support import factories as F
 from support.deps import skip_module_without_pdftotext
+from support.fakes import FakeFrappeClient
+from support.stubs import EasyguiStub, UserSettings
 
 skip_module_without_pdftotext()
 
@@ -25,7 +30,7 @@ from purchase_invoice import PurchaseInvoice  # noqa: E402
 
 
 @pytest.fixture
-def erp(fake_api, user_settings):
+def erp(fake_api: FakeFrappeClient, user_settings: UserSettings) -> FakeFrappeClient:
     """Eine 'Instanz' mit Firma, Konten und Bankkonto, geladen wie beim Programmstart."""
     F.seed_company_data(fake_api)
     fake_api.add("Bank Account", **F.bank_account_doc())
@@ -40,7 +45,8 @@ def erp(fake_api, user_settings):
 
 
 class TestInvoicePipeline:
-    def test_pdf_to_draft_invoice_and_duplicate_detection(self, erp, tmp_path, gui, capsys):
+    def test_pdf_to_draft_invoice_and_duplicate_detection(self, erp: FakeFrappeClient, tmp_path: Path,
+                                                          gui: EasyguiStub, capsys: pytest.CaptureFixture[str]) -> None:
         pdf = F.write_generic_invoice_pdf(tmp_path / "r.pdf")
         gui.answers["buttonbox"] = "Später buchen"
         pinv = PurchaseInvoice.read_and_transfer(None, str(pdf), False, cli_overrides={"konto": "4210"})
@@ -61,7 +67,7 @@ class TestInvoicePipeline:
         assert len([a for a in erp.attachments if a[1] == doc["name"]]) == 2
         assert len(erp.get_list("Supplier")) == 1
 
-    def test_duplicate_attaches_pdf_once(self, erp, tmp_path, gui):
+    def test_duplicate_attaches_pdf_once(self, erp: FakeFrappeClient, tmp_path: Path, gui: EasyguiStub) -> None:
         pdf = F.write_generic_invoice_pdf(tmp_path / "r.pdf")
         gui.answers["buttonbox"] = "Später buchen"
         gui.answers["msgbox"] = None
@@ -69,7 +75,7 @@ class TestInvoicePipeline:
         PurchaseInvoice.read_and_transfer(None, str(pdf), False, cli_overrides={"konto": "4210"})
         assert len(erp.attachments) == 2
 
-    def test_pdf_to_booked_and_paid_invoice(self, erp, tmp_path, gui):
+    def test_pdf_to_booked_and_paid_invoice(self, erp: FakeFrappeClient, tmp_path: Path, gui: EasyguiStub) -> None:
         pdf = F.write_generic_invoice_pdf(tmp_path / "r.pdf")
         bacc = bank.BankAccount.baccounts_by_name["Sparkasse Bremen - SoMiKo"]
         erp.add("Bank Transaction", **F.bank_transaction_doc(bacc.name, withdrawal=119.0,
@@ -89,7 +95,8 @@ class TestInvoicePipeline:
 
 
 class TestBankPipeline:
-    def test_statement_to_journal_entries(self, erp, tmp_path, gui, user_settings, capsys):
+    def test_statement_to_journal_entries(self, erp: FakeFrappeClient, tmp_path: Path, gui: EasyguiStub,
+                                          user_settings: UserSettings, capsys: pytest.CaptureFixture[str]) -> None:
         comp = Company.get_company(F.COMPANY)
         rows = [{"date": "15.08.26", "purpose": "Miete August", "partner": "Vermieter", "amount": "-500,00"},
                 {"date": "16.08.26", "purpose": "Spende", "partner": "Foerderer", "amount": "100,00"}]
@@ -98,7 +105,7 @@ class TestBankPipeline:
         assert len(b.transactions) == 2
         assert len(comp.open_bank_transactions()) == 2
 
-        def choose(msg, title, options):
+        def choose(msg: str, title: str, options: list[str]) -> str:
             if "Miete" in msg:
                 return "4210 - Miete und Nebenkosten - SoMiKo"
             return "8401 - Selbstbauanlagen 19% - SoMiKo"
@@ -123,7 +130,7 @@ class TestBankPipeline:
         assert {j["account"] for j in comp.journal} == {"4210 - Miete und Nebenkosten - SoMiKo",
                                                           "8401 - Selbstbauanlagen 19% - SoMiKo"}
 
-    def test_statement_reimport_is_idempotent(self, erp, tmp_path):
+    def test_statement_reimport_is_idempotent(self, erp: FakeFrappeClient, tmp_path: Path) -> None:
         rows = [{"date": "15.08.26", "purpose": "Miete", "partner": "V", "amount": "-500,00"}]
         fn = F.write_sparkasse_csv(tmp_path / "k.csv", rows)
         bank.BankStatement.process_file(fn)
@@ -132,7 +139,8 @@ class TestBankPipeline:
 
 
 class TestPreInvoicePipeline:
-    def test_pre_invoice_with_google_json_to_stock_invoice(self, erp, tmp_path, gui, monkeypatch):
+    def test_pre_invoice_with_google_json_to_stock_invoice(self, erp: FakeFrappeClient, tmp_path: Path,
+                                                           gui: EasyguiStub, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(utils, "evince", lambda f: None)
         monkeypatch.setattr(gp, "find_date", lambda s: utils.convert_date4(s) if s else None)
         comp = Company.get_company(F.COMPANY)
@@ -167,7 +175,8 @@ class TestPreInvoicePipeline:
         # in der Zusammenfassung erscheint der Artikelname
         assert "Solarmodul 400 Wp" in pinv.summary()
 
-    def test_pre_invoice_with_aggregate_item(self, erp, tmp_path, gui, monkeypatch):
+    def test_pre_invoice_with_aggregate_item(self, erp: FakeFrappeClient, tmp_path: Path, gui: EasyguiStub,
+                                             monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(utils, "evince", lambda f: None)
         comp = Company.get_company(F.COMPANY)
         pdf = F.write_generic_invoice_pdf(tmp_path / "pre.pdf")

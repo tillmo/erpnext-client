@@ -1,7 +1,10 @@
 """Tests für lead.py und sales_invoice.py."""
+from __future__ import annotations
+
 import csv
 import json
 import os
+from pathlib import Path
 
 import pytest
 
@@ -9,29 +12,31 @@ import invoice  # noqa: F401  (Importreihenfolge, s. conftest)
 import lead
 import sales_invoice
 from api import Api
+from company import Company
 from settings import EBAY_ACCOUNT, LEAD_OWNERS
 from support import factories as F
-from support.stubs import GuiCalled
+from support.fakes import FakeFrappeClient
+from support.stubs import EasyguiStub, GuiCalled
 
 
 class TestLeadHelpers:
-    def test_is_change_into_not_contact(self):
+    def test_is_change_into_not_contact(self) -> None:
         v = {"data": json.dumps({"changed": [["status", "Open", "Do Not Contact"]]})}
         assert lead.is_change_into_not_contact(v) is True
         assert lead.is_change_into_not_contact({"data": json.dumps({"changed": [["status", "Open", "Replied"]]})}) is False
         assert lead.is_change_into_not_contact({}) is False
 
-    def test_format(self):
+    def test_format(self) -> None:
         assert lead.format({"creation": "2026-01-02 10:00:00.1234"})["creation"] == "2026-01-02"
 
-    def test_show_open_leads_needs_gui(self, fake_api):
+    def test_show_open_leads_needs_gui(self, fake_api: FakeFrappeClient) -> None:
         fake_api.add("Lead", name="L1", status="Open", lead_name="A", creation="2026-01-02 10:00:00")
         with pytest.raises(GuiCalled):
             lead.show_open_leads()
 
 
 @pytest.fixture
-def leads(fake_api):
+def leads(fake_api: FakeFrappeClient) -> FakeFrappeClient:
     for owner in LEAD_OWNERS:
         fake_api.add("User", email=owner.lower() + "@example.org", first_name=owner)
     fake_api.add("Lead", name="L-NEU", status="Open", lead_name="Neu", _assign=None, email_id="neu@example.org",
@@ -44,7 +49,8 @@ def leads(fake_api):
 
 
 class TestProcessOpenLeads:
-    def test_assigns_owner_and_resets_not_contact(self, leads, gui, capsys):
+    def test_assigns_owner_and_resets_not_contact(self, leads: FakeFrappeClient, gui: EasyguiStub,
+                                                  capsys: pytest.CaptureFixture[str]) -> None:
         gui.answers["choicebox"] = lambda msg, title, choices: LEAD_OWNERS[0]
         lead.process_open_leads()
         assert leads.assignments == [("Lead", "L-NEU", [LEAD_OWNERS[0].lower() + "@example.org"])]
@@ -55,24 +61,24 @@ class TestProcessOpenLeads:
         out = capsys.readouterr().out
         assert "nicht kontaktieren" in out and "Leads fertig bearbeitet" in out
 
-    def test_kein_lead_and_skip(self, leads, gui):
+    def test_kein_lead_and_skip(self, leads: FakeFrappeClient, gui: EasyguiStub) -> None:
         gui.answers["choicebox"] = "kein Lead"
         lead.process_open_leads()
         assert leads.get_doc("Lead", "L-NEU")["status"] == "Do Not Contact"
         assert leads.assignments == []
 
-    def test_cancel_stops(self, leads, gui, capsys):
+    def test_cancel_stops(self, leads: FakeFrappeClient, gui: EasyguiStub, capsys: pytest.CaptureFixture[str]) -> None:
         gui.answers["choicebox"] = None
         lead.process_open_leads()
         assert "Lead-Bearbeitung abgebrochen" in capsys.readouterr().out
         assert leads.get_doc("Lead", "L-NEU")["status"] == "Open"
 
-    def test_skip(self, leads, gui):
+    def test_skip(self, leads: FakeFrappeClient, gui: EasyguiStub) -> None:
         gui.answers["choicebox"] = "überspringen"
         lead.process_open_leads()
         assert leads.assignments == [] and leads.get_doc("Lead", "L-NEU")["status"] == "Open"
 
-    def test_cleanup_leads(self, fake_api, capsys):
+    def test_cleanup_leads(self, fake_api: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
         fake_api.add("Lead", name="L-BSS", status="Open", first_name="Bremer", last_name="SolidarStrom",
                      email_id="kunde@example.org")
         fake_api.add("Lead", name="L-OK", status="Open", first_name="Anna", last_name="B", email_id="a@example.org")
@@ -84,7 +90,7 @@ class TestProcessOpenLeads:
 
 
 class TestSalesInvoiceItems:
-    def test_get_items_aggregates(self, fake_api):
+    def test_get_items_aggregates(self, fake_api: FakeFrappeClient) -> None:
         Api.items_by_code = {"A": {"item_code": "A", "item_name": "Neuer Name"}, "B": {"item_code": "B", "item_name": "B"}}
         fake_api.add("Sales Invoice", name="R-1", items=[{"item_code": "A", "qty": 2.0}, {"item_code": "B", "qty": 1}])
         fake_api.add("Sales Invoice", name="R-2", items=[{"item_code": "A", "qty": 1.5}])   # int() -> 1
@@ -92,7 +98,7 @@ class TestSalesInvoiceItems:
         assert sorted(items, key=lambda i: i["item_code"]) == [{"item_name": "Neuer Name", "item_code": "A", "qty": 3},
                                                               {"item_name": "B", "item_code": "B", "qty": 1}]
 
-    def test_get_items_loads_disabled_items(self, fake_api):
+    def test_get_items_loads_disabled_items(self, fake_api: FakeFrappeClient) -> None:
         Api.items_by_code = {"A": {"item_code": "A", "item_name": "A"}}
         fake_api.add("Item", item_code="ALT", item_name="Alter Artikel", disabled=1)
         fake_api.add("Sales Invoice", name="R-1", items=[{"item_code": "ALT", "qty": 2}])
@@ -100,7 +106,7 @@ class TestSalesInvoiceItems:
 
 
 class TestGetSalesInvoices:
-    def test_writes_csv_and_pdfs(self, fake_api, in_tmp_cwd, capsys):
+    def test_writes_csv_and_pdfs(self, fake_api: FakeFrappeClient, in_tmp_cwd: Path, capsys: pytest.CaptureFixture[str]) -> None:
         fake_api.add("Print Format", name="Rechnung DE", doc_type="Sales Invoice")
         fake_api.add("Sales Invoice", name="R 2026-00001", company=F.COMPANY, posting_date="2026-04-10", status="Paid",
                      taxes_and_charges="Germany VAT 19% - SoMiKo", total_taxes_and_charges=19.0, total=100.0)
@@ -120,7 +126,7 @@ class TestGetSalesInvoices:
         assert sorted(f for f in os.listdir(in_tmp_cwd / d) if f.endswith(".pdf")) == ["R_2026-00001.pdf", "R_2026-00002.pdf"]
         assert fake_api.calls_of("get_pdf")[0][1] == ("Sales Invoice", "R 2026-00001", "Rechnung DE")
 
-    def test_tax_rate_filter(self, fake_api, in_tmp_cwd):
+    def test_tax_rate_filter(self, fake_api: FakeFrappeClient, in_tmp_cwd: Path) -> None:
         fake_api.add("Print Format", name="Rechnung DE", doc_type="Sales Invoice")
         fake_api.add("Sales Invoice", name="R 2026-00001", company=F.COMPANY, posting_date="2026-04-10", status="Paid",
                      taxes_and_charges="Germany VAT 19% - SoMiKo", total_taxes_and_charges=19.0, total=100.0)
@@ -132,7 +138,7 @@ class TestGetSalesInvoices:
 
 
 class TestEbaySales:
-    def _seed(self, fake_api, comp):
+    def _seed(self, fake_api: FakeFrappeClient, comp: Company) -> None:
         fake_api.add("Sales Invoice", name="R-EBAY", company=comp, outstanding_amount=50.0, custom_ebay=1, status="Unpaid",
                      total=42.0, posting_date="2026-03-01", grand_total=50.0, customer="Käufer")
         fake_api.add("Sales Invoice", name="R-KLEIN", company=comp, outstanding_amount=1.5, custom_ebay=1, status="Unpaid",
@@ -140,7 +146,7 @@ class TestEbaySales:
         fake_api.add("Sales Invoice", name="R-NORMAL", company=comp, outstanding_amount=50.0, custom_ebay=0, status="Unpaid",
                      total=42.0, posting_date="2026-03-01", grand_total=50.0, customer="K")
 
-    def test_creates_payments(self, somiko, fake_api, capsys):
+    def test_creates_payments(self, somiko: Company, fake_api: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
         self._seed(fake_api, somiko.name)
         sales_invoice.ebay_sales(somiko.name)
         pes = fake_api.get_list("Payment Entry", fields=["paid_to", "paid_amount", "docstatus", "references"])
@@ -149,7 +155,7 @@ class TestEbaySales:
         assert pes[0]["references"][0]["reference_name"] == "R-EBAY"
         assert "Bitte noch buchen" in capsys.readouterr().out
 
-    def test_submit(self, somiko, fake_api, capsys):
+    def test_submit(self, somiko: Company, fake_api: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
         self._seed(fake_api, somiko.name)
         sales_invoice.ebay_sales(somiko.name, submit=True)
         assert fake_api.get_list("Payment Entry", fields=["docstatus"]) == [{"docstatus": 1}]

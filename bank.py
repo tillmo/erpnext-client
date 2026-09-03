@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 import utils
 from datetime import datetime
 from doc import Doc
@@ -13,14 +17,22 @@ from numpy import sign
 from collections import defaultdict
 import invoice
 
-BT_FIELDS = ['name','deposit','withdrawal','status','date','description',
+if TYPE_CHECKING:
+    from company import Company
+
+BT_FIELDS: list[str] = ['name','deposit','withdrawal','status','date','description',
              'bank_account','company','allocated_amount','unallocated_amount']
 
 class BankAccount(Doc):
-    baccounts_by_iban = {}
-    baccounts_by_name = {}
-    baccounts_by_company = defaultdict(list)
-    def __init__(self,doc):
+    baccounts_by_iban: dict[str, BankAccount] = {}
+    baccounts_by_name: dict[str, BankAccount] = {}
+    baccounts_by_company: defaultdict[str, list[BankAccount]] = defaultdict(list)
+    company: Company
+    iban: str
+    e_account: str
+    balance: float
+    statement_balance: float | None
+    def __init__(self,doc: dict[str, Any]) -> None:
         self.doctype = "Bank Account"
         super().__init__(doc=doc)
         self.company = company.Company.get_company(doc['company'])
@@ -31,9 +43,9 @@ class BankAccount(Doc):
         BankAccount.baccounts_by_iban[self.iban] = self
         BankAccount.baccounts_by_name[self.name] = self
         BankAccount.baccounts_by_company[self.company.name].append(self)
-    def blz(self):
+    def blz(self) -> str:
         return self.iban[4:12]
-    def get_balance(self):
+    def get_balance(self) -> None:
         bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
                               filters={'bank_account':self.name,
                                        'docstatus': ['!=', 2],
@@ -42,7 +54,7 @@ class BankAccount(Doc):
                               limit_page_length=LIMIT)
         self.balance = sum([bt['deposit']-bt['withdrawal'] for bt in bts])
     @classmethod
-    def init_baccounts(cls):
+    def init_baccounts(cls) -> None:
         if not BankAccount.baccounts_by_iban and not sg.UserSettings()['-setup-']:
             print("Lade Kontodaten",end="")
             for bacc in gui_api_wrapper(Api.api.get_list,
@@ -54,19 +66,28 @@ class BankAccount(Doc):
                 BankAccount(bacc)
             print()
     @classmethod
-    def clear_baccounts(cls):
+    def clear_baccounts(cls) -> None:
         BankAccount.baccounts_by_iban = {}
         BankAccount.baccounts_by_name = {}
         BankAccount.baccounts_by_company = defaultdict(list)
     @classmethod
-    def get_baccount_names(cls):
+    def get_baccount_names(cls) -> list[str]:
         comp_name = sg.UserSettings()['-company-']
         BankAccount.init_baccounts()
         bank_accounts = BankAccount.baccounts_by_company[comp_name]
         return [ba.name for ba in bank_accounts]
         
 class BankTransaction(Doc):
-    def __init__(self,doc):
+    date: str
+    withdrawal: float
+    deposit: float
+    amount: float
+    bank_account: str
+    baccount: BankAccount
+    company_name: str
+    company: Company
+    description: str
+    def __init__(self,doc: dict[str, Any]) -> None:
         self.doctype = "Bank Transaction"
         super().__init__(doc=doc)
         self.name = doc['name']
@@ -83,10 +104,10 @@ class BankTransaction(Doc):
         else:    
             self.description = ""
 
-    def show(self):
+    def show(self) -> str:
         return(self.doc['name']+" {}\n{}\n{:.2f}€".format(utils.show_date4(self.date),self.description,self.amount))
 
-    def link_to(self,doctype,docname,amount):
+    def link_to(self,doctype: str,docname: str,amount: float) -> None:
         entry = {'payment_document': doctype,
                  'payment_entry': docname,
                  'allocated_amount': amount}
@@ -98,7 +119,7 @@ class BankTransaction(Doc):
         if not self.doc['unallocated_amount']:
             self.doc['status'] = 'Reconciled'
 
-    def journal_entry(self,cacc_or_bt,is_bt):
+    def journal_entry(self,cacc_or_bt: Any,is_bt: bool) -> None:
         amount = self.doc['unallocated_amount']
         withdrawal = min([amount,self.withdrawal])
         deposit = min([amount,self.deposit])
@@ -124,7 +145,8 @@ class BankTransaction(Doc):
                 bt.link_to('Journal Entry',j['name'],amount)
                 bt.update()
 
-    def payment(self,inv,is_recv=None,party=None,party_type=None):
+    def payment(self,inv: invoice.Invoice | None,is_recv: bool | None=None,party: str | None=None,
+                party_type: str | None=None) -> dict[str, Any] | None:
         amount = abs(self.doc['unallocated_amount'])
         if inv:
             amount = min([amount,inv.outstanding])
@@ -144,7 +166,7 @@ class BankTransaction(Doc):
 
     # find an account, bank transaction or invoice that matches
     # the current bank transaction and link it
-    def transfer(self,sinvs,pinvs):
+    def transfer(self,sinvs: list[invoice.Invoice],pinvs: list[invoice.Invoice]) -> None:
         if self.deposit:
             accounts = self.company.leaf_accounts_for_debit
             invs = sinvs
@@ -215,7 +237,7 @@ class BankTransaction(Doc):
             self.journal_entry(choice,is_bt)
 
     @classmethod
-    def submit_entry(cls,doc_name,is_journal=True):
+    def submit_entry(cls,doc_name: str,is_journal: bool=True) -> None:
         doctype = "Journal Entry" if is_journal else "Payment Entry"
         doctype_name = "Buchungssatz" if is_journal else "Zahlung"
         bts = gui_api_wrapper(Api.api.get_list,"Bank Transaction",
@@ -233,7 +255,7 @@ class BankTransaction(Doc):
         print("{} {} gebucht".format(doctype_name,doc_name))
 
     @classmethod
-    def delete_entry(cls,doc_name,is_journal=True,cancelled=False):
+    def delete_entry(cls,doc_name: str,is_journal: bool=True,cancelled: bool=False) -> None:
         doctype = "Journal Entry" if is_journal else "Payment Entry"
         doctype_name = "Buchungssatz" if is_journal else "Zahlung"
         bts = gui_api_wrapper(Api.api.get_list,"Bank Transaction",
@@ -265,7 +287,7 @@ class BankTransaction(Doc):
             print("{} {} gelöscht".format(doctype_name,doc_name))
 
     @classmethod
-    def unreconcile_for_cancelled_links(cls):
+    def unreconcile_for_cancelled_links(cls) -> None:
         ps = Api.api.get_list('Payment Entry',filters={'docstatus':2},limit_page_length=LIMIT)
         for p in ps:
             BankTransaction.delete_entry(p['name'],False,True)
@@ -274,7 +296,7 @@ class BankTransaction(Doc):
             BankTransaction.delete_entry(j['name'],True,True)       
 
     @classmethod
-    def find_bank_transaction(cls,comp_name,total,bill_no=""):
+    def find_bank_transaction(cls,comp_name: str,total: float,bill_no: str="") -> BankTransaction | None:
         if not bill_no:
             return None
         key = 'deposit'
@@ -295,7 +317,7 @@ class BankTransaction(Doc):
         else:
             return None
 
-    def reconcile_pre_invoice(self):
+    def reconcile_pre_invoice(self) -> None:
         pre_no = utils.extract_prnr(self.description)
         if pre_no:
             pre_no = 'PreR'+pre_no.zfill(5)
@@ -322,7 +344,7 @@ class BankTransaction(Doc):
                 print("PreRechnung {} nicht gefunden".format(pre_no))            
 
     @classmethod            
-    def reconcile_pre_invoices(cls):
+    def reconcile_pre_invoices(cls) -> None:
         # get all bank transactions that are not reconciled
         bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
                               fields=BT_FIELDS,
@@ -336,18 +358,25 @@ class BankTransaction(Doc):
 
 
 class BankStatementEntry:
-    def __init__(self,bank_statement):
+    bank_statement: BankStatement
+    # werden von BankStatement.read_* gesetzt
+    posting_date: str | None
+    purpose: str
+    partner: str
+    partner_iban: str
+    amount: float
+    def __init__(self,bank_statement: BankStatement) -> None:
         self.bank_statement = bank_statement
 
-    def show(self):
+    def show(self) -> str:
         return("{}\n{}\n{}\n{:.2f}€".format(utils.show_date4(self.posting_date),self.purpose,
                                             self.partner,self.amount))
-    def cleanup(self):
+    def cleanup(self) -> None:
         self.purpose = utils.remove_space(self.purpose)
         self.partner = utils.remove_space(self.partner)
 
-    def bank_transaction(self):
-        entry = {'doctype' : 'Bank Transaction',
+    def bank_transaction(self) -> dict[str, Any]:
+        entry: dict[str, Any] = {'doctype' : 'Bank Transaction',
                  'date' : self.posting_date,
                  'bank_account' : self.bank_statement.baccount.name,
                  'description' : self.purpose+" "+self.partner,
@@ -358,14 +387,21 @@ class BankStatementEntry:
         return entry
 
 class BankStatement:
-    def __init__(self,bacc):
+    baccount: BankAccount
+    entries: list[BankStatementEntry]
+    read_iban: str | None
+    sbal: float | None
+    ebal: float | None
+    iban: str
+    transactions: list[dict[str, Any]]
+    def __init__(self,bacc: BankAccount) -> None:
         self.baccount = bacc
         self.entries = []
         self.read_iban = None
         self.sbal = None
         self.ebal = None
         
-    def read_sparkasse_bremen(self,infile):
+    def read_sparkasse_bremen(self,infile: str) -> None:
         first_row = True
         for row in utils.get_csv('iso-8859-4',infile):
             if not row:
@@ -383,7 +419,7 @@ class BankStatement:
             be.cleanup()
             self.entries.append(be)
 
-    def read_sparda_ethik(self,infile):
+    def read_sparda_ethik(self,infile: str) -> None:
         ebal_str = ""
         for row in utils.get_csv('utf-8',infile,replacenl=False):
             if not row or len(row)<=1:
@@ -407,7 +443,7 @@ class BankStatement:
         self.ebal = utils.read_float(ebal_str)
 
     @classmethod
-    def get_baccount(cls,infile):
+    def get_baccount(cls,infile: str) -> tuple[BankAccount | None, str | None]:
         blz = None
         baccount_no = None
         iban = None
@@ -434,7 +470,7 @@ class BankStatement:
             return (None,iban)
 
     @classmethod
-    def read_statement(cls,infile):
+    def read_statement(cls,infile: str) -> BankStatement | None:
         (bacc,iban) = BankStatement.get_baccount(infile)
         if not bacc:
             easygui.msgbox("Konto unbekannt: IBAN {}".format(iban))
@@ -452,7 +488,7 @@ class BankStatement:
         return b
 
     @classmethod
-    def process_file(cls,infile):
+    def process_file(cls,infile: str) -> BankStatement | None:
         b = BankStatement.read_statement(infile)
         if not b:
             return None

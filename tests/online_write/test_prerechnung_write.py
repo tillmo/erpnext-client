@@ -1,4 +1,9 @@
 """PreRechnung anlegen, vorprozessieren und in eine Einkaufsrechnung überführen."""
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
 import pytest
 
 import prerechnung
@@ -6,7 +11,8 @@ import utils
 from api import Api
 from support import factories as F
 from support.deps import skip_module_without_pdftotext
-from support.live import tag
+from support.live import Cleanup, LiveState, tag
+from support.stubs import EasyguiStub
 
 skip_module_without_pdftotext()
 
@@ -16,7 +22,7 @@ PRE_FIELDS = ["datum", "name", "chance", "lieferant", "pdf", "json", "lager", "s
 
 
 @pytest.fixture(autouse=True)
-def _need_doctype(live, monkeypatch):
+def _need_doctype(live: LiveState, monkeypatch: pytest.MonkeyPatch) -> None:
     if not live.doctype_exists("PreRechnung"):
         pytest.skip("DocType PreRechnung fehlt auf der Instanz")
     monkeypatch.setattr(utils, "evince", lambda f: None)
@@ -27,7 +33,7 @@ BUCHUNGSKONTO = "Werkzeuge und Kleingeräte"
 
 
 @pytest.fixture
-def konto(live):
+def konto(live: LiveState) -> str:
     accs = [a["name"] for a in live.company.leaf_accounts if BUCHUNGSKONTO in a["name"]]
     if not accs:
         pytest.skip("kein Konto '{}' fuer {}".format(BUCHUNGSKONTO, live.company_name))
@@ -35,7 +41,7 @@ def konto(live):
 
 
 @pytest.fixture
-def pre(live, api, cleanup, test_supplier, konto, tmp_path, today):
+def pre(live: LiveState, api: Any, cleanup: Cleanup, test_supplier: str, konto: str, tmp_path: Path, today: str) -> tuple[dict[str, Any], str]:
     no = tag("PRE")
     pdf = F.write_generic_invoice_pdf(tmp_path / "pre.pdf", no=no)
     # 'pdf' ist Pflichtfeld, die Datei kann aber erst an ein bestehendes Dokument gehaengt werden:
@@ -52,20 +58,21 @@ def pre(live, api, cleanup, test_supplier, konto, tmp_path, today):
 
 
 class TestProcessInv:
-    def test_process_inv_marks_processed(self, api, pre):
+    def test_process_inv_marks_processed(self, api: Any, pre: tuple[dict[str, Any], str]) -> None:
         inv, no = pre
         prerechnung.process_inv(inv)
         stored = api.get_doc("PreRechnung", inv["name"])
         assert stored["processed"] == 1
 
-    def test_process_inv_sets_amount(self, api, pre):
+    def test_process_inv_sets_amount(self, api: Any, pre: tuple[dict[str, Any], str]) -> None:
         inv, no = pre
         prerechnung.process_inv(inv)
         assert api.get_doc("PreRechnung", inv["name"])["betrag"] == pytest.approx(119.0)
 
 
 class TestReadAndTransfer:
-    def test_pre_invoice_to_purchase_invoice(self, live, api, cleanup, pre, gui):
+    def test_pre_invoice_to_purchase_invoice(self, live: LiveState, api: Any, cleanup: Cleanup,
+                                             pre: tuple[dict[str, Any], str], gui: EasyguiStub) -> None:
         inv, no = pre
         inv["processed"] = 1
         gui.answers["buttonbox"] = "Später buchen"
@@ -80,7 +87,8 @@ class TestReadAndTransfer:
         assert stored["eingepflegt"] == 1 and stored["purchase_invoice"] == doc["name"]
         assert inv["name"] not in {p["name"] for p in live.company.get_open_pre_invoices(False)}
 
-    def test_cli_selection_by_name(self, live, api, cleanup, pre, gui):
+    def test_cli_selection_by_name(self, live: LiveState, api: Any, cleanup: Cleanup, pre: tuple[dict[str, Any], str],
+                                   gui: EasyguiStub) -> None:
         inv, no = pre
         api.update({"doctype": "PreRechnung", "name": inv["name"], "processed": 1})
         gui.answers["buttonbox"] = "Später buchen"

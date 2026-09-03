@@ -4,19 +4,24 @@ Die Zeilen in support.factories bilden die Spaltengeometrie nach, die der Parser
 (feste Offsets wie item_str[73:99]). Ob echte PDFs diese Geometrie liefern, prüft der
 Online-Regressionstest tests/online_read/test_parser_regression.py.
 """
+from __future__ import annotations
+
 import pytest
 
 from support import factories as F
 from support.deps import skip_module_without_pdftotext, requires_de_locale
+from support.fakes import FakeFrappeClient
 from support.stubs import GuiCalled
 
 skip_module_without_pdftotext()
 
 import settings  # noqa: E402
+from company import Company  # noqa: E402
+from purchase_invoice import PurchaseInvoice  # noqa: E402
 from purchase_invoice_parser import PurchaseInvoiceParser  # noqa: E402
 
 
-def parse(comp, supplier, lines, update_stock=True):
+def parse(comp: Company, supplier: str, lines: list[str], update_stock: bool = True) -> tuple[PurchaseInvoice, PurchaseInvoiceParser]:
     pinv = F.make_purchase_invoice(comp, update_stock)
     parser = PurchaseInvoiceParser(pinv, supplier, lines)
     parser.set_purchase_info()
@@ -24,7 +29,7 @@ def parse(comp, supplier, lines, update_stock=True):
 
 
 class TestKrannich:
-    def test_header_and_items(self, somiko):
+    def test_header_and_items(self, somiko: Company) -> None:
         pinv, parser = parse(somiko, "krannich", F.krannich_lines())
         assert pinv.no == "41234567" and pinv.date == "2024-03-15"
         assert pinv.order_id == "AB998877"
@@ -36,7 +41,7 @@ class TestKrannich:
         # Rolle -> Meter aus der Beschreibung
         assert (kabel.item_code, kabel.qty, kabel.qty_unit, kabel.rate) == ("KS-KAB-50", 50, "Meter", 2.0)
 
-    def test_roll_length_with_mm_in_description(self, somiko):
+    def test_roll_length_with_mm_in_description(self, somiko: Company) -> None:
         lines = F.krannich_lines()
         lines[8] = F.layout({5: "Solarkabel 6mm2 Rolle 50 m"})
         pinv, parser = parse(somiko, "krannich", lines)
@@ -44,19 +49,19 @@ class TestKrannich:
         lines[8] = F.layout({5: "Solarkabel 6mm2 Rolle 100 Meter"})
         assert parse(somiko, "krannich", lines)[0].items[1].qty == 100
 
-    def test_totals(self, somiko):
+    def test_totals(self, somiko: Company) -> None:
         pinv, parser = parse(somiko, "krannich", F.krannich_lines())
         assert pinv.shipping == 100.0
         assert pinv.totals[19.0] == 1200.0 and pinv.vat[19.0] == 228.0
         assert pinv.total == 1200.0 and pinv.gross_total == 1428.0
         assert pinv.check_total() == ""
 
-    def test_no_shipping_without_stock(self, somiko):
+    def test_no_shipping_without_stock(self, somiko: Company) -> None:
         pinv, parser = parse(somiko, "krannich", F.krannich_lines(), update_stock=False)
         assert pinv.shipping == 0
         assert pinv.totals[19.0] == 1200.0
 
-    def test_get_purchase_data(self, somiko):
+    def test_get_purchase_data(self, somiko: Company) -> None:
         pinv, parser = parse(somiko, "krannich", F.krannich_lines())
         pinv.supplier = "Krannich Solar GmbH & Co KG"
         data = parser.get_purchase_data()
@@ -67,20 +72,20 @@ class TestKrannich:
         assert data["items"][0] == {"description": "Solarmodul 400 Wp schwarz", "qty": 2, "uom": "Stk", "rate": 500.0,
                                     "amount": 1000.0}
 
-    def test_get_purchase_data_omits_missing_keys(self, somiko):
+    def test_get_purchase_data_omits_missing_keys(self, somiko: Company) -> None:
         pinv = F.make_purchase_invoice(somiko)
         pinv.items, pinv.shipping = [], 0
         data = PurchaseInvoiceParser(pinv, "krannich", []).get_purchase_data()
         assert set(data) == {"supplier", "total", "grand_total", "taxes"}
 
-    def test_get_amount_krannich(self):
+    def test_get_amount_krannich(self) -> None:
         lines = [F.right_aligned("Freight", "12,50", 40), F.right_aligned("Insurance", "7,50", 40)]
         assert PurchaseInvoiceParser.get_amount_krannich(lines) == 20.0
         assert PurchaseInvoiceParser.get_amount_krannich([]) == 0
 
 
 class TestHeckert:
-    def test_parse(self, somiko):
+    def test_parse(self, somiko: Company) -> None:
         pinv, parser = parse(somiko, "heckert", F.heckert_lines())
         assert pinv.no == "RE-2024-555" and pinv.date == "2024-04-12" and pinv.order_id == "AU-77001"
         assert len(pinv.items) == 1
@@ -96,7 +101,7 @@ class TestHeckert:
 
 class TestWagner:
     @requires_de_locale
-    def test_rechnung(self, somiko, restore_locale):
+    def test_rechnung(self, somiko: Company, restore_locale: None) -> None:
         pinv, parser = parse(somiko, "wagner", F.wagner_lines(rechnung=True))
         assert parser.is_rechnung is True
         assert pinv.no == "RE-88001" and pinv.date == "2024-03-15" and pinv.order_id == "AUF-4242"
@@ -109,7 +114,7 @@ class TestWagner:
         assert pinv.check_total() == ""
 
     @requires_de_locale
-    def test_vorkasserechnung(self, somiko, restore_locale):
+    def test_vorkasserechnung(self, somiko: Company, restore_locale: None) -> None:
         pinv, parser = parse(somiko, "wagner", F.wagner_lines(rechnung=False))
         assert parser.is_rechnung is False
         assert pinv.no == "VOR20841"
@@ -122,7 +127,7 @@ class TestWagner:
         ("Auftragsbestätigung AB-9", "AB-9", False),
         ("Zwischensumme 100,00", None, None),
     ])
-    def test_set_no_wagner(self, somiko, line, expected_no, is_rechnung):
+    def test_set_no_wagner(self, somiko: Company, line: str, expected_no: str | None, is_rechnung: bool | None) -> None:
         pinv = F.make_purchase_invoice(somiko)
         pinv.no = None
         parser = PurchaseInvoiceParser(pinv, "wagner", [])
@@ -132,7 +137,7 @@ class TestWagner:
         if is_rechnung is not None:
             assert parser.is_rechnung is is_rechnung
 
-    def test_set_item_wagner_ignores_continuation_lines(self, somiko):
+    def test_set_item_wagner_ignores_continuation_lines(self, somiko: Company) -> None:
         pinv = F.make_purchase_invoice(somiko, True)
         pinv.items, pinv.shipping = [], 0
         parser = PurchaseInvoiceParser(pinv, "wagner", [])
@@ -142,7 +147,7 @@ class TestWagner:
         parser.set_item_wagner(["28100 Summe 5,00\n"])
         assert pinv.items == []
 
-    def test_set_items_survives_broken_position(self, somiko, capsys):
+    def test_set_items_survives_broken_position(self, somiko: Company, capsys: pytest.CaptureFixture[str]) -> None:
         pinv = F.make_purchase_invoice(somiko, True)
         pinv.items, pinv.shipping = [], 0
         parser = PurchaseInvoiceParser(pinv, "wagner", [])
@@ -154,7 +159,7 @@ class TestWagner:
 
 
 class TestPvXchange:
-    def test_items_and_totals(self, somiko):
+    def test_items_and_totals(self, somiko: Company) -> None:
         pinv, parser = parse(somiko, "pvxchange", F.pvxchange_lines())
         assert len(pinv.items) == 1
         item = pinv.items[0]
@@ -164,13 +169,13 @@ class TestPvXchange:
         assert pinv.totals[19.0] == 640.0 and pinv.vat[19.0] == 121.60
         assert pinv.check_total() == ""
 
-    def test_number_and_date_on_invoice(self, somiko):
+    def test_number_and_date_on_invoice(self, somiko: Company) -> None:
         pinv, parser = parse(somiko, "pvxchange", F.pvxchange_lines())
         assert pinv.no == "PVX-2024-100" and pinv.date == "2024-05-12"
 
 
 class TestNkkAndKornkraft:
-    def test_nkk(self, laden):
+    def test_nkk(self, laden: Company) -> None:
         pinv, parser = parse(laden, "nkk", F.nkk_lines(), update_stock=False)
         assert pinv.no == "555123" and pinv.date == "2024-06-12"
         assert pinv.vat == {19.0: 22.80, 7.0: 14.70}
@@ -181,7 +186,7 @@ class TestNkkAndKornkraft:
         assert by_acc[settings.NKK_ACCOUNTS[7.0]]["rate"] == 210.0
         assert pinv.items == []
 
-    def test_kornkraft(self, laden):
+    def test_kornkraft(self, laden: Company) -> None:
         pinv, parser = parse(laden, "kornkraft", F.kornkraft_lines(), update_stock=False)
         assert pinv.no == "777001" and pinv.date == "2024-06-20"
         assert pinv.vat == {19.0: 19.0, 7.0: 21.0}
@@ -189,7 +194,7 @@ class TestNkkAndKornkraft:
         assert pinv.gross_total == 440.0
         assert {i["expense_account"] for i in pinv.e_items} == set(settings.KORNKRAFT_ACCOUNTS.values())
 
-    def test_kornkraft_asterisks_are_removed(self, laden):
+    def test_kornkraft_asterisks_are_removed(self, laden: Company) -> None:
         lines = F.kornkraft_lines()
         lines[-2] = "Steuer 19,0 % Netto 100,00 *19,00 *119,00\n"
         pinv, parser = parse(laden, "kornkraft", lines, update_stock=False)
@@ -197,13 +202,13 @@ class TestNkkAndKornkraft:
 
 
 class TestGeneric:
-    def test_generic_supplier_headless(self, somiko, fake_api):
+    def test_generic_supplier_headless(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         pinv = F.make_purchase_invoice(somiko)
         PurchaseInvoiceParser(pinv, "generic", F.GENERIC_INVOICE_LINES, is_test=True).set_purchase_info()
         assert pinv.no == "2026-0815" and pinv.totals[19.0] == 100.0
         assert fake_api.calls == []
 
-    def test_generic_supplier_without_is_test_reaches_gui(self, somiko, fake_api):
+    def test_generic_supplier_without_is_test_reaches_gui(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         pinv = F.make_purchase_invoice(somiko)
         with pytest.raises(GuiCalled):
             PurchaseInvoiceParser(pinv, "generic", F.GENERIC_INVOICE_LINES).set_purchase_info()

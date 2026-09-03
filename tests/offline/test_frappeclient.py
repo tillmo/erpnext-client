@@ -1,6 +1,11 @@
 """Tests für frappeclient.FrappeClient mit nachgebildeter requests-Session (kein Netz)."""
+from __future__ import annotations
+
 import json
 from base64 import b64encode
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
 
 import pytest
 import requests
@@ -14,31 +19,31 @@ URL = "https://erp.example"
 
 
 @pytest.fixture
-def client():
+def client() -> FrappeClient:
     c = FrappeClient(URL, api_key="key", api_secret="secret")
     c.session = FakeSession()
     return c
 
 
-def last(client):
+def last(client: FrappeClient) -> tuple[str, str, dict[str, Any]]:
     return client.session.requests[-1]
 
 
 class TestAuthentication:
-    def test_basic_auth_header(self, client):
+    def test_basic_auth_header(self, client: FrappeClient) -> None:
         token = b64encode(b"key:secret").decode()
         assert client.headers["Authorization"] == "Basic " + token
         assert client.headers["Accept"] == "application/json"
 
-    def test_without_key_no_auth_header(self):
+    def test_without_key_no_auth_header(self) -> None:
         c = FrappeClient(URL)
         assert "Authorization" not in c.headers
 
-    def test_authorization_source_header(self):
+    def test_authorization_source_header(self) -> None:
         c = FrappeClient(URL, api_key="k", api_secret="s", frappe_authorization_source="MyApp")
         assert c.headers["Frappe-Authorization-Source"] == "MyApp"
 
-    def test_login_with_password(self, monkeypatch):
+    def test_login_with_password(self, monkeypatch: pytest.MonkeyPatch) -> None:
         session = FakeSession([FakeResponse({"message": "Logged In"})])
         monkeypatch.setattr(requests, "session", lambda: session)
         FrappeClient(URL, username="u", password="p")
@@ -46,19 +51,19 @@ class TestAuthentication:
         assert (method, url) == ("POST", URL)
         assert kwargs["params"] == {"cmd": "login", "usr": "u", "pwd": "p"}
 
-    def test_login_failure_raises_autherror(self, monkeypatch):
+    def test_login_failure_raises_autherror(self, monkeypatch: pytest.MonkeyPatch) -> None:
         session = FakeSession([FakeResponse({"message": "Invalid"}, status_code=401)])
         monkeypatch.setattr(requests, "session", lambda: session)
         with pytest.raises(AuthError):
             FrappeClient(URL, username="u", password="falsch")
 
-    def test_login_502(self, monkeypatch):
+    def test_login_502(self, monkeypatch: pytest.MonkeyPatch) -> None:
         session = FakeSession([FakeResponse({"message": "x"}, status_code=502)])
         monkeypatch.setattr(requests, "session", lambda: session)
         with pytest.raises(frappeclient.SiteUnreachableError):
             FrappeClient(URL, username="u", password="p")
 
-    def test_context_manager_logs_out(self, client):
+    def test_context_manager_logs_out(self, client: FrappeClient) -> None:
         with client:
             pass
         method, url, kwargs = last(client)
@@ -66,7 +71,7 @@ class TestAuthentication:
 
 
 class TestGetList:
-    def test_default_fields_and_no_limit(self, client):
+    def test_default_fields_and_no_limit(self, client: FrappeClient) -> None:
         client.session.responses = [FakeResponse({"data": [{"name": "A"}]})]
         assert client.get_list("Company") == [{"name": "A"}]
         method, url, kwargs = last(client)
@@ -74,7 +79,7 @@ class TestGetList:
         assert url == URL + "/api/resource/Company"
         assert kwargs["params"] == {"fields": '["name"]'}
 
-    def test_fields_filters_limit_order(self, client):
+    def test_fields_filters_limit_order(self, client: FrappeClient) -> None:
         client.get_list("Item", fields=["name", "item_code"], filters={"disabled": 0},
                         limit_start=10, limit_page_length=5, order_by="name asc")
         params = last(client)[2]["params"]
@@ -84,17 +89,17 @@ class TestGetList:
         assert params["limit_page_length"] == 5
         assert params["order_by"] == "name asc"
 
-    def test_string_fields_pass_through(self, client):
+    def test_string_fields_pass_through(self, client: FrappeClient) -> None:
         client.get_list("Item", fields='["*"]')
         assert last(client)[2]["params"]["fields"] == '["*"]'
 
-    def test_list_filters(self, client):
+    def test_list_filters(self, client: FrappeClient) -> None:
         client.get_list("Bank Transaction", filters=[["Bank Transaction Payments", "payment_entry", "=", "X"]])
         assert json.loads(last(client)[2]["params"]["filters"]) == [["Bank Transaction Payments", "payment_entry", "=", "X"]]
 
 
 class TestDocumentCalls:
-    def test_insert_posts_json(self, client):
+    def test_insert_posts_json(self, client: FrappeClient) -> None:
         client.session.responses = [FakeResponse({"data": {"name": "SUP-1", "doctype": "Supplier"}})]
         res = client.insert({"doctype": "Supplier", "supplier_name": "S"})
         assert isinstance(res, frappe._dict)
@@ -103,32 +108,32 @@ class TestDocumentCalls:
         assert (method, url) == ("POST", URL + "/api/resource/Supplier")
         assert json.loads(kwargs["data"]["data"]) == {"doctype": "Supplier", "supplier_name": "S"}
 
-    def test_update_puts_to_named_resource(self, client):
+    def test_update_puts_to_named_resource(self, client: FrappeClient) -> None:
         client.session.responses = [FakeResponse({"data": {"name": "S 1"}})]
         client.update({"doctype": "Supplier", "name": "S 1", "x": 1})
         method, url, kwargs = last(client)
         assert method == "PUT"
         assert url == URL + "/api/resource/Supplier/S 1"
 
-    def test_update_with_doctype_does_not_modify_input(self, client):
+    def test_update_with_doctype_does_not_modify_input(self, client: FrappeClient) -> None:
         client.session.responses = [FakeResponse({"data": {}})]
         doc = {"name": "N"}
         client.update_with_doctype(doc, "Bank Account")
         assert doc == {"name": "N"}
         assert last(client)[1].endswith("/api/resource/Bank Account/N")
 
-    def test_get_doc(self, client):
+    def test_get_doc(self, client: FrappeClient) -> None:
         client.session.responses = [FakeResponse({"data": {"name": "N", "items": []}})]
         assert client.get_doc("Purchase Invoice", "N", fields=["name"]) == {"name": "N", "items": []}
         method, url, kwargs = last(client)
         assert url == URL + "/api/resource/Purchase Invoice/N"
         assert kwargs["params"] == {"fields": '["name"]'}
 
-    def test_get_doc_with_filters(self, client):
+    def test_get_doc_with_filters(self, client: FrappeClient) -> None:
         client.get_doc("Item", filters={"a": 1})
         assert last(client)[2]["params"] == {"filters": '{"a": 1}'}
 
-    def test_load_doc_returns_full_payload(self, client):
+    def test_load_doc_returns_full_payload(self, client: FrappeClient) -> None:
         payload = {"docs": [{"name": "L"}], "docinfo": {}}
         client.session.responses = [FakeResponse(payload)]
         assert client.load_doc("Lead", "L") == payload
@@ -143,85 +148,85 @@ class TestDocumentCalls:
         (lambda c: c.insert_many([{"doctype": "Item"}]), "frappe.client.insert_many"),
         (lambda c: c.bulk_update([{"doctype": "Item", "name": "I"}]), "frappe.client.bulk_update"),
     ])
-    def test_post_commands(self, client, call, cmd):
+    def test_post_commands(self, client: FrappeClient, call: Callable[[FrappeClient], Any], cmd: str) -> None:
         call(client)
         method, url, kwargs = last(client)
         assert method == "POST" and url == URL
         assert kwargs["data"]["cmd"] == cmd
 
-    def test_submit_serialises_doc(self, client):
+    def test_submit_serialises_doc(self, client: FrappeClient) -> None:
         client.submit({"doctype": "Journal Entry", "name": "J"})
         assert json.loads(last(client)[2]["data"]["doc"]) == {"doctype": "Journal Entry", "name": "J"}
 
-    def test_get_value(self, client):
+    def test_get_value(self, client: FrappeClient) -> None:
         client.session.responses = [FakeResponse({"message": {"name": "X"}})]
         assert client.get_value("Item", "name", {"item_code": "1"}) == {"name": "X"}
         params = last(client)[2]["params"]
         assert params["cmd"] == "frappe.client.get_value"
         assert json.loads(params["filters"]) == {"item_code": "1"}
 
-    def test_preprocess_dumps_containers(self, client):
+    def test_preprocess_dumps_containers(self, client: FrappeClient) -> None:
         assert client.preprocess({"a": {"x": 1}, "b": [1], "c": "s"}) == {"a": '{"x": 1}', "b": "[1]", "c": "s"}
 
 
 class TestPostProcess:
-    def test_message_and_data(self, client):
+    def test_message_and_data(self, client: FrappeClient) -> None:
         assert client.post_process(FakeResponse({"message": 5})) == 5
         assert client.post_process(FakeResponse({"data": [1]})) == [1]
         assert client.post_process(FakeResponse({"docs": [1]})) == {"docs": [1]}
         assert client.post_process(FakeResponse({"other": 1})) is None
 
-    def test_exc_raises_frappe_exception(self, client):
+    def test_exc_raises_frappe_exception(self, client: FrappeClient) -> None:
         exc = json.dumps(["Traceback ...\nValidationError: nein"])
         with pytest.raises(FrappeException) as e:
             client.post_process(FakeResponse({"exc": exc}))
         assert str(e.value).startswith("FrappeClient Request Failed")
         assert "ValidationError: nein" in str(e.value)
 
-    def test_exc_type_without_traceback_raises(self, client):
+    def test_exc_type_without_traceback_raises(self, client: FrappeClient) -> None:
         # Frappe 14 antwortet bei 404/417 oft nur mit exc_type und _server_messages
         with pytest.raises(FrappeException, match="DoesNotExistError"):
             client.post_process(FakeResponse({"exc_type": "DoesNotExistError", "_server_messages": "[]"}, status_code=404))
 
-    def test_exc_type_on_success_status_is_ignored(self, client):
+    def test_exc_type_on_success_status_is_ignored(self, client: FrappeClient) -> None:
         # z.B. frappe.client.delete meldet intern abgefangene Fehler mit Status 200
         assert client.post_process(FakeResponse({"message": "ok", "exc_type": "DoesNotExistError"})) == "ok"
 
-    def test_non_json_exc_is_passed_through(self, client):
+    def test_non_json_exc_is_passed_through(self, client: FrappeClient) -> None:
         with pytest.raises(FrappeException, match="roh"):
             client.post_process(FakeResponse({"exc": "roh"}))
 
-    def test_invalid_json_prints_and_raises(self, client, capsys):
+    def test_invalid_json_prints_and_raises(self, client: FrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
         with pytest.raises(ValueError):
             client.post_process(FakeResponse(text="<html>Server Error</html>"))
         assert "Server Error" in capsys.readouterr().out
 
 
 class TestFilesAndReports:
-    def test_session_get_retries_on_connection_error(self, client, monkeypatch):
+    def test_session_get_retries_on_connection_error(self, client: FrappeClient, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setattr(frappeclient.time, "sleep", lambda s: None)
         client.session.responses = [requests.exceptions.ConnectionError("down"), FakeResponse({"data": {"name": "N"}})]
         assert client.get_doc("Item", "N") == {"name": "N"}
         assert len(client.session.requests) == 2
 
-    def test_get_pdf_streams_content(self, client):
+    def test_get_pdf_streams_content(self, client: FrappeClient) -> None:
         client.session.responses = [FakeResponse(content=b"%PDF-1.4 abc")]
         out = client.get_pdf("Sales Invoice", "R 1", print_format="Rechnung", letterhead=False, language="de")
         assert out.read() == b"%PDF-1.4 abc"
         params = last(client)[2]["params"]
         assert params["no_letterhead"] == 1 and params["format"] == "Rechnung" and params["_lang"] == "de"
 
-    def test_get_pdf_error(self, client):
+    def test_get_pdf_error(self, client: FrappeClient) -> None:
         client.session.responses = [FakeResponse({"exc": "Fehler"}, status_code=417)]
         with pytest.raises(FrappeException):
             client.get_pdf("Sales Invoice", "R 1")
 
-    def test_get_file(self, client):
+    def test_get_file(self, client: FrappeClient) -> None:
         client.session.responses = [FakeResponse(content=b"bytes")]
         assert client.get_file("/private/files/x.pdf") == b"bytes"
         assert last(client)[1] == URL + "/private/files/x.pdf"
 
-    def test_attach_file_encodes_base64(self, client, tmp_path):
+    def test_attach_file_encodes_base64(self, client: FrappeClient, tmp_path: Path) -> None:
         p = tmp_path / "r.pdf"
         p.write_bytes(b"data")
         client.read_and_attach_file("Purchase Invoice", "EK 1", str(p), True)
@@ -234,7 +239,7 @@ class TestFilesAndReports:
         client.read_and_attach_file("Purchase Invoice", "EK 1", str(p), True, docfield="supplier_invoice")
         assert last(client)[2]["data"]["docfield"] == "supplier_invoice"
 
-    def test_query_report(self, client):
+    def test_query_report(self, client: FrappeClient) -> None:
         client.session.responses = [FakeResponse({"message": {"result": [], "columns": []}})]
         assert client.query_report("General ledger", {"company": "X"}) == {"result": [], "columns": []}
         method, url, kwargs = last(client)
@@ -245,13 +250,13 @@ class TestFilesAndReports:
         client.query_report("Consolidated Financial Statement", {}, ignore_prepared_report=True)
         assert last(client)[2]["params"]["ignore_prepared_report"] == 1
 
-    def test_assign_to(self, client):
+    def test_assign_to(self, client: FrappeClient) -> None:
         client.assign_to("Lead", "L", ["user@example.com"])
         method, url, kwargs = last(client)
         assert url == URL + "/api/method/frappe.desk.form.assign_to.add"
         assert json.loads(kwargs["params"]["assign_to"]) == ["user@example.com"]
 
-    def test_get_attachments_and_background_jobs(self, client):
+    def test_get_attachments_and_background_jobs(self, client: FrappeClient) -> None:
         client.get_attachments("Purchase Invoice", "EK 1")
         assert "run_method=frappe.core.doctype.file.file.get_attached_images" in last(client)[1]
         client.get_background_jobs()

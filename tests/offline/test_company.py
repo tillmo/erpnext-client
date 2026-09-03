@@ -1,4 +1,8 @@
 """Tests für company.Company mit FakeFrappeClient."""
+from __future__ import annotations
+
+from typing import Any
+
 import pytest
 
 import bank
@@ -6,10 +10,12 @@ import company
 from api import Api
 from company import Company
 from support import factories as F
+from support.fakes import FakeFrappeClient
+from support.stubs import UserSettings
 
 
 class TestRegistry:
-    def test_init_registers_and_reads_defaults(self, fake_api):
+    def test_init_registers_and_reads_defaults(self, fake_api: FakeFrappeClient) -> None:
         comp = Company(F.company_doc())
         assert Company.get_company(F.COMPANY) is comp
         assert Company.all() == [F.COMPANY]
@@ -22,15 +28,15 @@ class TestRegistry:
         assert comp.data_loaded is False
         assert comp.erpnext is True
 
-    def test_get_company_unknown(self, fake_api):
+    def test_get_company_unknown(self, fake_api: FakeFrappeClient) -> None:
         assert Company.get_company("gibt es nicht") is None
 
-    def test_clear(self, fake_api):
+    def test_clear(self, fake_api: FakeFrappeClient) -> None:
         Company(F.company_doc())
         Company.clear_companies()
         assert Company.all() == []
 
-    def test_init_companies_from_server(self, fake_api):
+    def test_init_companies_from_server(self, fake_api: FakeFrappeClient) -> None:
         fake_api.add("Company", **F.company_doc("A", "A"))
         fake_api.add("Company", **F.company_doc("B", "B"))
         Company.init_companies()
@@ -38,7 +44,7 @@ class TestRegistry:
         Company.init_companies()  # zweiter Aufruf lädt nicht erneut
         assert len(fake_api.calls_of("get_list")) == 1
 
-    def test_init_companies_fills_accounts(self, fake_api):
+    def test_init_companies_fills_accounts(self, fake_api: FakeFrappeClient) -> None:
         F.seed_company_data(fake_api)
         Company.init_companies()
         comp = Company.get_company(F.COMPANY)
@@ -49,7 +55,7 @@ class TestRegistry:
 
 
 class TestLeafAccounts:
-    def test_starting_with_root_type_puts_that_type_first(self, somiko):
+    def test_starting_with_root_type_puts_that_type_first(self, somiko: Company) -> None:
         debit = somiko.leaf_accounts_for_debit
         credit = somiko.leaf_accounts_for_credit
         assert debit[0]["root_type"] == "Income"
@@ -60,7 +66,7 @@ class TestLeafAccounts:
 
 
 @pytest.fixture
-def seeded(fake_api):
+def seeded(fake_api: FakeFrappeClient) -> FakeFrappeClient:
     F.seed_company_data(fake_api)
     year = fake_api.year
     fake_api.add("Journal Entry", company=F.COMPANY, posting_date="2026-08-01", user_remark="Miete August",
@@ -82,7 +88,7 @@ def seeded(fake_api):
 
 
 class TestLoadData:
-    def test_load_data(self, seeded, capsys):
+    def test_load_data(self, seeded: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
         Company.init_companies()
         comp = Company.get_company(F.COMPANY)
         comp.load_data()
@@ -104,7 +110,7 @@ class TestLoadData:
             {"4996 - Herstellungskosten - SoMiKo", "3800 - Bezugsnebenkosten - SoMiKo"}
         assert "Lade Daten für " + F.COMPANY in capsys.readouterr().out
 
-    def test_load_data_only_once(self, seeded):
+    def test_load_data_only_once(self, seeded: FakeFrappeClient) -> None:
         Company.init_companies()
         comp = Company.get_company(F.COMPANY)
         comp.load_data()
@@ -112,13 +118,13 @@ class TestLoadData:
         comp.load_data()
         assert len(seeded.calls) == n
 
-    def test_current_load_data_uses_setting(self, seeded, user_settings):
+    def test_current_load_data_uses_setting(self, seeded: FakeFrappeClient, user_settings: UserSettings) -> None:
         Company.init_companies()
         user_settings["-company-"] = F.COMPANY
         Company.current_load_data()
         assert Company.get_company(F.COMPANY).data_loaded is True
 
-    def test_current_load_data_without_company(self, seeded, user_settings):
+    def test_current_load_data_without_company(self, seeded: FakeFrappeClient, user_settings: UserSettings) -> None:
         Company.init_companies()
         user_settings["-company-"] = None
         Company.current_load_data()
@@ -126,7 +132,7 @@ class TestLoadData:
 
 
 class TestQueries:
-    def test_get_invoices_of_type(self, somiko, fake_api):
+    def test_get_invoices_of_type(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         fake_api.add("Purchase Invoice", company=somiko.name, supplier="A", bill_no="1", status="Unpaid",
                      posting_date="2026-01-01", grand_total=100.0, outstanding_amount=100.0, is_return=0)
         fake_api.add("Purchase Invoice", company=somiko.name, supplier="B", bill_no="2", status="Overdue",
@@ -147,7 +153,7 @@ class TestQueries:
         assert sales[0].reference == sales[0].name
         assert len(somiko.get_invoices(True)) == 2
 
-    def test_open_pre_invoices(self, somiko, fake_api):
+    def test_open_pre_invoices(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         fake_api.add("PreRechnung", company=somiko.name, eingepflegt=False, typ="Rechnung", datum="2026-01-01",
                      lieferant="A", pdf="/private/files/a.pdf")
         fake_api.add("PreRechnung", company=somiko.name, eingepflegt=False, typ="Anzahlungsrechnung", datum="2026-01-02")
@@ -160,7 +166,7 @@ class TestQueries:
                                "nuruk", "nurelektromaterial"}
         assert len(somiko.get_open_pre_invoices(True)) == 1
 
-    def test_open_documents(self, somiko, fake_api):
+    def test_open_documents(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         fake_api.add("Bank Transaction", company=somiko.name, status="Pending", unallocated_amount=10.0,
                      deposit=10.0, withdrawal=0.0, date="2026-01-01", bank_account="B", description="x")
         fake_api.add("Bank Transaction", company=somiko.name, status="Pending", unallocated_amount=0.0,
@@ -183,7 +189,7 @@ class TestQueries:
         assert len(unassigned) == 1 and unassigned[0]["unallocated_amount"] == 1.0
         assert somiko.pre_tax_templates() == [{"name": "T1"}]
 
-    def test_descendants(self, fake_api):
+    def test_descendants(self, fake_api: FakeFrappeClient) -> None:
         fake_api.add("Company", **F.company_doc("Mutter", "M"))
         fake_api.add("Company", **dict(F.company_doc("Kind", "K"), parent_company="Mutter"))
         fake_api.add("Company", **dict(F.company_doc("Enkel", "E"), parent_company="Kind"))
@@ -194,7 +200,8 @@ class TestQueries:
 
 
 class TestReconcile:
-    def test_reconcile_all_only_pending_without_payments(self, somiko, fake_api, monkeypatch):
+    def test_reconcile_all_only_pending_without_payments(self, somiko: Company, fake_api: FakeFrappeClient,
+                                                         monkeypatch: pytest.MonkeyPatch) -> None:
         bacc = F.make_bank_account(fake_api, somiko)
         fake_api.add("Bank Transaction", **F.bank_transaction_doc(bacc.name, deposit=10.0, description="offen"))
         fake_api.add("Bank Transaction", **F.bank_transaction_doc(bacc.name, deposit=10.0, description="verknüpft",
@@ -206,7 +213,8 @@ class TestReconcile:
         somiko.reconcile_all()
         assert seen == ["offen"]
 
-    def test_reconcile_swaps_return_invoices(self, somiko, fake_api, monkeypatch):
+    def test_reconcile_swaps_return_invoices(self, somiko: Company, fake_api: FakeFrappeClient,
+                                             monkeypatch: pytest.MonkeyPatch) -> None:
         bacc = F.make_bank_account(fake_api, somiko)
         name = fake_api.add("Bank Transaction", **F.bank_transaction_doc(bacc.name, deposit=10.0))
         fake_api.add("Purchase Invoice", company=somiko.name, supplier="A", bill_no="1", status="Return",
@@ -215,7 +223,7 @@ class TestReconcile:
                      posting_date="2026-01-05", grand_total=200.0, outstanding_amount=200.0, is_return=0)
         seen = {}
 
-        def transfer(self, sinvs, pinvs):
+        def transfer(self, sinvs: list[Any], pinvs: list[Any]) -> None:
             seen["s"] = [i.reference for i in sinvs]
             seen["p"] = [i.reference for i in pinvs]
         monkeypatch.setattr(bank.BankTransaction, "transfer", transfer)

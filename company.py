@@ -1,4 +1,8 @@
+from __future__ import annotations
+
 JOURNAL_LIMIT = 100
+
+from typing import Any
 
 from doc import Doc
 import PySimpleGUI as sg
@@ -12,8 +16,24 @@ import urllib
 from collections import defaultdict
 
 class Company(Doc):
-    companies_by_name = {}
-    def leaf_accounts_starting_with_root_type(self,root_type):
+    companies_by_name: dict[str, Company] = {}
+    # in load_data / set_accounts gesetzte Instanzattribute
+    taxes: dict[float, str]
+    default_vat: float | None
+    data_loaded: bool
+    accounts: list[dict[str, Any]]
+    leaf_accounts: list[dict[str, Any]]
+    leaf_accounts_by_root_type: dict[str, list[dict[str, Any]]]
+    leaf_accounts_for_debit: list[dict[str, Any]]
+    leaf_accounts_for_credit: list[dict[str, Any]]
+    journal: list[dict[str, Any]]
+    purchase_invoices: defaultdict[str, list[dict[str, Any]]]
+    cost_center: str | None
+    expense_account: str | None
+    payable_account: str | None
+    receivable_account: str | None
+    default_finance_book: str | None
+    def leaf_accounts_starting_with_root_type(self,root_type: str) -> list[dict[str, Any]]:
         root_types = list(self.leaf_accounts_by_root_type.keys())
         root_types.remove(root_type)
         accounts = self.leaf_accounts_by_root_type[root_type].copy()
@@ -22,10 +42,10 @@ class Company(Doc):
         return accounts
     
     # Felder, die der Client aus dem Firmendokument braucht (get_list liefert sonst nur 'name')
-    FIELDS = ['name','cost_center','default_expense_account','default_payable_account',
+    FIELDS: list[str] = ['name','cost_center','default_expense_account','default_payable_account',
               'default_receivable_account','default_finance_book']
 
-    def __init__(self,doc):
+    def __init__(self,doc: dict[str, Any]) -> None:
         self.doctype = "Company"
         super().__init__(doc=doc)
         self.set_accounts(doc)
@@ -34,7 +54,7 @@ class Company(Doc):
         Company.companies_by_name[self.name] = self
         self.data_loaded = False
 
-    def load_data(self):
+    def load_data(self) -> None:
         if self.data_loaded:
             return
         print("Lade Daten für "+self.name,end="")
@@ -99,7 +119,7 @@ class Company(Doc):
         print(".")
         self.data_loaded = True
 
-    def set_accounts(self,doc):
+    def set_accounts(self,doc: dict[str, Any]) -> None:
         self.cost_center = doc.get('cost_center')
         self.expense_account = doc.get('default_expense_account')
         self.payable_account = doc.get('default_payable_account')
@@ -107,7 +127,7 @@ class Company(Doc):
         self.default_finance_book = doc.get('default_finance_book')
 
     @classmethod    
-    def current_load_data(cls):
+    def current_load_data(cls) -> None:
         settings = sg.UserSettings()
         comp_name = settings['-company-']
         if comp_name:
@@ -115,7 +135,7 @@ class Company(Doc):
             comp.load_data()
         
     @classmethod    
-    def init_companies(cls):
+    def init_companies(cls) -> None:
         if not Company.companies_by_name:
             print("Lade Firmendaten",end="")
             for comp in Api.api.get_list('Company', fields=Company.FIELDS):
@@ -123,20 +143,20 @@ class Company(Doc):
                 Company(comp)
             print()
     @classmethod    
-    def clear_companies(cls):
+    def clear_companies(cls) -> None:
         Company.companies_by_name = {}
     @classmethod
-    def all(cls):
+    def all(cls) -> list[str]:
         return list(Company.companies_by_name.keys())
     @classmethod    
-    def get_company(cls,name):
+    def get_company(cls,name: str) -> Company | None:
         try:
             return Company.companies_by_name[name]
         except Exception:
             return None
-    def get_invoices_of_type(self,inv_type,open_invs):
+    def get_invoices_of_type(self,inv_type: str,open_invs: bool) -> list[invoice.Invoice]:
         is_sales = (inv_type=='Sales Invoice')
-        filters={'company':self.name}
+        filters: dict[str, Any] = {'company':self.name}
         if open_invs:
             filters['status'] = ['in',['Draft','Unpaid','Overdue','Partly Paid','Return']]
         else:    
@@ -153,14 +173,14 @@ class Company(Doc):
                 fields=fields,               
                 limit_page_length=LIMIT)
         return [invoice.Invoice(inv,is_sales) for inv in invs if (not open_invs) or inv['outstanding_amount']]
-    def get_sales_invoices(self,open_invs):
+    def get_sales_invoices(self,open_invs: bool) -> list[invoice.Invoice]:
         return self.get_invoices_of_type('Sales Invoice',open_invs)
-    def get_purchase_invoices(self,open_invs):
+    def get_purchase_invoices(self,open_invs: bool) -> list[invoice.Invoice]:
         return self.get_invoices_of_type('Purchase Invoice',open_invs)
-    def get_invoices(self,open_invs):
+    def get_invoices(self,open_invs: bool) -> list[invoice.Invoice]:
         return self.get_invoices_of_type('Purchase Invoice',open_invs) + \
                self.get_invoices_of_type('Sales Invoice',open_invs)
-    def get_open_pre_invoices(self,advance):
+    def get_open_pre_invoices(self,advance: bool) -> list[dict[str, Any]]:
         typ = 'Anzahlungsrechnung' if advance else 'Rechnung'
         return gui_api_wrapper(\
                 Api.api.get_list,'PreRechnung',
@@ -173,7 +193,7 @@ class Company(Doc):
                          'nuruk', 'nurelektromaterial'],
                 limit_page_length=LIMIT)
 
-    def reconcile(self,bt):
+    def reconcile(self,bt: dict[str, Any]) -> None:
         Api.load_account_data()
         sinvs = self.get_sales_invoices(True)
         pinvs = self.get_purchase_invoices(True)
@@ -182,7 +202,7 @@ class Company(Doc):
         bt = gui_api_wrapper(Api.api.get_doc,'Bank Transaction',bt['name'])
         bank.BankTransaction(bt).transfer(sinvs1,pinvs1)
 
-    def reconcile_all(self):
+    def reconcile_all(self) -> None:
         Api.load_account_data()
         sinvs = self.get_sales_invoices(True)
         pinvs = self.get_purchase_invoices(True)
@@ -194,7 +214,7 @@ class Company(Doc):
             bt = gui_api_wrapper(Api.api.get_doc,'Bank Transaction',bt['name'])
             if (not 'payment_entries' in bt) or (not bt['payment_entries']):
                 bank.BankTransaction(bt).transfer(sinvs,pinvs)
-    def open_bank_transactions(self):
+    def open_bank_transactions(self) -> list[dict[str, Any]]:
         bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
                               fields=bank.BT_FIELDS,
                               filters={'company':self.name,
@@ -202,12 +222,12 @@ class Company(Doc):
                                        'unallocated_amount':['>',0]},
                                        limit_page_length=LIMIT)
         return bts
-    def open_journal_entries(self):
+    def open_journal_entries(self) -> list[dict[str, Any]]:
         return gui_api_wrapper(Api.api.get_list,'Journal Entry',
                                filters={'company':self.name,
                                         'docstatus':0},
                                limit_page_length=LIMIT)
-    def unbooked_payment_entries(self):
+    def unbooked_payment_entries(self) -> list[dict[str, Any]]:
         return gui_api_wrapper(Api.api.get_list,'Payment Entry',
                                filters={'company':self.name,
                                         'docstatus':0},
@@ -215,7 +235,7 @@ class Company(Doc):
                                        'unallocated_amount',
                                        'paid_amount','party','posting_date'],
                                         limit_page_length=LIMIT)
-    def unassigned_payment_entries(self):
+    def unassigned_payment_entries(self) -> list[dict[str, Any]]:
         return gui_api_wrapper(Api.api.get_list,'Payment Entry',
                                filters={'company':self.name,
                                         'docstatus':1,
@@ -224,21 +244,21 @@ class Company(Doc):
                                        'unallocated_amount',
                                        'paid_amount','party','posting_date'],
                                         limit_page_length=LIMIT)
-    def pre_tax_templates(self):
+    def pre_tax_templates(self) -> list[dict[str, Any]]:
         return gui_api_wrapper(Api.api.get_list,
                                 'Purchase Taxes and Charges Template',
                                 filters={'company':self.name},
                                 limit_page_length=LIMIT)
-    def descendants(self):
+    def descendants(self) -> list[Company]:
         children = Api.api.get_list("Company",
                                     filters={'parent_company':self.name},
                                     limit_page_length=LIMIT)
-        descendants = [self]
+        descendants: list[Company] = [self]
         for c in children:
             descendants += Company.companies_by_name[c['name']].descendants()
         return descendants
     
     @classmethod    
-    def descendants_by_name(cls, company_name):
+    def descendants_by_name(cls, company_name: str) -> list[str]:
         descendants = Company.companies_by_name[company_name].descendants()
         return list(map(lambda c:c.name,descendants))

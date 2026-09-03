@@ -1,4 +1,8 @@
 #!/usr/bin/python3
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 from purchase_invoice_google_parser import PurchaseInvoiceGoogleParser
 from purchase_invoice_parser import PurchaseInvoiceParser, SupplierItem
 from settings import STANDARD_PRICE_LIST, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, \
@@ -24,15 +28,18 @@ import jsondiff
 from jsondiff.symbols import insert, delete
 import jsoneditor
 
+if TYPE_CHECKING:
+    from company import Company
+
 
 # extract amounts of form xxx,xx from string
-def extract_amounts(s):
+def extract_amounts(s: str) -> list[float]:
     amounts = re.findall(r"([0-9]+,[0-9][0-9])", s)
     return list(map(lambda s: float(s.replace(",", ".")), amounts))
 
 
 # try to extract gross amount and vat from an invoice
-def extract_amount_and_vat(lines, vat_rates):
+def extract_amount_and_vat(lines: list[str], vat_rates: list[float]) -> tuple[float | None, float | None]:
     amounts = extract_amounts(" ".join(lines))
     if not amounts:
         return (None, None)
@@ -53,7 +60,7 @@ def extract_amount_and_vat(lines, vat_rates):
     return (max(amounts), 0)
 
 
-def extract_date(lines):
+def extract_date(lines: list[str]) -> str | None:
     for line in lines:
         if "Rechnungsdatum" in line:
             for word in line.split():
@@ -68,8 +75,8 @@ def extract_date(lines):
     return None
 
 
-def extract_no(lines):
-    nos = []
+def extract_no(lines: list[str]) -> str | None:
+    nos: list[str] = []
     for line in lines:
         lline = line.lower()
         if ("Seite" in line and "von" in line) or "Verwendungszweck" in line \
@@ -103,11 +110,11 @@ def extract_no(lines):
     return nos[0].strip()
 
 
-def extract_supplier(lines):
+def extract_supplier(lines: list[str]) -> str:
     return " ".join(lines[0][0:80].split())
 
 
-def decode_uft_8(bline):
+def decode_uft_8(bline: bytes) -> str:
     try:
         return bline.decode('utf_8')
     except Exception:
@@ -119,7 +126,7 @@ def decode_uft_8(bline):
 PDFTOTEXT_LAYOUT_OPTION = "-table"
 
 
-def _check_pdftotext():
+def _check_pdftotext() -> None:
     global PDFTOTEXT_LAYOUT_OPTION
     r = subprocess.run(["pdftotext", "-v"], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
     out = r.stdout.decode("utf-8", errors="replace")
@@ -137,7 +144,7 @@ def _check_pdftotext():
 _check_pdftotext()
 
 
-def pdf_to_text(file, raw=False):
+def pdf_to_text(file: str, raw: bool = False) -> list[str]:
     cmd = ["pdftotext", "-nopgbrk"]
     if raw:
         cmd.append("-raw")
@@ -153,7 +160,7 @@ def pdf_to_text(file, raw=False):
     return lines
 
 
-def ask_if_to_continue(err, msg=""):
+def ask_if_to_continue(err: str, msg: str = "") -> bool:
     if err:
         title = "Warnung"
         return easygui.ccbox(err + msg, title)  # show a Continue/Cancel dialog
@@ -161,9 +168,45 @@ def ask_if_to_continue(err, msg=""):
 
 
 class PurchaseInvoice(Invoice):
-    suppliers = {}
+    suppliers: dict[str, dict[str, Any]] = {}
 
-    def extract_order_id(self, str, line):
+    # in __init__ gesetzte Instanzattribute
+    update_stock: bool
+    aggregate_item_code: str | None
+    order_id: str | None
+    date: str | None
+    company_name: str
+    company: Company
+    remarks: str | None
+    project: str | None
+    paid_by_submitter: bool
+    total: float
+    gross_total: float
+    default_vat: float
+    vat_rates: list[float]
+    # enthalten nach parse_generic zeitweise "" statt einer Zahl, daher Any
+    vat: dict[float, Any]
+    totals: dict[float, Any]
+    multi: bool
+    infiles: list[str]
+    is_duplicate: bool
+    e_items: list[dict[str, Any]]
+    raw: bool
+    skonto: float
+    parser: str | None
+    cli_overrides: dict[str, Any] | None
+    # erst von den Parsern bzw. in compute_total/create_taxes gesetzt
+    supplier: str | None
+    supplier_address: str | None
+    shipping_address: str | None
+    no: str | None
+    shipping: float
+    items: list[SupplierItem]
+    extract_items: bool
+    total_vat: float
+    taxes: list[dict[str, Any]]
+
+    def extract_order_id(self, str: str, line: str) -> None:
         if str in line:
             try:
                 lsplit = line.split()
@@ -172,7 +215,8 @@ class PurchaseInvoice(Invoice):
             except:
                 pass
 
-    def complete_data_by_gui(self, account=None, paid_by_submitter=False, amount=""):
+    def complete_data_by_gui(self, account: str | None = None, paid_by_submitter: bool = False,
+                             amount: float | str | None = "") -> bool:
         """
         This method is used to change some information about the purchase invoice object by GUI.
         """
@@ -261,7 +305,8 @@ class PurchaseInvoice(Invoice):
             self.assign_default_e_items({self.default_vat: account})
         return True
 
-    def complete_data_by_cli(self, account=None, paid_by_submitter=False, amount=""):
+    def complete_data_by_cli(self, account: str | None = None, paid_by_submitter: bool = False,
+                             amount: float | str | None = "") -> bool:
         """CLI-mode data completion: applies cli_overrides then prompts for still-missing values."""
         ov = self.cli_overrides or {}
 
@@ -345,10 +390,11 @@ class PurchaseInvoice(Invoice):
             self.assign_default_e_items({self.default_vat: account})
         return True
 
-    def parse_generic(self, lines, account=None, paid_by_submitter=False, is_test=False):
+    def parse_generic(self, lines: list[str], account: str | None = None, paid_by_submitter: bool = False,
+                      is_test: bool = False) -> PurchaseInvoice | None:
         self.parser = "generic"
         self.extract_items = False
-        amount = ""
+        amount: float | str | None = ""
         self.vat[self.default_vat] = ""
         self.totals[self.default_vat] = ""
         self.shipping = 0.0
@@ -377,7 +423,8 @@ class PurchaseInvoice(Invoice):
         elif self.complete_data_by_gui(account, paid_by_submitter, amount):
             return self
 
-    def complete_missing_data(self, account=None, paid_by_submitter=False, is_test=False, check_dup=True):
+    def complete_missing_data(self, account: str | None = None, paid_by_submitter: bool = False,
+                              is_test: bool = False, check_dup: bool = True) -> PurchaseInvoice | None:
         """
          This method is used to complete the missing information of the purchase invoice object
         """
@@ -424,7 +471,7 @@ class PurchaseInvoice(Invoice):
         elif self.complete_data_by_gui(account, paid_by_submitter):
             return self
 
-    def apply_info_changes(self, diff, new_data_model):
+    def apply_info_changes(self, diff: dict[Any, Any], new_data_model: dict[str, Any] | None) -> None:
         """
         Whenever we want to change the information obtained from parsers' purchase data,
          it is necessary to call this method so that the changes are also applied to the purchase invoice object.
@@ -531,7 +578,7 @@ class PurchaseInvoice(Invoice):
                 elif key == 'shipping':
                     self.shipping = value[1]
 
-    def apply_final_data(self, final_data):
+    def apply_final_data(self, final_data: dict[str, Any]) -> None:
         """
         final_data is the merged (and possibly manually edited) purchase data and thus authoritative.
         Copy its identifying fields back onto the purchase invoice object, since everything
@@ -551,17 +598,17 @@ class PurchaseInvoice(Invoice):
                 print("Übernehme {} = {!r} aus final_data (Objekt hatte {!r})".format(key, value, old_value))
                 setattr(self, attr, value)
 
-    def edit_data_model_manually(self, data_model, infile):
+    def edit_data_model_manually(self, data_model: dict[str, Any], infile: str) -> dict[str, Any] | None:
         """
         This method is used to manually change the information obtained from the parsers' purchase data.
         """
-        diff = None
-        new_data_model = None
+        diff: dict[Any, Any] | None = None
+        new_data_model: dict[str, Any] | None = None
 
         if utils.running_linux():
             os.system("evince " + infile + " &")
 
-        def store_json(json_data: dict):
+        def store_json(json_data: dict[str, Any]) -> None:
             nonlocal diff, new_data_model
             new_data_model = json_data
             diff = jsondiff.diff(data_model, json_data, syntax='symmetric')
@@ -573,7 +620,8 @@ class PurchaseInvoice(Invoice):
 
         return new_data_model
 
-    def merge_items(self, items1, items2):
+    def merge_items(self, items1: list[dict[str, Any]] | None,
+                    items2: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if not items1:
             return items2
         dict1 = {item.get("item_code", 0): item for item in items1}
@@ -598,8 +646,9 @@ class PurchaseInvoice(Invoice):
         print("Merged list of items .......", merged_list)
         return merged_list
 
-    def parse_invoice(self, invoice_json, infile, account_abbrv=None, paid_by_submitter=False, given_supplier=None,
-                      is_test=False, check_dup=True, manual_edit=False):
+    def parse_invoice(self, invoice_json: dict[str, Any] | None, infile: str, account_abbrv: str | None = None,
+                      paid_by_submitter: bool = False, given_supplier: str | None = None,
+                      is_test: bool = False, check_dup: bool = True, manual_edit: bool = False) -> PurchaseInvoice | None:
         account = None
         if account_abbrv:
             accounts = self.company.leaf_accounts_for_credit
@@ -684,7 +733,7 @@ class PurchaseInvoice(Invoice):
         self.supplier = given_supplier
         return self.parse_generic(lines, account, paid_by_submitter, is_test)
 
-    def compute_total(self):
+    def compute_total(self) -> None:
         self.total = sum([t for v, t in self.totals.items()])
         self.total_vat = sum([t for v, t in self.vat.items()])
         self.gross_total = round(self.total + self.total_vat, 2)
@@ -696,7 +745,7 @@ class PurchaseInvoice(Invoice):
                       ". MWSt auf der Rechnung: ",
                       self.vat[vat])
 
-    def assign_default_e_items(self, accounts):
+    def assign_default_e_items(self, accounts: dict[float, str]) -> None:
         self.e_items = []
         for vat in self.vat_rates:
             if vat in accounts.keys() and self.totals[vat]:
@@ -711,7 +760,7 @@ class PurchaseInvoice(Invoice):
 #        if not self.update_stock and self.vat_rates:
 #            self.e_items[0]['expense_account'] = accounts[self.vat_rates[0]]
 
-    def assign_aggregate_e_item(self):
+    def assign_aggregate_e_item(self) -> None:
         # totals enthalten den Versand, den create_doc als eigene Zeile ergänzt
         net = sum(self.totals.values()) - self.shipping
         self.e_items = [{
@@ -721,7 +770,7 @@ class PurchaseInvoice(Invoice):
             'cost_center': self.company.cost_center,
         }]
 
-    def create_taxes(self):
+    def create_taxes(self) -> None:
         self.taxes = []
         for vat, account in self.company.taxes.items():
             if self.vat[vat]:
@@ -732,7 +781,7 @@ class PurchaseInvoice(Invoice):
                                    'description': VAT_DESCRIPTION,
                                    'tax_amount': self.vat[vat]})
 
-    def create_doc(self):
+    def create_doc(self) -> None:
         self.doc = {
             'doctype': 'Purchase Invoice',
             'company': self.company.name,
@@ -764,7 +813,7 @@ class PurchaseInvoice(Invoice):
                                       'description': DELIVERY_COST_DESCRIPTION,
                                       'tax_amount': self.shipping})
 
-    def check_total(self, check_dup=True):
+    def check_total(self, check_dup: bool = True) -> str:
         err = ""
         computed_total = self.shipping + sum([item.rate * item.qty for item in self.items])
         if check_dup and abs(self.total - computed_total) > 0.005:
@@ -772,9 +821,9 @@ class PurchaseInvoice(Invoice):
             err += "\nDies kann noch durch Preisanpassungen korrigiert werden.\n"
         return err
 
-    def check_duplicates(self):
+    def check_duplicates(self) -> str:
         err = ""
-        items = defaultdict(list)
+        items: defaultdict[Any, list[dict[str, Any]]] = defaultdict(list)
         for item in self.e_items:
             items[item['item_code']].append(item)  # group items by item_code
         for key in items.keys():
@@ -786,7 +835,7 @@ class PurchaseInvoice(Invoice):
             err += "\n\nTrotzdem Rechnung erstellen?"
         return err
 
-    def check_if_present(self, check_dup=True):
+    def check_if_present(self, check_dup: bool = True) -> bool:
         if not check_dup or not self.no or not self.no.strip():
             return False
         upload = None
@@ -813,7 +862,7 @@ class PurchaseInvoice(Invoice):
             return True
         return False
 
-    def __init__(self, update_stock=False, aggregate_item_code=None):
+    def __init__(self, update_stock: bool = False, aggregate_item_code: str | None = None) -> None:
         # do not call super().__init__ here,
         # because there is no doc in ERPNext yet
         self.update_stock = update_stock
@@ -848,14 +897,17 @@ class PurchaseInvoice(Invoice):
 
     # for testing
     @classmethod
-    def parse_and_dump(cls, infile, update_stock, account_abbrv=None, paid_by_submitter=False):
+    def parse_and_dump(cls, infile: str, update_stock: bool, account_abbrv: str | None = None,
+                       paid_by_submitter: bool = False) -> None:
         inv = PurchaseInvoice(update_stock).parse_invoice(infile, account_abbrv, paid_by_submitter)
         pprint(vars(inv))
         pprint(list(map(lambda x: pprint(vars(x)), inv.items)))
 
     @classmethod
-    def read_and_transfer(cls, invoice_json, infile, update_stock, account_abbrv=None, paid_by_submitter=False, project=None,
-                          supplier=None, check_dup=True, cli_overrides=None, pre_invoice=None):
+    def read_and_transfer(cls, invoice_json: dict[str, Any] | None, infile: str, update_stock: bool,
+                          account_abbrv: str | None = None, paid_by_submitter: bool = False, project: str | None = None,
+                          supplier: str | None = None, check_dup: bool = True, cli_overrides: dict[str, Any] | None = None,
+                          pre_invoice: dict[str, Any] | None = None) -> PurchaseInvoice | None:
         aggregate_item_code = None
         if update_stock and pre_invoice:
             if pre_invoice.get('nuruk'):
@@ -875,7 +927,8 @@ class PurchaseInvoice(Invoice):
             print("Keine Einkaufsrechnung angelegt")
         return inv
 
-    def read_pdf(self, invoice_json, infile, account_abbrv=None, paid_by_submitter=False, supplier=None, check_dup=True):
+    def read_pdf(self, invoice_json: dict[str, Any] | None, infile: str, account_abbrv: str | None = None,
+                 paid_by_submitter: bool = False, supplier: str | None = None, check_dup: bool = True) -> PurchaseInvoice | None:
         self.infiles = [infile]
         if not self.parse_invoice(invoice_json, infile, account_abbrv, paid_by_submitter, supplier, check_dup=check_dup):
             return None
@@ -908,7 +961,7 @@ class PurchaseInvoice(Invoice):
         self.create_taxes()
         return self
 
-    def summary(self):
+    def summary(self) -> str:
         if not self.doc:
             self.create_doc()
         fields = [('Rechnungsnr.', 'bill_no'),
@@ -951,7 +1004,7 @@ class PurchaseInvoice(Invoice):
         lines = [line[0:70] for line in lines]
         return "\n".join(lines)
 
-    def upload_pdfs(self, inv_name=None, docfield=None):
+    def upload_pdfs(self, inv_name: str | None = None, docfield: str | None = None) -> Any:
         print("Übertrage PDF der Rechnung")
         if not inv_name:
             inv_name = self.doc['name']
@@ -962,7 +1015,7 @@ class PurchaseInvoice(Invoice):
                                      infile, True, docfield)
         return upload
 
-    def send_to_erpnext(self, silent=False):
+    def send_to_erpnext(self, silent: bool = False) -> PurchaseInvoice | None:
         print("Stelle ERPNext-Rechnung zusammen")
         self.create_doc()
         Api.create_supplier(self.supplier)
@@ -1029,7 +1082,7 @@ class PurchaseInvoice(Invoice):
         return self
 
 
-heckert_info = {'parser': 'heckert',
+heckert_info: dict[str, Any] = {'parser': 'heckert',
                 'raw': False, 'multi': False,
                 'supplier': 'Heckert Solar GmbH'}
 

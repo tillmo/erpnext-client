@@ -1,12 +1,16 @@
 """Tests für args.py (Kommandozeile, Einstellungen) und die GUI-freien Teile von menu.py."""
+from __future__ import annotations
+
 import json
 import sys
+from pathlib import Path
+from typing import Any, NoReturn
 
 import pytest
 
 from support import factories as F
 from support.deps import skip_module_without_pdftotext
-from support.stubs import GuiCalled
+from support.stubs import EasyguiStub, GuiCalled, UserSettings
 
 skip_module_without_pdftotext()
 
@@ -23,7 +27,7 @@ from version import VERSION  # noqa: E402
 
 
 class TestArgParser:
-    def test_defaults(self):
+    def test_defaults(self) -> None:
         a = args.arg_parser().parse_args([])
         assert a.e is None and a.p is None and a.k is None
         assert a.i is False and a.b is False and a.v is False
@@ -31,11 +35,11 @@ class TestArgParser:
         assert a.all_sales is False and a.price_dates is False
         assert a.betrag is None and a.company is None
 
-    def test_pre_invoice_flag_with_and_without_name(self):
+    def test_pre_invoice_flag_with_and_without_name(self) -> None:
         assert args.arg_parser().parse_args(["-p"]).p == ""
         assert args.arg_parser().parse_args(["-p", "PreR00001"]).p == "PreR00001"
 
-    def test_overrides(self):
+    def test_overrides(self) -> None:
         a = args.arg_parser().parse_args(["-p", "--betrag", "119,5".replace(",", "."), "--mwst", "19", "--rechnungsnr", "R-1",
                                           "--datum", "01.02.2026", "--konto", "4210", "--lieferant", "L",
                                           "--projekt", "P", "--selbst-bezahlt", "--anzahlung", "--update-stock",
@@ -45,32 +49,33 @@ class TestArgParser:
         assert a.selbst_bezahlt and a.anzahlung and a.update_stock
         assert (a.company, a.server, a.key, a.secret) == ("Laden", "https://s", "k", "s")
 
-    def test_invalid_amount(self):
+    def test_invalid_amount(self) -> None:
         with pytest.raises(SystemExit):
             args.arg_parser().parse_args(["--betrag", "abc"])
 
 
 class TestGoogleCredentials:
-    def test_set_google_credentials_from_string(self, in_tmp_cwd, user_settings):
+    def test_set_google_credentials_from_string(self, in_tmp_cwd: Path, user_settings: UserSettings) -> None:
         args.set_google_credentials(json.dumps({"project_id": "p", "private_key": "a\\nb"}))
         stored = json.load(open(in_tmp_cwd / "google-credentials.json"))
         assert stored == {"project_id": "p", "private_key": "a\nb"}
         assert user_settings["-google-credentials-"] == stored
 
-    def test_set_google_credentials_from_dict(self, in_tmp_cwd, user_settings):
+    def test_set_google_credentials_from_dict(self, in_tmp_cwd: Path, user_settings: UserSettings) -> None:
         args.set_google_credentials({"project_id": "q"})
         assert user_settings["-google-credentials-"]["project_id"] == "q"
 
 
 class TestInit:
-    def test_init_applies_arguments_and_connects(self, monkeypatch, user_settings, in_tmp_cwd):
+    def test_init_applies_arguments_and_connects(self, monkeypatch: pytest.MonkeyPatch, user_settings: UserSettings,
+                                                 in_tmp_cwd: Path) -> None:
         import PySimpleGUI as sg
         monkeypatch.setattr(sys, "argv", ["erpnext.py", "--company", "Laden", "--server", "https://s", "--key", "k",
                                           "--secret", "sec", "--invoice-processor", "proc",
                                           "--google-json", json.dumps({"project_id": "p"}), "-b"])
         created = {}
 
-        def factory(url, api_key=None, api_secret=None):
+        def factory(url: str, api_key: str | None = None, api_secret: str | None = None) -> FakeFrappeClient:
             c = FakeFrappeClient(url, api_key, api_secret)
             c.add("Company", name="Laden")
             created["c"] = c
@@ -87,17 +92,17 @@ class TestInit:
         assert user_settings["-setup-"] is False
         assert Api.api is created["c"]
 
-    def test_init_version_exits(self, monkeypatch, capsys):
+    def test_init_version_exits(self, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
         monkeypatch.setattr(sys, "argv", ["erpnext.py", "-v"])
         with pytest.raises(SystemExit):
             args.init()
         assert VERSION in capsys.readouterr().out
 
-    def test_init_failed_connection_sets_setup(self, monkeypatch, user_settings):
+    def test_init_failed_connection_sets_setup(self, monkeypatch: pytest.MonkeyPatch, user_settings: UserSettings) -> None:
         monkeypatch.setattr(sys, "argv", ["erpnext.py"])
         import api
 
-        def broken(*a, **k):
+        def broken(*a: Any, **k: Any) -> NoReturn:
             raise ConnectionError("down")
         monkeypatch.setattr(api, "FrappeClient", broken)
         with pytest.raises(ConnectionError):
@@ -105,7 +110,7 @@ class TestInit:
 
 
 @pytest.fixture
-def loaded(fake_api, user_settings):
+def loaded(fake_api: FakeFrappeClient, user_settings: UserSettings) -> FakeFrappeClient:
     F.seed_company_data(fake_api)
     fake_api.add("Bank Account", **F.bank_account_doc())
     user_settings["-company-"] = None
@@ -113,21 +118,22 @@ def loaded(fake_api, user_settings):
 
 
 class TestInitialLoads:
-    def test_loads_companies_and_accounts(self, loaded, user_settings):
+    def test_loads_companies_and_accounts(self, loaded: FakeFrappeClient, user_settings: UserSettings) -> None:
         menu.initial_loads()
         assert Company.all() == [F.COMPANY]
         assert user_settings["-company-"] == F.COMPANY
         assert Company.get_company(F.COMPANY).data_loaded is True
         assert list(bank.BankAccount.baccounts_by_name) == ["Sparkasse Bremen - SoMiKo"]
 
-    def test_skipped_during_setup(self, loaded, user_settings):
+    def test_skipped_during_setup(self, loaded: FakeFrappeClient, user_settings: UserSettings) -> None:
         user_settings["-setup-"] = True
         menu.initial_loads()
         assert Company.all() == [] and loaded.calls == []
 
 
 class TestShowData:
-    def test_prints_overview(self, loaded, user_settings, capsys):
+    def test_prints_overview(self, loaded: FakeFrappeClient, user_settings: UserSettings,
+                             capsys: pytest.CaptureFixture[str]) -> None:
         menu.initial_loads()
         comp = Company.get_company(F.COMPANY)
         bacc = bank.BankAccount.baccounts_by_name["Sparkasse Bremen - SoMiKo"]
@@ -146,36 +152,37 @@ class TestShowData:
         assert "1 offene Prerechnungen" in out and "1 offene Hintergrund-Jobs" in out
         assert "offene Einkaufsrechnungen" not in out
 
-    def test_silent_during_setup(self, loaded, user_settings, capsys):
+    def test_silent_during_setup(self, loaded: FakeFrappeClient, user_settings: UserSettings,
+                                 capsys: pytest.CaptureFixture[str]) -> None:
         user_settings["-setup-"] = True
         menu.show_data()
         assert capsys.readouterr().out == ""
 
 
 class Window:
-    def __init__(self):
-        self.title = None
+    def __init__(self) -> None:
+        self.title: str | None = None
         self.closed = False
 
-    def set_title(self, t):
+    def set_title(self, t: str) -> None:
         self.title = t
 
-    def close(self):
+    def close(self) -> None:
         self.closed = True
 
 
 class TestEventHandler:
-    def test_exit_and_close(self, fake_api):
+    def test_exit_and_close(self, fake_api: FakeFrappeClient) -> None:
         import PySimpleGUI as sg
         assert menu.event_handler(sg.WIN_CLOSED, Window()) == "exit"
         assert menu.event_handler("Exit", Window()) == "exit"
 
-    def test_company_switch(self, loaded, user_settings):
+    def test_company_switch(self, loaded: FakeFrappeClient, user_settings: UserSettings) -> None:
         menu.initial_loads()
         assert menu.event_handler(F.COMPANY, Window()) == "outer"
         assert user_settings["-company-"] == F.COMPANY
 
-    def test_info_events(self, fake_api, capsys):
+    def test_info_events(self, fake_api: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
         assert menu.event_handler("Über", Window()) == "inner"
         assert VERSION in capsys.readouterr().out
         menu.event_handler("Hilfe Rechnungen", Window())
@@ -183,12 +190,13 @@ class TestEventHandler:
         for ev in ("Hilfe Server", "Hilfe Banktransaktionen", "Hilfe Buchen"):
             assert menu.event_handler(ev, Window()) == "inner"
 
-    def test_setup_required_message(self, fake_api, user_settings, capsys):
+    def test_setup_required_message(self, fake_api: FakeFrappeClient, user_settings: UserSettings,
+                                    capsys: pytest.CaptureFixture[str]) -> None:
         user_settings["-setup-"] = True
         assert menu.event_handler("Kontoauszug", Window()) == "inner"
         assert "Bitte erst ERPNext-Server einstellen" in capsys.readouterr().out
 
-    def test_year_choice(self, fake_api, user_settings, gui):
+    def test_year_choice(self, fake_api: FakeFrappeClient, user_settings: UserSettings, gui: EasyguiStub) -> None:
         gui.answers["choicebox"] = "2024"
         menu.event_handler("Jahr", Window())
         assert user_settings["-year-"] == 2024
@@ -197,7 +205,7 @@ class TestEventHandler:
         menu.event_handler("Jahr", Window())
         assert user_settings["-year-"] == 2024
 
-    def test_reload_data(self, loaded, user_settings, capsys):
+    def test_reload_data(self, loaded: FakeFrappeClient, user_settings: UserSettings, capsys: pytest.CaptureFixture[str]) -> None:
         menu.initial_loads()
         n = len(loaded.calls)
         w = Window()
@@ -206,7 +214,8 @@ class TestEventHandler:
         assert w.title == utils.title()
         assert "Bereich:" in capsys.readouterr().out
 
-    def test_kontoauszug(self, loaded, user_settings, monkeypatch, tmp_path, capsys):
+    def test_kontoauszug(self, loaded: FakeFrappeClient, user_settings: UserSettings, monkeypatch: pytest.MonkeyPatch,
+                         tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
         menu.initial_loads()
         fn = F.write_sparkasse_csv(tmp_path / "k.csv", [{"date": "15.08.26", "purpose": "Test", "partner": "P", "amount": "1,00"}])
         monkeypatch.setattr(utils, "get_file", lambda title: fn)
@@ -215,14 +224,15 @@ class TestEventHandler:
         assert "1 Banktransaktionen eingelesen, davon 1 neu" in out
         assert len(loaded.get_list("Bank Transaction")) == 1
 
-    def test_kontoauszug_cancelled(self, loaded, monkeypatch):
+    def test_kontoauszug_cancelled(self, loaded: FakeFrappeClient, monkeypatch: pytest.MonkeyPatch) -> None:
         menu.initial_loads()
         monkeypatch.setattr(utils, "get_file", lambda title: None)
         assert menu.event_handler("Kontoauszug", Window()) == "inner"
 
-    def test_delegating_events(self, loaded, user_settings, monkeypatch):
+    def test_delegating_events(self, loaded: FakeFrappeClient, user_settings: UserSettings,
+                               monkeypatch: pytest.MonkeyPatch) -> None:
         menu.initial_loads()
-        seen = []
+        seen: list[Any] = []
         monkeypatch.setattr(prerechnung, "process", lambda c: seen.append(("process", c)))
         monkeypatch.setattr(journal, "vat_declaration", lambda c, q: seen.append(("vat", c, q)))
         monkeypatch.setattr(journal, "create_tax_journal_entries", lambda c, q: seen.append(("tax", c, q)))
@@ -234,13 +244,13 @@ class TestEventHandler:
         q = utils.last_quarter(__import__("datetime").datetime.today())
         assert seen == [("process", F.COMPANY), ("vat", F.COMPANY, q), ("tax", F.COMPANY, q), "unrec"]
 
-    def test_report_without_data_is_skipped(self, loaded, monkeypatch):
+    def test_report_without_data_is_skipped(self, loaded: FakeFrappeClient, monkeypatch: pytest.MonkeyPatch) -> None:
         import report
         menu.initial_loads()
         monkeypatch.setattr(report, "build_report", lambda *a, **k: None)
         assert menu.event_handler("Abrechnung", Window()) == "inner"
 
-    def test_gui_events_are_detected(self, loaded):
+    def test_gui_events_are_detected(self, loaded: FakeFrappeClient) -> None:
         menu.initial_loads()
         with pytest.raises(GuiCalled):
             menu.event_handler("Sofort buchen", Window())

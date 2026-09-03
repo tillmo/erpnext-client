@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from typing import Any
 from api import Api, LIMIT
 from settings import LEAD_OWNERS
 import utils
@@ -5,18 +8,18 @@ import easygui
 import json
 import table
 
-def is_change_into_not_contact(v):
+def is_change_into_not_contact(v: dict[str, Any]) -> bool:
     if 'data' in v:
         j = json.loads(v['data'])
         if j.get('changed') == [['status', 'Open', 'Do Not Contact']]:
             return True
     return False
 
-def format(lead):
+def format(lead: dict[str, Any]) -> dict[str, Any]:
     lead['creation'] = lead['creation'].split()[0]
     return lead
 
-def show_open_leads():
+def show_open_leads() -> None:
     leads = Api.api.get_list("Lead",
                              filters={'status':'Open'},
                              fields=['name','status','lead_name', 'creation'],
@@ -31,9 +34,9 @@ def show_open_leads():
     tbl.display()
 
 
-def process_open_leads():
+def process_open_leads() -> None:
     cleanup_leads()
-    lead_owners = {}
+    lead_owners: dict[str, str] = {}
     for lo in LEAD_OWNERS:
         lo1 = Api.api.get_list("User",filters={'first_name':lo})
         if lo1:
@@ -49,7 +52,7 @@ def process_open_leads():
         #print(lead1['lead_owner'])
         res = Api.api.load_doc("Lead",lead1['name'])
         versions = res['docinfo']['versions']
-        choice = None
+        choice: str | None = None
         for v in versions:
             if is_change_into_not_contact(v):
                 choice = 'kein Lead'
@@ -77,7 +80,7 @@ def process_open_leads():
             Api.api.assign_to("Lead",lead1['name'],[lead_owners[choice]])
     print("Leads fertig bearbeitet")        
 
-def cleanup_leads():
+def cleanup_leads() -> None:
     leads = Api.api.get_list("Lead",
                              filters={'first_name': 'Bremer',
                                       'last_name': 'SolidarStrom',

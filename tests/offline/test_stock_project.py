@@ -1,18 +1,23 @@
 """Tests für stock.py und project.py (Projekt-Lagerhaltung)."""
+from __future__ import annotations
+
+from typing import Any
+
 import pytest
 
 import project
 import stock
 from settings import PROJECT_WAREHOUSE, PROJECT_ITEM_GROUP, PROJECT_UNIT, SOMIKO_ACCOUNTS, LUMP_SUM_STOCK_PROJECT_TYPES
 from support import factories as F
+from support.fakes import FakeFrappeClient
 
 
-def strip_meta(rows):
+def strip_meta(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [{k: v for k, v in r.items() if k not in ("idx", "parent", "parenttype", "parentfield")} for r in rows]
 
 
 class TestDocBuilders:
-    def test_stock_reconciliation(self, fake_api):
+    def test_stock_reconciliation(self, fake_api: FakeFrappeClient) -> None:
         doc = stock.stock_reconciliation_for_item("F", "2026-01-01", "I", "Lager", 3, 10.0, "Konto", "EK 1")
         assert doc["doctype"] == "Stock Reconciliation" and doc["purpose"] == "Stock Reconciliation"
         assert doc["company"] == "F" and doc["posting_date"] == "2026-01-01" and doc["set_posting_time"] == 1
@@ -21,7 +26,7 @@ class TestDocBuilders:
         doc2 = stock.stock_reconciliation_for_item("F", "2026-01-01", "I", "Lager", 3, 10.0, "Konto")
         assert "purchase_invoice" not in doc2
 
-    def test_stock_entry_ingoing(self, fake_api):
+    def test_stock_entry_ingoing(self, fake_api: FakeFrappeClient) -> None:
         doc = stock.stock_entry_for_item("F", "2026-01-01", "I", "Lager", True, 500.0, "Konto", "EK 1", "PROJ-1")
         assert doc["stock_entry_type"] == "Material Receipt"
         assert doc["posting_date"] == "2026-01-01" and doc["set_posting_time"] == 1
@@ -29,7 +34,7 @@ class TestDocBuilders:
         assert strip_meta(doc["items"]) == [{"item_code": "I", "expense_account": "Konto", "qty": 500.0, "basic_rate": 1,
                                              "t_warehouse": "Lager"}]
 
-    def test_stock_entry_outgoing(self, fake_api):
+    def test_stock_entry_outgoing(self, fake_api: FakeFrappeClient) -> None:
         doc = stock.stock_entry_for_item("F", "2026-01-01", "I", "Lager", False, 500.0, "Konto")
         assert doc["stock_entry_type"] == "Material Issue"
         assert "posting_date" not in doc and "purchase_invoice" not in doc and "project" not in doc
@@ -37,7 +42,7 @@ class TestDocBuilders:
 
 
 @pytest.fixture
-def stock_project(fake_api):
+def stock_project(fake_api: FakeFrappeClient) -> FakeFrappeClient:
     fake_api.add("Project", name="PROJ-0007", project_type="Solaranlage", project_name="Haus Meier", status="Open")
     fake_api.add("Project", name="PROJ-0008", project_type="Balkonmodule", project_name="Balkon", status="Open")
     fake_api.add("Purchase Invoice", name="EK 2026-00001", company=F.COMPANY, project="PROJ-0007", total=500.0,
@@ -52,7 +57,7 @@ def stock_project(fake_api):
 
 
 class TestPurchaseInvoiceIntoStock:
-    def test_creates_item_and_material_receipt(self, stock_project, capsys):
+    def test_creates_item_and_material_receipt(self, stock_project: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
         stock.purchase_invoice_into_stock("EK 2026-00001")
         item = stock_project.get_doc("Item", "000.900.007")
         assert item["item_name"] == item["description"] == "Material Projekt 7 Haus Meier"
@@ -70,14 +75,14 @@ class TestPurchaseInvoiceIntoStock:
         out = capsys.readouterr().out
         assert "Artikel 000.900.007" in out and "Lagerbuchung" in out and "Bitte noch buchen" in out
 
-    def test_existing_entry_prevents_duplicate(self, stock_project, capsys):
+    def test_existing_entry_prevents_duplicate(self, stock_project: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
         stock.purchase_invoice_into_stock("EK 2026-00001")
         stock.purchase_invoice_into_stock("EK 2026-00001")
         assert len(stock_project.get_list("Stock Entry")) == 1
         assert "existiert schon eine Lagerbuchung" in capsys.readouterr().out
         assert len(stock_project.get_list("Item")) == 1
 
-    def test_outgoing_ignores_existing_receipt(self, stock_project):
+    def test_outgoing_ignores_existing_receipt(self, stock_project: FakeFrappeClient) -> None:
         stock.purchase_invoice_into_stock("EK 2026-00001")
         stock.purchase_invoice_into_stock("EK 2026-00001", ingoing=False)
         entries = stock_project.get_list("Stock Entry", fields=["stock_entry_type", "items"])
@@ -85,36 +90,36 @@ class TestPurchaseInvoiceIntoStock:
         issue = [e for e in entries if e["stock_entry_type"] == "Material Issue"][0]
         assert issue["items"][0]["s_warehouse"] == PROJECT_WAREHOUSE
 
-    def test_without_project(self, stock_project, capsys):
+    def test_without_project(self, stock_project: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
         stock.purchase_invoice_into_stock("EK 2026-00004")
         assert stock_project.get_list("Stock Entry") == []
         assert "kein Projekt" in capsys.readouterr().out
 
-    def test_non_stock_project_type(self, stock_project, capsys):
+    def test_non_stock_project_type(self, stock_project: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
         stock.purchase_invoice_into_stock("EK 2026-00003")
         assert stock_project.get_list("Stock Entry") == []
         assert "Keine Projekt-Lagerhaltung für Projekt PROJ-0008" in capsys.readouterr().out
 
-    def test_project_into_stock_skips_cancelled(self, stock_project):
+    def test_project_into_stock_skips_cancelled(self, stock_project: FakeFrappeClient) -> None:
         stock.project_into_stock("PROJ-0007")
         entries = stock_project.get_list("Stock Entry", fields=["purchase_invoice"])
         assert [e["purchase_invoice"] for e in entries] == ["EK 2026-00001"]
 
 
 class TestProject:
-    def test_is_stock_and_type(self, stock_project):
+    def test_is_stock_and_type(self, stock_project: FakeFrappeClient) -> None:
         assert project.project_type("PROJ-0007") == "Solaranlage"
         assert project.is_stock({"project_type": LUMP_SUM_STOCK_PROJECT_TYPES[0]}) is True
         assert project.is_stock({"project_type": "Balkonmodule"}) is False
         assert project.is_stock({}) is False
 
-    def test_complete_stock_project_issues_material(self, stock_project):
+    def test_complete_stock_project_issues_material(self, stock_project: FakeFrappeClient) -> None:
         project.complete_project("PROJ-0007")
         assert stock_project.get_doc("Project", "PROJ-0007")["status"] == "Completed"
         entries = stock_project.get_list("Stock Entry", fields=["stock_entry_type", "purchase_invoice"])
         assert entries == [{"stock_entry_type": "Material Issue", "purchase_invoice": "EK 2026-00001"}]
 
-    def test_complete_non_stock_project(self, stock_project):
+    def test_complete_non_stock_project(self, stock_project: FakeFrappeClient) -> None:
         project.complete_project("PROJ-0008")
         assert stock_project.get_doc("Project", "PROJ-0008")["status"] == "Completed"
         assert stock_project.get_list("Stock Entry") == []

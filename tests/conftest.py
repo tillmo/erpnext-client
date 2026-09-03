@@ -13,8 +13,11 @@ Die Zugangsdaten werden bewusst NUR aus Umgebungsvariablen gelesen, nie aus
 der erpnext.json des Benutzers - damit Schreibtests nie versehentlich auf der
 Produktivinstanz laufen.
 """
+from __future__ import annotations
+
 import os
 import sys
+from typing import TYPE_CHECKING, Any, Iterator
 
 import pytest
 
@@ -31,9 +34,15 @@ STUBS = stubs.install()
 import PySimpleGUI as sg  # noqa: E402  (Stub)
 import easygui  # noqa: E402  (Stub)
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from company import Company
+    from support.fakes import FakeFrappeClient
+
 
 # ------------------------------------------------------------- Marker
-def pytest_collection_modifyitems(config, items):
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     for item in items:
         path = str(item.fspath)
         if os.sep + "offline" + os.sep in path:
@@ -46,28 +55,28 @@ def pytest_collection_modifyitems(config, items):
 
 # --------------------------------------------------------- Umgebung
 class OnlineConfig:
-    def __init__(self):
-        self.server = os.environ.get("ERPNEXT_TEST_SERVER")
-        self.key = os.environ.get("ERPNEXT_TEST_KEY")
-        self.secret = os.environ.get("ERPNEXT_TEST_SECRET")
-        self.company = os.environ.get("ERPNEXT_TEST_COMPANY")
-        self.write = os.environ.get("ERPNEXT_TEST_WRITE") == "1"
-        self.allow_submit = os.environ.get("ERPNEXT_TEST_ALLOW_SUBMIT") == "1"
-        self.max_invoices = int(os.environ.get("ERPNEXT_TEST_MAX_INVOICES", "25"))
-        self.parser_min_match = float(os.environ.get("ERPNEXT_TEST_PARSER_MIN_MATCH", "0.5"))
+    def __init__(self) -> None:
+        self.server: str | None = os.environ.get("ERPNEXT_TEST_SERVER")
+        self.key: str | None = os.environ.get("ERPNEXT_TEST_KEY")
+        self.secret: str | None = os.environ.get("ERPNEXT_TEST_SECRET")
+        self.company: str | None = os.environ.get("ERPNEXT_TEST_COMPANY")
+        self.write: bool = os.environ.get("ERPNEXT_TEST_WRITE") == "1"
+        self.allow_submit: bool = os.environ.get("ERPNEXT_TEST_ALLOW_SUBMIT") == "1"
+        self.max_invoices: int = int(os.environ.get("ERPNEXT_TEST_MAX_INVOICES", "25"))
+        self.parser_min_match: float = float(os.environ.get("ERPNEXT_TEST_PARSER_MIN_MATCH", "0.5"))
 
     @property
-    def configured(self):
+    def configured(self) -> bool:
         return bool(self.server and self.key and self.secret)
 
 
 @pytest.fixture(scope="session")
-def online_config():
+def online_config() -> OnlineConfig:
     return OnlineConfig()
 
 
 # ------------------------------------------------- Zustand zurücksetzen
-DEFAULT_SETTINGS = {
+DEFAULT_SETTINGS: dict[str, Any] = {
     "-company-": "Bremer SolidarStrom",
     "-server-": "https://erpnext.test.invalid",
     "-key-": "testkey",
@@ -81,7 +90,7 @@ DEFAULT_SETTINGS = {
 }
 
 
-def _reset_project_state():
+def _reset_project_state() -> None:
     """Klassenweite Caches der Projektmodule leeren (nur wenn schon importiert)."""
     api = sys.modules.get("api")
     if api is not None:
@@ -98,7 +107,7 @@ def _reset_project_state():
 
 
 @pytest.fixture(autouse=True)
-def _clean_state():
+def _clean_state() -> Iterator[None]:
     stubs.UserSettings.store = dict(DEFAULT_SETTINGS)
     easygui.reset()
     _reset_project_state()
@@ -107,19 +116,19 @@ def _clean_state():
 
 
 @pytest.fixture
-def user_settings():
+def user_settings() -> stubs.UserSettings:
     """Zugriff auf den (gestubbten) sg.UserSettings-Speicher."""
     return sg.UserSettings()
 
 
 @pytest.fixture
-def gui():
+def gui() -> stubs.EasyguiStub:
     """Antworten für easygui-Dialoge hinterlegen: gui.answers['choicebox'] = 'Wert'."""
     return easygui
 
 
 @pytest.fixture
-def fake_api():
+def fake_api() -> FakeFrappeClient:
     """FakeFrappeClient als Api.api installieren."""
     from support.fakes import FakeFrappeClient
     from api import Api
@@ -129,20 +138,20 @@ def fake_api():
 
 
 @pytest.fixture
-def somiko(fake_api):
+def somiko(fake_api: FakeFrappeClient) -> Company:
     """Firma 'Bremer SolidarStrom' offline, mit Konten und Steuersätzen."""
     from support import factories
     return factories.make_company()
 
 
 @pytest.fixture
-def laden(fake_api):
+def laden(fake_api: FakeFrappeClient) -> Company:
     from support import factories
     return factories.make_company(factories.LADEN, "Laden")
 
 
 @pytest.fixture
-def restore_locale():
+def restore_locale() -> Iterator[None]:
     import locale
     old = locale.setlocale(locale.LC_ALL)
     yield
@@ -153,7 +162,7 @@ def restore_locale():
 
 
 @pytest.fixture
-def in_tmp_cwd(tmp_path, monkeypatch):
+def in_tmp_cwd(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Tests, die Dateien ins Arbeitsverzeichnis schreiben, laufen in tmp_path."""
     monkeypatch.chdir(tmp_path)
     return tmp_path

@@ -1,19 +1,23 @@
 """Tests für compute_tests.py (Vergleich Google-JSON <-> Einkaufsrechnung)."""
+from __future__ import annotations
+
 import json
 
 import pytest
 
 from support import factories as F
 from support.deps import skip_module_without_pdftotext, requires_jsondiff
+from support.fakes import FakeFrappeClient
 
 skip_module_without_pdftotext()
 
 import compute_tests  # noqa: E402
 from api import Api  # noqa: E402
+from company import Company  # noqa: E402
 
 
 @pytest.fixture
-def items():
+def items() -> None:
     Api.items_by_code = {
         "010.100.001": {"item_code": "010.100.001", "description": "Solarmodul 400 Wp",
                         "supplier_items": [{"supplier": "Krannich", "supplier_part_no": "KS-400"},
@@ -23,7 +27,7 @@ def items():
 
 
 class TestConvert:
-    def test_convert_item(self, items):
+    def test_convert_item(self, items: None) -> None:
         assert compute_tests.convert_item(("account_head", "3800 - Bezugsnebenkosten - SoMiKo"), "K") == [("shipping", 1)]
         assert compute_tests.convert_item(("account_head", "1576 - Abziehbare VSt. 19% - SoMiKo"), "K") == [("rate", 19)]
         assert compute_tests.convert_item(("account_head", "4210 - Miete - SoMiKo"), "K") == [("account_head", "4210 - Miete - SoMiKo")]
@@ -32,14 +36,14 @@ class TestConvert:
         assert compute_tests.convert_item(("item_code", "010.100.001"), "Unbekannt") == [("description", "Solarmodul 400 Wp")]
         assert compute_tests.convert_item(("qty", 2), "K") == [("qty", 2)]
 
-    def test_convert_filters_subfields(self, items):
+    def test_convert_filters_subfields(self, items: None) -> None:
         d = {"qty": 2, "uom": "Stk", "rate": 0, "amount": 10.0, "name": "row1", "item_code": "010.100.001"}
         assert compute_tests.convert(d, "Krannich") == [("qty", 2), ("uom", "Stk"), ("amount", 10.0),
                                                         ("description", "Solarmodul 400 Wp"), ("item_code", "KS-400")]
 
 
 class TestValidate:
-    def test_validate_json1(self, capsys):
+    def test_validate_json1(self, capsys: pytest.CaptureFixture[str]) -> None:
         good = {"supplier": "S", "grand_total": 1.0, "taxes": [{"rate": 19, "tax_amount": 0.16}],
                 "items": [{"description": "a", "amount": 1.0}]}
         assert compute_tests.validate_json1(good) is True
@@ -47,7 +51,7 @@ class TestValidate:
         assert "validation failed" in capsys.readouterr().out
         assert compute_tests.validate_json1({"supplier": "S", "grand_total": 1.0, "taxes": [{"rate": 19.5, "tax_amount": 1}]}) is False
 
-    def test_validate_prerechnungs(self, fake_api, capsys):
+    def test_validate_prerechnungs(self, fake_api: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
         fake_api.add("PreRechnung", name="PreR00001", json1=json.dumps({"supplier": "S", "grand_total": 1.0, "taxes": []}))
         fake_api.add("PreRechnung", name="PreR00002", json1=None)
         assert compute_tests.validate_prerechnungs() is True
@@ -56,7 +60,7 @@ class TestValidate:
 
 
 class TestComputeJson:
-    def test_builds_json1_from_purchase_invoice(self, fake_api, items):
+    def test_builds_json1_from_purchase_invoice(self, fake_api: FakeFrappeClient, items: None) -> None:
         fake_api.add("Purchase Invoice", name="EK 1", supplier="Krannich", posting_date="2026-01-01", bill_no="B",
                      total=100.0, grand_total=119.0, order_id="O",
                      items=[{"item_code": "010.100.001", "qty": 2, "uom": "Stk", "rate": 50.0, "amount": 100.0}],
@@ -73,7 +77,7 @@ class TestComputeJson:
         assert json1["items"] == [{"qty": 2, "uom": "Stk", "rate": 50.0, "amount": 100.0,
                                    "description": "Solarmodul 400 Wp", "item_code": "KS-400"}]
 
-    def test_generic_items_are_dropped(self, fake_api, items):
+    def test_generic_items_are_dropped(self, fake_api: FakeFrappeClient, items: None) -> None:
         fake_api.add("Purchase Invoice", name="EK 2", supplier="S", total=1.0, grand_total=1.0,
                      items=[{"item_code": "000.000.000", "qty": 1, "rate": 1.0, "amount": 1.0}], taxes=[])
         fake_api.add("PreRechnung", name="PreR00002", purchase_invoice="EK 2")
@@ -81,7 +85,7 @@ class TestComputeJson:
         json1 = json.loads(fake_api.get_doc("PreRechnung", "PreR00002")["json1"])
         assert "items" not in json1
 
-    def test_invalid_result_is_not_stored(self, fake_api, items):
+    def test_invalid_result_is_not_stored(self, fake_api: FakeFrappeClient, items: None) -> None:
         fake_api.add("Purchase Invoice", name="EK 3", total=1.0, items=[], taxes=[])   # kein supplier
         fake_api.add("PreRechnung", name="PreR00003", purchase_invoice="EK 3")
         compute_tests.compute_json(fake_api.get_doc("PreRechnung", "PreR00003"))
@@ -90,14 +94,14 @@ class TestComputeJson:
 
 @requires_jsondiff
 class TestDiffs:
-    def test_compute_diff_ignores_excluded_fields(self, fake_api, capsys):
+    def test_compute_diff_ignores_excluded_fields(self, fake_api: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
         j1 = {"name": "a", "supplier": "S", "owner": "x", "items": [{"qty": 1, "name": "r1"}], "taxes": []}
         j2 = {"name": "b", "supplier": "S", "owner": "y", "items": [{"qty": 1, "name": "r2"}], "taxes": []}
         fake_api.add("PreRechnung", name="PreR00001", json1=json.dumps(j1), json2=json.dumps(j2))
         compute_tests.compute_diff(fake_api.get_doc("PreRechnung", "PreR00001"))
         assert fake_api.get_doc("PreRechnung", "PreR00001")["diff"] == "None"
 
-    def test_compute_diff_reports_real_difference(self, fake_api, capsys):
+    def test_compute_diff_reports_real_difference(self, fake_api: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
         j1 = {"supplier": "S", "items": [{"qty": 1}], "taxes": []}
         j2 = {"supplier": "T", "items": [{"qty": 2}], "taxes": []}
         fake_api.add("PreRechnung", name="PreR00001", json1=json.dumps(j1), json2=json.dumps(j2))
@@ -106,7 +110,7 @@ class TestDiffs:
         assert "supplier" in diff and "qty" in diff
         assert "PreR00001" in capsys.readouterr().out
 
-    def test_compute_json1_diff(self, somiko, fake_api, monkeypatch):
+    def test_compute_json1_diff(self, somiko: Company, fake_api: FakeFrappeClient, monkeypatch: pytest.MonkeyPatch) -> None:
         import purchase_invoice_google_parser as gp
         monkeypatch.setattr(gp, "find_date", lambda s: "2024-03-15")
         j = F.google_invoice_json()

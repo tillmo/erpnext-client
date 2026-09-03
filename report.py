@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import Any
+
 import company
 import sales_invoice
 from api import Api, LIMIT
@@ -19,22 +23,22 @@ import os
 import requests
 from settings import PLANNING_ITEM
 
-def get_dates():
+def get_dates() -> tuple[date, date]:
     year = sg.UserSettings()['-year-'] 
     start_date = date(year, 1, 1)
     if year == datetime.today().year or year == datetime.today().year-1:
-        end_date = datetime.today()
+        end_date: date = datetime.today()
     else:    
         end_date = date(year, 12, 31)
     return(start_date,end_date)
 
-def format_float(n):
+def format_float(n: Any) -> str:
     if type(n)==str:
         return n
     else:
         return "{:,}".format(round(n)).replace(",",".") 
 
-def format_account(r):
+def format_account(r: dict[str, Any]) -> dict[str, Any]:
     account = r['account_name']
     account = account.replace("'","")
     if account in ['Total Asset (Debit)','Aktiva']:
@@ -58,7 +62,7 @@ def format_account(r):
     return r     
     #return [account[0:39]]+[format_float(r[c]) for c in col_fields]
 
-def remove_dup(columns,report):
+def remove_dup(columns: list[dict[str, Any]],report: dict[str, Any]) -> dict[str, Any] | None:
     for i in range(len(columns)):
         for j in range(i+1,len(columns)):
             coli = columns[i]['fieldname'] 
@@ -68,7 +72,7 @@ def remove_dup(columns,report):
                 return columns[j]
     return None
 
-def is_relevant(r,col_fields):
+def is_relevant(r: dict[str, Any],col_fields: list[str]) -> bool:
     if r['account_name'] in ['Total Asset (Debit)','Total Liability (Credit)']:
         return False
     for c in col_fields:
@@ -81,8 +85,8 @@ def is_relevant(r,col_fields):
                 return True
     return not ('indent' in r) or r['indent'] == 0
 
-def build_trees(data,ix,indent,parent=None):
-    tr_list = []
+def build_trees(data: list[dict[str, Any]],ix: int,indent: int,parent: Any = None) -> tuple[int, list[Any]]:
+    tr_list: list[Any] = []
     l = len(data)
     while ix<l:
         r = data[ix]
@@ -95,21 +99,21 @@ def build_trees(data,ix,indent,parent=None):
         tr_list.append(tr)
     return (ix,tr_list)
 
-def build_tree(data):
+def build_tree(data: list[dict[str, Any]]) -> Any:
     tr = Node("root")
     _,trs = build_trees(data,0,0,tr)
     return tr
 
 
-def build_sums(tr,cols):
+def build_sums(tr: Any,cols: list[str]) -> None:
     for t in tr.children:
         build_sums(t,cols)
     if not tr.is_leaf and not tr.name=="root":
         for c in cols:
             tr.data[c] = sum([t.data[c] for t in tr.children])
         
-def build_report(company_name,filename="",consolidated=False,balance=False,
-                 periodicity='Yearly'):
+def build_report(company_name: str,filename: str = "",consolidated: bool = False,balance: bool = False,
+                 periodicity: str | None = 'Yearly') -> table.Table | None:
     if not periodicity:
         periodicity = 'Yearly'
     if periodicity=='Monthly':
@@ -188,7 +192,7 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
     # avoid negative entries in balance
     swap_accounts = {'1400':'Anzahlungen Verkauf','1600':'Anzahlungen Einkauf'}
     swap_account_list = list(swap_accounts.keys())
-    swap_data = {}
+    swap_data: dict[tuple[str, str], Any] = {}
     if balance:
         for node in PostOrderIter(tr):
             if node.name[0:4] in swap_account_list and node.data['total'] < 0:
@@ -206,7 +210,7 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
                         node.data['account_name'] = "   "*round(node.data['indent'])+swap_accounts[s_acc_no]
                         node.data[c] = swap_data[(s_acc_no,c)]
         build_sums(tr,col_fields)        
-        p_sum = defaultdict(lambda: 0)
+        p_sum: defaultdict[str, float] = defaultdict(lambda: 0)
         for node in PostOrderIter(tr):
             if node.name!='root':
                 if node.data['account_name'] in ['Passiva','Überschuss/Defizit']:
@@ -231,7 +235,7 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
     return table.Table(r_data,['account_name']+col_fields,header,title,
                        filename=filename,enable_events=True)
 
-def format_GL(r):
+def format_GL(r: dict[str, Any]) -> dict[str, Any]:
     if 'remarks' in r:
         if r['remarks'] in ['Keine Anmerkungen','No Remarks']:
             r['remarks'] = ''
@@ -246,14 +250,14 @@ def format_GL(r):
         r['bold'] = 3
     return r
 
-def is_relevat_GL(r):
+def is_relevat_GL(r: dict[str, Any]) -> bool:
     if not ('debit' in r and 'credit' in r and 'balance' in r):
         return False
     #if not (r['debit'] or r['credit'] or r['balance']):
     #    return False
     return True
 
-def keep_first(data,accounts):
+def keep_first(data: list[dict[str, Any]],accounts: list[str]) -> list[dict[str, Any]]:
     data1 = []
     found = False
     #print(r['account'])
@@ -267,7 +271,7 @@ def keep_first(data,accounts):
         data1.append(r)
     return data1  
 
-def general_ledger_account(company_name,account):
+def general_ledger_account(company_name: str,account: str) -> table.Table:
     ## dates
     start_date = date(datetime.today().year, 1, 1)
     end_date = datetime.today()
@@ -294,7 +298,7 @@ def general_ledger_account(company_name,account):
     return table.Table(report_data,columns,headings,'Hauptbuch für '+account)
 
 
-def format_opp(opp):
+def format_opp(opp: dict[str, Any]) -> dict[str, Any]:
     for field in ['nur_balkonmodul', 'selbstbau', 'mit_speicher',
                   'oksolarteure','anmeldung_eingereicht',
                   'anmeldung_bewilligt',
@@ -323,8 +327,8 @@ def format_opp(opp):
             opp[field] = opp[field][0:23]
     return opp
 
-def opportunities_data(company_name,balkon=False):
-    opps = {}
+def opportunities_data(company_name: str,balkon: bool = False) -> dict[str, dict[str, Any]]:
+    opps: dict[str, dict[str, Any]] = {}
     if balkon:
         for si in gui_api_wrapper(Api.api.get_list,'Sales Invoice',filters={'company':company_name,'balkonmodul':balkon,'status': ['!=','Cancelled']},fields=['*'],limit_page_length=LIMIT):
             si['transaction_date'] = si['posting_date']
@@ -337,7 +341,7 @@ def opportunities_data(company_name,balkon=False):
         return opps
     for opp in gui_api_wrapper(Api.api.get_list,'Opportunity',filters={'company':company_name,'status': ['!=','Cancelled'], 'nur_balkonmodul':balkon},fields=['*'],limit_page_length=LIMIT):
         opps[opp['name']] = opp
-    quots = {}
+    quots: dict[str, dict[str, Any]] = {}
     for quot in gui_api_wrapper(Api.api.get_list,'Quotation',filters={'company':company_name,'status': ['not in',['Cancelled','Expired']]},fields=['*'],limit_page_length=LIMIT):
         if quot['opportunity']:
             if quot['opportunity'] in opps:
@@ -353,7 +357,7 @@ def opportunities_data(company_name,balkon=False):
             quot['quotation'] = quot['name']
             opps[quot['name']] = quot
         quots[quot['name']] = quot
-    sos = {}    
+    sos: dict[str, dict[str, Any]] = {}    
     for so in gui_api_wrapper(Api.api.get_list,'Sales Order',filters={'company':company_name,'status': ['!=','Cancelled']},fields=["`tabSales Order Item`.prevdoc_docname as quotation","name","status","title","customer_name","transaction_date"],limit_page_length=LIMIT):
         quot_name = so["quotation"]
         if quot_name:
@@ -377,7 +381,7 @@ def opportunities_data(company_name,balkon=False):
             so['sales_order'] = so['name']
             opps[so['name']] = so
             sos[so['name']] = so
-    sis = {}
+    sis: dict[str, dict[str, Any]] = {}
     for si in gui_api_wrapper(Api.api.get_list,'Sales Invoice',filters={'company':company_name,'balkonmodul':balkon,'status': ['!=','Cancelled']},fields=["`tabSales Invoice Item`.sales_order as item_sales_order","name","status","title","posting_date"],limit_page_length=LIMIT):
         if 'item_sales_order' in si:    
             so_name = si['item_sales_order']
@@ -409,8 +413,8 @@ def opportunities_data(company_name,balkon=False):
         sis[si['name']] = si
     return opps
 
-def opportunities(company_name,balkon=False):
-    opps = opportunities_data(company_name,balkon)
+def opportunities(company_name: str,balkon: bool = False) -> table.Table:
+    opps: Any = opportunities_data(company_name,balkon)
     opps = [format_opp(opp) for opp in opps.values()]
     opps.sort(key=lambda x: x['transaction_date'],reverse=True)
     columns = ['title', 'transaction_date','soliaufschlag']
@@ -444,14 +448,14 @@ def opportunities(company_name,balkon=False):
                  # 'Statik', 'Artikelliste','Verschattung','Eigen']
     return table.Table(opps,columns,headings,'Chancen für '+company_name)
     
-def projects():
+def projects() -> table.Table:
     # for efficiency reasons, store all invoices containing PLANNING_ITEM
-    planning_sis = defaultdict(lambda: [])
+    planning_sis: defaultdict[str, list[dict[str, Any]]] = defaultdict(lambda: [])
     for si in Api.api.get_list("Sales Invoice",
                         filters=[["Sales Invoice Item","item_code","=",PLANNING_ITEM]]):
         si1 = Api.api.get_doc("Sales Invoice",si['name'])
         planning_sis[si['name']] = [item for item in si1['items'] if item['item_code'] == PLANNING_ITEM]
-    projects = []
+    projects: list[dict[str, Any]] = []
     for p in Api.api.get_list("Project",
                     fields=["name","project_name","creation","status",'project_type'],
                               limit_page_length=LIMIT,
@@ -475,15 +479,15 @@ def projects():
     columns = ['Name','Titel','Typ','Einkauf','Verkauf','Marge','Planung','Status']
     return table.Table(projects,columns,columns,'Projekte',just='right',enable_events=True)
 
-def adapt(e,factor):
+def adapt(e: dict[str, Any],factor: float) -> dict[str, Any]:
     e['balance'] *= factor
     return e
 
-def set_title(e,title):
+def set_title(e: dict[str, Any],title: str) -> dict[str, Any]:
     e['Bilanzposten'] = title
     return e
 
-def balance(company,accounts,factor,start_date_str,end_date_str):
+def balance(company: str,accounts: list[str],factor: float,start_date_str: str,end_date_str: str) -> list[dict[str, Any]]:
     r = Api.api.query_report(report_name="General ledger",filters={'company':company,'from_date' : start_date_str, 'to_date' : end_date_str,'report':"General ledger", 'account':accounts, 'group_by':'Group by Voucher (Consolidated)'})
     r = r['result']
     r[0]['posting_date'] = start_date_str
@@ -491,11 +495,11 @@ def balance(company,accounts,factor,start_date_str,end_date_str):
     r = [adapt(e,factor) for e in r if 'account' in e and 'posting_date' in e and e['account']!="'Total'"]
     return r
 
-def balances(company,account_areas):
+def balances(company: str,account_areas: dict[str, tuple[list[str], float]]) -> None:
     start_date,end_date = get_dates()
     start_date_str = start_date.strftime('%Y-%m-%d')
     end_date_str = end_date.strftime('%Y-%m-%d')
-    report = []
+    report: list[dict[str, Any]] = []
     print("Stelle Bilanz zusammen",end='')
     for title,entry in account_areas.items():
         accs,factor = entry
@@ -506,14 +510,14 @@ def balances(company,account_areas):
     fig = px.line(report, x="posting_date", y="balance", title=company+' - wichtigste Bilanzposten', color='Bilanzposten',line_shape='linear')
     fig.show()    
 
-def sold_items(project):
+def sold_items(project: str) -> list[dict[str, Any]]:
     sinvs = Api.api.get_list("Sales Invoice",
                              filters={'project' : project,
                                       'status': ['!=','Cancelled']},
                              limit_page_length=LIMIT)
     return sales_invoice.get_items(sinvs)
 
-def balkonmodule_month(company,start_date_str,end_date_str):
+def balkonmodule_month(company: str,start_date_str: str,end_date_str: str) -> defaultdict[str, float]:
     sinvs = Api.api.get_list("Sales Invoice",
                                 filters={'company':company,
                                         'balkonmodul' : True,
@@ -521,7 +525,7 @@ def balkonmodule_month(company,start_date_str,end_date_str):
                                         'status': ['!=','Cancelled']},
                                 limit_page_length=LIMIT)
     items = sales_invoice.get_items(sinvs)
-    aggr_items = defaultdict(float)
+    aggr_items: defaultdict[str, float] = defaultdict(float)
     for item in items:
         if 'Balkon-Anlage' in item['item_name'] or 'Balkon Paket' in item['item_name']:
             aggr_items['Balkonmodule'] += (2 if '2x' in item['item_name'] else 1) * item['qty']
@@ -530,10 +534,10 @@ def balkonmodule_month(company,start_date_str,end_date_str):
                 aggr_items[name] += item['qty']
     return aggr_items
             
-def balkonmodule(company):
+def balkonmodule(company: str) -> None:
     start_date,end_date = get_dates()
     print("Lese Balkonmodulverkäufe ein")
-    report = []
+    report: list[dict[str, Any]] = []
     # iterate over months
     for dt in rrule.rrule(rrule.MONTHLY, dtstart=start_date, until=end_date):
         start_date_str = dt.strftime('%Y-%m-%d')
@@ -545,8 +549,8 @@ def balkonmodule(company):
     fig = px.line(report, x="Datum", y="Anzahl", title=company+' - Balkonmodulverkauf', color='Wert',line_shape='spline')
     fig.show()    
 
-def balkonmodule_csv(company):
-    items = defaultdict(float)
+def balkonmodule_csv(company: str) -> None:
+    items: defaultdict[str, float] = defaultdict(float)
     project = Api.api.get_list("Project",
                                filters={'project_type': 'Balkonmodule',
                                         'status': 'Open'})[0]
@@ -559,7 +563,7 @@ def balkonmodule_csv(company):
         inv = Api.api.get_doc("Sales Invoice",sinv['name'])
         for item in inv['items']:
             items[item['item_code']] += int(item['qty'])
-    full_items = []        
+    full_items: list[dict[str, Any]] = []        
     for item_code,qty in items.items():
         full_item = Api.api.get_doc("Item",item_code)
         full_items.append({'item_name':full_item['item_name'],
@@ -574,7 +578,7 @@ def balkonmodule_csv(company):
     print("Projekt {} - exportiert nach balkon.csv".format(project['name']))
     
 
-def format_gl(gle):
+def format_gl(gle: dict[str, Any]) -> dict[str, Any]:
     if not 'remarks' in gle or gle['remarks'].strip() in ['','Keine Anmerkungen','No Remarks']:
         gle['remarks'] = gle.get('against')
     if gle.get('remarks'):
@@ -599,7 +603,7 @@ def format_gl(gle):
     return gle
 
 
-def general_ledger(company_name):
+def general_ledger(company_name: str) -> None:
     start_date,end_date = get_dates()
     start_date_str = start_date.strftime('%Y-%m-%d')
     end_date_str = end_date.strftime('%Y-%m-%d')

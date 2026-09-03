@@ -1,13 +1,20 @@
 """Tests für prerechnung.py: Vorprozessierung, Übernahme in Einkaufsrechnungen, CLI-Auswahl."""
+from __future__ import annotations
+
 import json
 import os
 import types
+from collections.abc import Iterable
+from pathlib import Path
+from typing import Any, NoReturn
 
 import pytest
 from jsonschema import validate, ValidationError
 
 from support import factories as F
 from support.deps import skip_module_without_pdftotext
+from support.fakes import FakeFrappeClient
+from support.stubs import EasyguiStub, UserSettings
 
 skip_module_without_pdftotext()
 
@@ -16,16 +23,17 @@ import purchase_invoice  # noqa: E402
 import purchase_invoice_google_parser as gp  # noqa: E402
 import utils  # noqa: E402
 from api import Api  # noqa: E402
+from company import Company  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
-def no_viewer(monkeypatch):
+def no_viewer(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(utils, "evince", lambda f: None)
     monkeypatch.setattr(gp, "find_date", lambda s: utils.convert_date4(s) if s else None)
 
 
 @pytest.fixture
-def pre(somiko, fake_api, tmp_path):
+def pre(somiko: Company, fake_api: FakeFrappeClient, tmp_path: Path) -> dict[str, Any]:
     """PreRechnung mit hochgeladenem generischem PDF im Fake."""
     pdf = F.write_generic_invoice_pdf(tmp_path / "pre.pdf")
     with open(pdf, "rb") as f:
@@ -38,7 +46,7 @@ def pre(somiko, fake_api, tmp_path):
 
 
 class TestSchema:
-    def test_entities_schema(self):
+    def test_entities_schema(self) -> None:
         ok = {"total_amount": "1,00", "items": [{"item-description": "a", "item-amount": "1,00"}]}
         validate(ok, prerechnung.ENTITIES_DATA_SCHEMA)
         with pytest.raises(ValidationError):
@@ -48,7 +56,7 @@ class TestSchema:
 
 
 class TestToPay:
-    def test_sorted_with_running_sum(self, fake_api):
+    def test_sorted_with_running_sum(self, fake_api: FakeFrappeClient) -> None:
         c = F.COMPANY
         fake_api.add("PreRechnung", company=c, vom_konto_überwiesen=False, zu_zahlen_am="2026-09-20", betrag=30.0,
                      lieferant="B", typ="Rechnung", datum="2026-09-01", kommentar="", auftragsnr="")
@@ -62,25 +70,27 @@ class TestToPay:
         prs = prerechnung.to_pay(c)
         assert [(p["lieferant"], p["summe"]) for p in prs] == [("A", 100.0), ("B", 130.0)]
 
-    def test_empty(self, fake_api):
+    def test_empty(self, fake_api: FakeFrappeClient) -> None:
         assert prerechnung.to_pay(F.COMPANY) == []
 
 
 class TestProcessInv:
-    def test_local_parser_marks_processed(self, pre, fake_api, capsys):
+    def test_local_parser_marks_processed(self, pre: dict[str, Any], fake_api: FakeFrappeClient,
+                                          capsys: pytest.CaptureFixture[str]) -> None:
         prerechnung.process_inv(pre)
         stored = fake_api.get_doc("PreRechnung", pre["name"])
         assert stored["processed"] is True
         assert pre["doctype"] == "PreRechnung"
         assert "Error" not in capsys.readouterr().out
 
-    def test_local_parser_extracts_amount(self, pre, fake_api):
+    def test_local_parser_extracts_amount(self, pre: dict[str, Any], fake_api: FakeFrappeClient) -> None:
         prerechnung.process_inv(pre)
         stored = fake_api.get_doc("PreRechnung", pre["name"])
         assert stored["betrag"] == 119.0
         assert "auftragsnr" not in stored          # generischer Parser kennt keine Auftragsnummer
 
-    def test_google_parser_path(self, pre, fake_api, user_settings, monkeypatch):
+    def test_google_parser_path(self, pre: dict[str, Any], fake_api: FakeFrappeClient, user_settings: UserSettings,
+                                monkeypatch: pytest.MonkeyPatch) -> None:
         user_settings["-google-credentials-"] = {"project_id": "p"}
         monkeypatch.setattr(prerechnung, "extract_invoice_info", lambda content: F.google_invoice_json())
         prerechnung.process_inv(pre)
@@ -90,17 +100,20 @@ class TestProcessInv:
         assert stored["auftragsnr"] == "BEST-1"
         assert stored["betrag"] == "1.190,00 EUR"     # Rohwert aus dem JSON, keine Zahl
 
-    def test_google_parser_error_is_reported(self, pre, fake_api, user_settings, monkeypatch, capsys):
+    def test_google_parser_error_is_reported(self, pre: dict[str, Any], fake_api: FakeFrappeClient,
+                                             user_settings: UserSettings, monkeypatch: pytest.MonkeyPatch,
+                                             capsys: pytest.CaptureFixture[str]) -> None:
         user_settings["-google-credentials-"] = {"project_id": "p"}
 
-        def boom(content):
+        def boom(content: bytes) -> NoReturn:
             raise RuntimeError("Quota")
         monkeypatch.setattr(prerechnung, "extract_invoice_info", boom)
         prerechnung.process_inv(pre)
         assert fake_api.get_doc("PreRechnung", pre["name"])["processed"] is False
         assert "Quota" in capsys.readouterr().out
 
-    def test_process_all_unprocessed(self, pre, fake_api, somiko, monkeypatch, capsys):
+    def test_process_all_unprocessed(self, pre: dict[str, Any], fake_api: FakeFrappeClient, somiko: Company,
+                                     monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
         fake_api.add("PreRechnung", company=somiko.name, processed=True, pdf="/private/files/pre.pdf")
         seen = []
         monkeypatch.setattr(prerechnung, "process_inv", lambda pr: seen.append(pr["name"]))
@@ -109,11 +122,12 @@ class TestProcessInv:
         assert "Prerechnungen vorprozessiert" in capsys.readouterr().out
 
 
-def _ns(**kw):
+def _ns(**kw: Any) -> types.SimpleNamespace:
     return types.SimpleNamespace(**kw)
 
 
-def _entity(type_, text, confidence=0.9, props=(), page=0, start=0):
+def _entity(type_: str, text: str, confidence: float = 0.9, props: Iterable[tuple[str, str, float]] = (),
+            page: int = 0, start: int = 0) -> types.SimpleNamespace:
     return _ns(type_=type_, mention_text=text, confidence=confidence,
                normalized_value=_ns(text=""),
                text_anchor=_ns(content="", text_segments=[_ns(start_index=start)]),
@@ -123,7 +137,7 @@ def _entity(type_, text, confidence=0.9, props=(), page=0, start=0):
 
 
 class TestExtractInvoiceInfo:
-    def test_entity_grouping(self, user_settings, monkeypatch):
+    def test_entity_grouping(self, user_settings: UserSettings, monkeypatch: pytest.MonkeyPatch) -> None:
         user_settings["-google-credentials-"] = {"project_id": "proj"}
         user_settings["-invoice-processor-"] = "proc"
         entities = [
@@ -139,10 +153,10 @@ class TestExtractInvoiceInfo:
         captured = {}
 
         class Client:
-            def __init__(self, client_options=None):
+            def __init__(self, client_options: Any = None) -> None:
                 captured["endpoint"] = client_options.api_endpoint
 
-            def process_document(self, request):
+            def process_document(self, request: Any) -> types.SimpleNamespace:
                 captured["request"] = request
                 return _ns(document=_ns(text="Volltext", entities=entities))
         monkeypatch.setattr(prerechnung.documentai, "DocumentProcessorServiceClient", Client)
@@ -162,7 +176,9 @@ class TestExtractInvoiceInfo:
 
 
 class TestReadAndTransfer:
-    def test_creates_purchase_invoice_and_links_pre_invoice(self, pre, fake_api, somiko, gui, capsys):
+    def test_creates_purchase_invoice_and_links_pre_invoice(self, pre: dict[str, Any], fake_api: FakeFrappeClient,
+                                                            somiko: Company, gui: EasyguiStub,
+                                                            capsys: pytest.CaptureFixture[str]) -> None:
         pre["processed"] = True
         gui.answers["buttonbox"] = "Später buchen"
         pinv = prerechnung.read_and_transfer(pre, cli_overrides={})
@@ -178,14 +194,16 @@ class TestReadAndTransfer:
         # Temporärdatei ist weg
         assert not os.path.exists(pinv.infiles[0])
 
-    def test_unprocessed_pre_invoice_is_processed_first(self, pre, fake_api, gui, monkeypatch):
+    def test_unprocessed_pre_invoice_is_processed_first(self, pre: dict[str, Any], fake_api: FakeFrappeClient,
+                                                        gui: EasyguiStub, monkeypatch: pytest.MonkeyPatch) -> None:
         seen = []
         monkeypatch.setattr(prerechnung, "process_inv", lambda pr: seen.append(pr["name"]))
         gui.answers["buttonbox"] = "Später buchen"
         prerechnung.read_and_transfer(pre, cli_overrides={})
         assert seen == [pre["name"]]
 
-    def test_duplicate_does_not_relink(self, pre, fake_api, somiko, gui):
+    def test_duplicate_does_not_relink(self, pre: dict[str, Any], fake_api: FakeFrappeClient, somiko: Company,
+                                       gui: EasyguiStub) -> None:
         pre["processed"] = True
         pre["purchase_invoice"] = "EK 2026-99999"
         fake_api.add("Purchase Invoice", name="EK 2026-99999", bill_no="2026-0815", status="Unpaid", supplier="M")
@@ -194,7 +212,10 @@ class TestReadAndTransfer:
         assert pinv.is_duplicate is True
         assert fake_api.calls_of("update") == []
 
-    def test_stock_invoice_with_generic_parser_falls_back_to_default_item(self, pre, fake_api, somiko, gui, capsys):
+    def test_stock_invoice_with_generic_parser_falls_back_to_default_item(self, pre: dict[str, Any],
+                                                                          fake_api: FakeFrappeClient, somiko: Company,
+                                                                          gui: EasyguiStub,
+                                                                          capsys: pytest.CaptureFixture[str]) -> None:
         import settings
         fake_api.add("Project", name="PROJ-0001", project_type="Balkonmodule", project_name="B")
         pre["processed"] = True
@@ -210,7 +231,8 @@ class TestReadAndTransfer:
         assert fake_api.get_list("Stock Entry") == []
         assert "Keine Projekt-Lagerhaltung für Projekt PROJ-0001" in capsys.readouterr().out
 
-    def test_google_json_stock_invoice(self, pre, fake_api, somiko, gui):
+    def test_google_json_stock_invoice(self, pre: dict[str, Any], fake_api: FakeFrappeClient, somiko: Company,
+                                       gui: EasyguiStub) -> None:
         from collections import defaultdict
         fake_api.add("Project", name="PROJ-0001", project_type="Balkonmodule", project_name="B")
         modul = {"name": "010.100.001", "item_code": "010.100.001", "item_name": "Solarmodul 400 Wp",
@@ -233,8 +255,9 @@ class TestReadAndTransfer:
 
 
 class TestCli:
-    def test_named_pre_invoice_with_overrides(self, pre, fake_api, somiko, monkeypatch):
-        seen = {}
+    def test_named_pre_invoice_with_overrides(self, pre: dict[str, Any], fake_api: FakeFrappeClient, somiko: Company,
+                                              monkeypatch: pytest.MonkeyPatch) -> None:
+        seen: dict[str, Any] = {}
         monkeypatch.setattr(prerechnung, "read_and_transfer", lambda inv, cli_overrides=None: seen.update(inv=inv, ov=cli_overrides))
         prerechnung.cli_read_and_transfer(name=pre["name"], overrides={"konto": "4985", "lieferant": "Neu", "projekt": "P",
                                                                        "selbst_bezahlt": True, "betrag": 5.0})
@@ -243,19 +266,21 @@ class TestCli:
         assert seen["inv"]["chance"] == "P" and seen["inv"]["selbst_bezahlt"] is True
         assert seen["ov"]["betrag"] == 5.0
 
-    def test_unknown_name(self, fake_api, somiko, capsys):
+    def test_unknown_name(self, fake_api: FakeFrappeClient, somiko: Company, capsys: pytest.CaptureFixture[str]) -> None:
         assert prerechnung.cli_read_and_transfer(name="PreR99999") is None
         assert "nicht gefunden" in capsys.readouterr().out
 
-    def test_no_company(self, fake_api, user_settings, capsys):
+    def test_no_company(self, fake_api: FakeFrappeClient, user_settings: UserSettings,
+                        capsys: pytest.CaptureFixture[str]) -> None:
         user_settings["-company-"] = "gibt es nicht"
         assert prerechnung.cli_read_and_transfer() is None
         assert "Kein Bereich gefunden" in capsys.readouterr().out
 
-    def test_interactive_selection(self, pre, fake_api, somiko, monkeypatch, capsys):
+    def test_interactive_selection(self, pre: dict[str, Any], fake_api: FakeFrappeClient, somiko: Company,
+                                   monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
         fake_api.add("PreRechnung", company=somiko.name, eingepflegt=False, typ="Rechnung", datum="2026-09-05",
                      lieferant="Zweite GmbH", pdf="/private/files/pre.pdf", processed=True)
-        seen = {}
+        seen: dict[str, Any] = {}
         monkeypatch.setattr(prerechnung, "read_and_transfer", lambda inv, cli_overrides=None: seen.update(inv=inv))
         monkeypatch.setattr("builtins.input", lambda prompt="": "1")
         prerechnung.cli_read_and_transfer()
@@ -263,25 +288,26 @@ class TestCli:
         assert "Offene Prerechnungen:" in out and "Zweite GmbH" in out
         assert seen["inv"]["lieferant"] == "Muster Solartechnik GmbH"   # neueste zuerst, Index 1 = ältere
 
-    def test_interactive_cancel_and_invalid(self, pre, fake_api, somiko, monkeypatch, capsys):
+    def test_interactive_cancel_and_invalid(self, pre: dict[str, Any], fake_api: FakeFrappeClient, somiko: Company,
+                                            monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
         monkeypatch.setattr("builtins.input", lambda prompt="": "")
         assert prerechnung.cli_read_and_transfer() is None
         monkeypatch.setattr("builtins.input", lambda prompt="": "99")
         assert prerechnung.cli_read_and_transfer() is None
         assert "Ungültige Auswahl" in capsys.readouterr().out
 
-    def test_no_open_pre_invoices(self, fake_api, somiko, capsys):
+    def test_no_open_pre_invoices(self, fake_api: FakeFrappeClient, somiko: Company, capsys: pytest.CaptureFixture[str]) -> None:
         assert prerechnung.cli_read_and_transfer(advance=True) is None
         assert "Keine offenen Anzahlungsrechnungen gefunden" in capsys.readouterr().out
 
 
 class TestReadAndTransferPdf:
-    def test_wires_google_and_transfer(self, monkeypatch, tmp_path):
+    def test_wires_google_and_transfer(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
         import args
         import company
         pdf = tmp_path / "x.pdf"
         pdf.write_bytes(b"%PDF")
-        seen = {}
+        seen: dict[str, Any] = {}
         monkeypatch.setattr(args, "init", lambda: seen.setdefault("init", True))
         monkeypatch.setattr(company.Company, "init_companies", classmethod(lambda cls: seen.setdefault("companies", True)))
         monkeypatch.setattr(prerechnung, "extract_invoice_info", lambda c: {"entities": [], "content": c})

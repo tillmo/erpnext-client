@@ -9,14 +9,20 @@ erkannte Rechnungsnummer mit bill_no verglichen (gleiche Variantenregel wie im a
 Der Test schlägt fehl, wenn ein Parser eine Ausnahme wirft oder die Trefferquote unter
 ERPNEXT_TEST_PARSER_MIN_MATCH (Standard 0.5) fällt; die Details werden ausgegeben.
 """
+from __future__ import annotations
+
 import json
 import os
+from pathlib import Path
+from typing import Any
 
 import pytest
 
 from api import Api
 from company import Company
 from support.deps import skip_module_without_pdftotext
+from support.live import LiveState
+from support.stubs import UserSettings
 
 skip_module_without_pdftotext()
 
@@ -25,7 +31,7 @@ import purchase_invoice  # noqa: E402
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "test", "data")
 
 
-def same_number(parsed, expected):
+def same_number(parsed: str | None, expected: str | None) -> bool:
     expected = (expected or "").strip()       # bill_no in ERPNext enthält teils ein abschließendes '\n'
     if not expected:
         return parsed in (None, "", "???")
@@ -34,7 +40,7 @@ def same_number(parsed, expected):
     return bool(parsed) and parsed == expected[0:-1] and expected[-1] in "abcdefgh"
 
 
-def load_candidates(api, live, tmp_path):
+def load_candidates(api: Any, live: LiveState, tmp_path: Path) -> tuple[list[tuple[dict[str, Any], str]], str]:
     json_file = os.path.join(DATA_DIR, "purchase_invoices.json")
     if os.path.isfile(json_file):
         with open(json_file) as f:
@@ -59,7 +65,8 @@ def load_candidates(api, live, tmp_path):
     return cands, "Instanz"
 
 
-def test_parsers_against_real_invoices(api, live, tmp_path, user_settings, capsys):
+def test_parsers_against_real_invoices(api: Any, live: LiveState, tmp_path: Path, user_settings: UserSettings,
+                                       capsys: pytest.CaptureFixture[str]) -> None:
     cands = [(doc, pdf) for doc, pdf in load_candidates(api, live, tmp_path)[0]
              if purchase_invoice.pdf_to_text(pdf)]
     if not cands:
@@ -94,7 +101,7 @@ def test_parsers_against_real_invoices(api, live, tmp_path, user_settings, capsy
             r["name"], (r["supplier"] or "")[:30], str(r["parser"]), r["parsed"], r["expected"]))
     for r in errors:
         print("  {:20s} {:30s} FEHLER {}".format(r["name"], (r["supplier"] or "")[:30], r["error"][:150]))
-    by_parser = {}
+    by_parser: dict[str, list[int]] = {}
     for r in results:
         by_parser.setdefault(r["parser"], [0, 0])
         by_parser[r["parser"]][0] += int(r["ok"])

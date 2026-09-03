@@ -3,18 +3,29 @@
 Alles hier ist bewusst frei erfunden (keine echten Lieferanten-, Kunden- oder
 Kontodaten), orientiert sich aber an den Strukturen, die der Client erwartet.
 """
+from __future__ import annotations
+
 import codecs
 import csv
 import datetime
 import io
 from collections import defaultdict
+from typing import TYPE_CHECKING, Any, Iterable
+
+if TYPE_CHECKING:
+    from os import PathLike
+
+    from bank import BankAccount
+    from company import Company
+    from purchase_invoice import PurchaseInvoice
+    from support.fakes import FakeFrappeClient
 
 # --------------------------------------------------------------- Konten
 SOMIKO = "SoMiKo"
 COMPANY = "Bremer SolidarStrom"
 LADEN = "Laden"
 
-ACCOUNTS_SOMIKO = [
+ACCOUNTS_SOMIKO: list[tuple[str, str, int]] = [
     # name, root_type, is_group
     ("Bank - SoMiKo", "Asset", 0),
     ("1576 - Abziehbare VSt. 19% - SoMiKo", "Asset", 0),
@@ -37,7 +48,7 @@ ACCOUNTS_SOMIKO = [
     ("Aufwand - SoMiKo", "Expense", 1),
 ]
 
-ACCOUNTS_LADEN = [
+ACCOUNTS_LADEN: list[tuple[str, str, int]] = [
     ("Bank - Laden", "Asset", 0),
     ("1576 - Abziehbare VSt. 19% - Laden", "Asset", 0),
     ("1571 - Abziehbare VSt. 7% - Laden", "Asset", 0),
@@ -63,17 +74,17 @@ ACCOUNTS_LADEN = [
     ("3302 - Kornkraft 7% Vorsteuer - Laden", "Expense", 0),
 ]
 
-TAXES_SOMIKO = {19.0: "1576 - Abziehbare VSt. 19% - SoMiKo"}
-TAXES_LADEN = {19.0: "1576 - Abziehbare VSt. 19% - Laden", 7.0: "1571 - Abziehbare VSt. 7% - Laden"}
+TAXES_SOMIKO: dict[float, str] = {19.0: "1576 - Abziehbare VSt. 19% - SoMiKo"}
+TAXES_LADEN: dict[float, str] = {19.0: "1576 - Abziehbare VSt. 19% - Laden", 7.0: "1571 - Abziehbare VSt. 7% - Laden"}
 
 
-def account_docs(company_name, accounts):
+def account_docs(company_name: str, accounts: Iterable[tuple[str, str, int]]) -> list[dict[str, Any]]:
     return [{"name": name, "account_name": name.rsplit(" - ", 1)[0], "company": company_name,
              "is_group": is_group, "root_type": root_type}
             for name, root_type, is_group in accounts]
 
 
-def company_doc(name=COMPANY, abbr=SOMIKO):
+def company_doc(name: str = COMPANY, abbr: str = SOMIKO) -> dict[str, Any]:
     return {"name": name, "company_name": name, "abbr": abbr,
             "cost_center": "Haupt - " + abbr,
             "default_expense_account": "4996 - Herstellungskosten - " + abbr,
@@ -82,7 +93,8 @@ def company_doc(name=COMPANY, abbr=SOMIKO):
             "default_finance_book": None, "parent_company": None}
 
 
-def make_company(name=COMPANY, abbr=SOMIKO, taxes=None, accounts=None):
+def make_company(name: str = COMPANY, abbr: str = SOMIKO, taxes: dict[float, str] | None = None,
+                 accounts: list[tuple[str, str, int]] | None = None) -> Company:
     """Company-Objekt mit den Daten, die sonst load_data() vom Server holt."""
     import company as company_mod
     if taxes is None:
@@ -107,7 +119,8 @@ def make_company(name=COMPANY, abbr=SOMIKO, taxes=None, accounts=None):
     return comp
 
 
-def seed_company_data(api, name=COMPANY, abbr=SOMIKO, taxes=None, accounts=None):
+def seed_company_data(api: FakeFrappeClient, name: str = COMPANY, abbr: str = SOMIKO,
+                      taxes: dict[float, str] | None = None, accounts: list[tuple[str, str, int]] | None = None) -> None:
     """Legt im Fake alles an, was Company.load_data() abfragt."""
     if taxes is None:
         taxes = TAXES_LADEN if name == LADEN else TAXES_SOMIKO
@@ -121,7 +134,7 @@ def seed_company_data(api, name=COMPANY, abbr=SOMIKO, taxes=None, accounts=None)
         api.add("Account", **doc)
 
 
-def iban_de(blz, kto):
+def iban_de(blz: int, kto: int) -> str:
     """Korrekte IBAN-Berechnung (mit zweistelliger Prüfziffer) als Referenz."""
     bban = "{:08d}{:010d}".format(blz, kto)
     check = 98 - int(bban + "131400") % 97
@@ -136,13 +149,13 @@ IBAN_SPARDA = iban_de(BLZ_SPARDA, 987654321)
 IBAN_FREMD = iban_de(20050550, 1122334455)  # Haspa, nicht unterstützt
 
 
-def bank_account_doc(name="Sparkasse Bremen - SoMiKo", company=COMPANY, iban=IBAN_SPARKASSE,
-                     account="Bank - SoMiKo", last_integration_date="2026-08-01"):
+def bank_account_doc(name: str = "Sparkasse Bremen - SoMiKo", company: str = COMPANY, iban: str = IBAN_SPARKASSE,
+                     account: str = "Bank - SoMiKo", last_integration_date: str = "2026-08-01") -> dict[str, Any]:
     return {"name": name, "account_name": name, "company": company, "iban": iban, "account": account,
             "last_integration_date": last_integration_date}
 
 
-def make_bank_account(api, comp, **kwargs):
+def make_bank_account(api: FakeFrappeClient, comp: Company, **kwargs: Any) -> BankAccount:
     """Bank Account im Fake anlegen und als bank.BankAccount instanziieren."""
     import bank
     doc = bank_account_doc(company=comp.name, **kwargs)
@@ -150,10 +163,11 @@ def make_bank_account(api, comp, **kwargs):
     return bank.BankAccount(doc)
 
 
-def bank_transaction_doc(bank_account, company=COMPANY, date="2026-08-15", deposit=0.0, withdrawal=0.0,
-                         description="Testbuchung", status="Pending", **extra):
+def bank_transaction_doc(bank_account: str, company: str = COMPANY, date: str = "2026-08-15", deposit: float = 0.0,
+                         withdrawal: float = 0.0, description: str = "Testbuchung", status: str = "Pending",
+                         **extra: Any) -> dict[str, Any]:
     amount = deposit or withdrawal
-    doc = {"date": date, "deposit": deposit, "withdrawal": withdrawal, "description": description,
+    doc: dict[str, Any] = {"date": date, "deposit": deposit, "withdrawal": withdrawal, "description": description,
            "bank_account": bank_account, "company": company, "status": status,
            "allocated_amount": 0.0, "unallocated_amount": amount, "currency": "EUR",
            "payment_entries": [], "docstatus": 0}
@@ -162,7 +176,8 @@ def bank_transaction_doc(bank_account, company=COMPANY, date="2026-08-15", depos
 
 
 # ------------------------------------------------------------ Rechnungen
-def make_purchase_invoice(comp, update_stock=False, aggregate_item_code=None, parser_fields=True):
+def make_purchase_invoice(comp: Company, update_stock: bool = False, aggregate_item_code: str | None = None,
+                          parser_fields: bool = True) -> PurchaseInvoice:
     """PurchaseInvoice-Objekt für die Firma comp (setzt -company- in den Settings).
 
     Der Konstruktor legt supplier/no/shipping/total_vat/items nicht an - das tun erst
@@ -199,7 +214,7 @@ GENERIC_INVOICE_LINES = [
 ]
 
 
-def write_pdf(path, lines, font="Courier", size=10):
+def write_pdf(path: str | PathLike[str], lines: Iterable[str], font: str = "Courier", size: int = 10) -> str:
     """Einfaches einseitiges PDF mit festen Zeilen (Courier -> spaltentreu bei pdftotext)."""
     from reportlab.lib.pagesizes import A4
     from reportlab.pdfgen import canvas
@@ -217,9 +232,10 @@ def write_pdf(path, lines, font="Courier", size=10):
     return str(path)
 
 
-def write_generic_invoice_pdf(path, no="2026-0815", date="03.09.2026", net=100.0, vat=19.0,
-                              supplier="Muster Solartechnik GmbH"):
-    def de(x):
+def write_generic_invoice_pdf(path: str | PathLike[str], no: str = "2026-0815", date: str = "03.09.2026",
+                              net: float = 100.0, vat: float = 19.0,
+                              supplier: str = "Muster Solartechnik GmbH") -> str:
+    def de(x: float) -> str:
         return "{:,.2f}".format(x).replace(",", "X").replace(".", ",").replace("X", ".")
     lines = [
         supplier,
@@ -239,7 +255,7 @@ def write_generic_invoice_pdf(path, no="2026-0815", date="03.09.2026", net=100.0
 
 
 # ---------------------------------------------------------- Kontoauszüge
-def write_sparkasse_csv(path, rows, iban=IBAN_SPARKASSE):
+def write_sparkasse_csv(path: str | PathLike[str], rows: Iterable[dict[str, str]], iban: str = IBAN_SPARKASSE) -> str:
     """CSV im Sparkasse-Bremen-Export-Format (ISO-8859-4, ';', 17 Spalten).
 
     rows: Liste von dicts mit date ('dd.mm.yy'), purpose, partner, partner_iban, amount ('1.234,56' oder '-12,00').
@@ -259,7 +275,8 @@ def write_sparkasse_csv(path, rows, iban=IBAN_SPARKASSE):
     return str(path)
 
 
-def write_sparda_csv(path, rows, iban=IBAN_SPARDA, start_balance="1.000,00"):
+def write_sparda_csv(path: str | PathLike[str], rows: Iterable[dict[str, str]], iban: str = IBAN_SPARDA,
+                     start_balance: str = "1.000,00") -> str:
     """CSV im Sparda/Ethikbank-Format (UTF-8, ';', Datum dd.mm.yyyy in Spalte 5, Saldo in Spalte 13).
 
     Die erste Buchungszeile enthält den Endsaldo (neueste Buchung zuerst).
@@ -281,7 +298,7 @@ def write_sparda_csv(path, rows, iban=IBAN_SPARDA, start_balance="1.000,00"):
 
 
 # ---------------------------------------------------- Parser-Testzeilen
-def layout(columns, width=None, newline=True):
+def layout(columns: dict[int, Any], width: int | None = None, newline: bool = True) -> str:
     """Zeile mit Text an festen Spaltenpositionen bauen, wie pdftotext -table sie liefert.
 
     columns: {offset: text}. Wie bei pdftotext endet jede Zeile mit '\\n'.
@@ -297,17 +314,17 @@ def layout(columns, width=None, newline=True):
     return s + ("\n" if newline else "")
 
 
-def right_aligned(prefix, value, width):
+def right_aligned(prefix: str, value: str, width: int) -> str:
     """Zeile fester Breite, deren letzte Zeichen vor dem '\\n' der Wert ist (für line[-9:-1]-Zugriffe)."""
     body = prefix.ljust(width - len(value)) + value
     return body + "\n"
 
 
-def de_amount(x):
+def de_amount(x: float) -> str:
     return "{:,.2f}".format(x).replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def krannich_lines(update_stock=True):
+def krannich_lines(update_stock: bool = True) -> list[str]:
     """Synthetische Krannich-Rechnung in der Spaltengeometrie, die der Parser erwartet.
 
     Positionen: qty/unit ab Spalte 73, Betrag ab Spalte 157; MwSt-Zeile: Netto ab 146,
@@ -335,7 +352,7 @@ def krannich_lines(update_stock=True):
     return lines
 
 
-def heckert_lines():
+def heckert_lines() -> list[str]:
     """Synthetische Heckert-Rechnung. qty ab Spalte 60, Preis ab 98, Betrag ab 135.
 
     2 Module à 300,00 = 600,00 abzüglich Rabatt 50,00 -> 550,00; Transport 30,00
@@ -360,7 +377,7 @@ def heckert_lines():
     return lines
 
 
-def wagner_lines(rechnung=True):
+def wagner_lines(rechnung: bool = True) -> list[str]:
     """Synthetische Wagner-Solar-Rechnung (bzw. Vorkasserechnung).
 
     3 Stück à 200,00 = 600,00 plus Fracht 45,00; Nettosumme 645,00; MwSt 122,55.
@@ -389,7 +406,7 @@ def wagner_lines(rechnung=True):
     return lines
 
 
-def pvxchange_lines():
+def pvxchange_lines() -> list[str]:
     """Synthetische pvXchange-Rechnung (raw-Text). 4 Module à 150,00 = 600,00; Transport 40,00."""
     lines = [
         "pvXchange Trading GmbH\n",
@@ -406,7 +423,7 @@ def pvxchange_lines():
     return lines
 
 
-def nkk_lines():
+def nkk_lines() -> list[str]:
     """Naturkost-Kontor-Rechnung (Laden): Datum, dann Steuerzeilen '19,00% netto rabatt ... steuer'."""
     lines = [
         "Naturkost Kontor Bremen GmbH Rechnung\n",
@@ -418,7 +435,7 @@ def nkk_lines():
     return lines
 
 
-def kornkraft_lines():
+def kornkraft_lines() -> list[str]:
     """Kornkraft-Rechnung (Laden, multi): 'Rechnung <nr>', Datum, Steuerzeilen mit Satz in words[0:3]."""
     lines = [
         "Kornkraft Naturkost GmbH\n",
@@ -431,13 +448,14 @@ def kornkraft_lines():
     return lines
 
 
-def google_invoice_json(supplier="Muster Solartechnik GmbH", bill_no="RE 2024-77", total="1.190,00 EUR",
-                        net="1.000,00", tax="190,00", posting_date="15.03.2024", due_date=None,
-                        order_id="BEST-1", items=None):
+def google_invoice_json(supplier: str = "Muster Solartechnik GmbH", bill_no: str = "RE 2024-77",
+                        total: str = "1.190,00 EUR", net: str = "1.000,00", tax: str = "190,00",
+                        posting_date: str = "15.03.2024", due_date: str | None = None, order_id: str = "BEST-1",
+                        items: Iterable[dict[str, Any]] | None = None) -> dict[str, Any]:
     """Nachbildung des von prerechnung.extract_invoice_info gelieferten JSON."""
-    ents = []
+    ents: list[dict[str, Any]] = []
 
-    def ent(typ, value, conf=0.9):
+    def ent(typ: str, value: str | None, conf: float = 0.9) -> None:
         if value is not None:
             ents.append({"type": typ, "value": value, "confidence": conf, "properties": []})
     ent("supplier", supplier)
@@ -450,7 +468,7 @@ def google_invoice_json(supplier="Muster Solartechnik GmbH", bill_no="RE 2024-77
     ent("due_date", due_date)
     ent("order_id", order_id)
     for item in items or []:
-        props = []
+        props: list[dict[str, Any]] = []
         if "props" in item:   # explizite Reihenfolge (Dokumentreihenfolge ist für den Parser relevant)
             props = [{"type": t, "value": v, "confidence": 0.8} for t, v in item["props"]]
         for key, typ in (("description", "item-description"), ("code", "item-code"), ("qty", "item-quantity"),
@@ -461,5 +479,5 @@ def google_invoice_json(supplier="Muster Solartechnik GmbH", bill_no="RE 2024-77
     return {"document_text": "...", "entities": ents}
 
 
-def today():
+def today() -> str:
     return datetime.date.today().strftime("%Y-%m-%d")

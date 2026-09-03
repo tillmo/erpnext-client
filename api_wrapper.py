@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 from version import VERSION 
 import sys, tempfile, os
 import re
 import traceback
+from typing import Any, Callable
 
-def function_wrapper(f,*args, **kwargs):
+def function_wrapper(f: Callable[..., Any], *args: Any, **kwargs: Any) -> dict[str, Any]:
     stdout_tmp = tempfile.mktemp()
     stderr_tmp = tempfile.mktemp()
     stdout_f = open(stdout_tmp, "w")
@@ -12,8 +15,8 @@ def function_wrapper(f,*args, **kwargs):
     sys.stdout = stdout_f
     orig_err = sys.stderr
     sys.stderr = stderr_f
-    ex = ""
-    resource = {}
+    ex: str = ""
+    resource: Any = {}
     try:
         resource = f(*args, **kwargs)
     except Exception as e:
@@ -30,7 +33,7 @@ def function_wrapper(f,*args, **kwargs):
     os.remove(stderr_tmp)
     return {'resource':resource,'exception':ex,'stdout':out,'stderr':err}
 
-def api_wrapper(f,*args, **kwargs):
+def api_wrapper(f: Callable[..., Any], *args: Any, **kwargs: Any) -> dict[str, Any]:
     result = function_wrapper(f,*args, **kwargs)
     html = result['stdout'].strip()
     if html:
@@ -39,7 +42,7 @@ def api_wrapper(f,*args, **kwargs):
             lines = match.group(0).split("\n")
             err_lines = [l for l in lines if "Error" in l]
             if not err_lines:
-                err_line = None
+                err_line: str | None = None
                 for i in range(len(lines)-1):
                     if "raise raise_exception(msg)" in lines[i]:
                         err_line = lines[i+1]
@@ -58,13 +61,13 @@ def api_wrapper(f,*args, **kwargs):
     result['err_msg'] = err_msg
     return result
 
-def api_wrapper_test(f,*args, **kwargs):
+def api_wrapper_test(f: Callable[..., Any], *args: Any, **kwargs: Any) -> bool:
     result = api_wrapper(f,*args, **kwargs)
     return not(result['err_msg'] or result['exception'])
     
 import easygui
 
-def gui_api_wrapper(f,*args, **kwargs):
+def gui_api_wrapper(f: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
     result = api_wrapper(f,*args, **kwargs)
     if result['err_msg'] or result['exception']:
         title = "\nFehler in Kommunikation mit dem ERPNext API\n"+\

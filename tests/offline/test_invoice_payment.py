@@ -1,15 +1,22 @@
 """Tests für invoice.Invoice, invoice.accrual und payment.create_payment."""
+from __future__ import annotations
+
 import os
+from pathlib import Path
+from typing import Any, NoReturn
 
 import pytest
 
 import invoice
 import payment
 from api import Api
+from company import Company
 from support import factories as F
+from support.fakes import FakeFrappeClient
+from support.stubs import UserSettings
 
 
-def pinv_doc(**over):
+def pinv_doc(**over: Any) -> dict[str, Any]:
     d = {"name": "EK 2026-00001", "company": F.COMPANY, "posting_date": "2026-03-01", "status": "Unpaid",
          "grand_total": 119.0, "outstanding_amount": 119.0, "supplier": "Lieferant A", "bill_no": "RE-1",
          "is_return": 0}
@@ -17,11 +24,11 @@ def pinv_doc(**over):
     return d
 
 
-def strip_meta(rows):
+def strip_meta(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return [{k: v for k, v in r.items() if k not in ("idx", "parent", "parenttype", "parentfield")} for r in rows]
 
 
-def sinv_doc(**over):
+def sinv_doc(**over: Any) -> dict[str, Any]:
     d = {"name": "R 2026-00001", "company": F.COMPANY, "posting_date": "2026-03-02", "status": "Unpaid",
          "grand_total": 238.0, "outstanding_amount": 238.0, "customer": "Kunde K", "is_return": 0}
     d.update(over)
@@ -29,7 +36,7 @@ def sinv_doc(**over):
 
 
 class TestInvoiceInit:
-    def test_purchase_invoice(self, fake_api):
+    def test_purchase_invoice(self, fake_api: FakeFrappeClient) -> None:
         inv = invoice.Invoice(pinv_doc(), False)
         assert inv.doctype == "Purchase Invoice"
         assert inv.reference == "RE-1"
@@ -39,18 +46,18 @@ class TestInvoiceInit:
         assert inv.is_return == 0
         assert inv.date == "2026-03-01" and inv.status == "Unpaid"
 
-    def test_purchase_invoice_without_bill_no_uses_name(self, fake_api):
+    def test_purchase_invoice_without_bill_no_uses_name(self, fake_api: FakeFrappeClient) -> None:
         inv = invoice.Invoice(pinv_doc(bill_no=None), False)
         assert inv.reference == "EK 2026-00001"
 
-    def test_sales_invoice(self, fake_api):
+    def test_sales_invoice(self, fake_api: FakeFrappeClient) -> None:
         inv = invoice.Invoice(sinv_doc(), True)
         assert inv.doctype == "Sales Invoice"
         assert inv.reference == "R 2026-00001"
         assert inv.party == "Kunde K" and inv.party_type == "Customer"
         assert inv.amount == 238.0
 
-    def test_is_return_optional(self, fake_api):
+    def test_is_return_optional(self, fake_api: FakeFrappeClient) -> None:
         d = sinv_doc()
         del d["is_return"]
         inv = invoice.Invoice(d, True)
@@ -58,7 +65,7 @@ class TestInvoiceInit:
 
 
 class TestInvoicePayment:
-    def test_purchase_payment_creates_pay_entry(self, somiko, fake_api):
+    def test_purchase_payment_creates_pay_entry(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         inv = invoice.Invoice(pinv_doc(), False)
         p = inv.payment("Bank - SoMiKo", 119.0, "2026-03-05")
         assert p["payment_type"] == "Pay"
@@ -73,7 +80,7 @@ class TestInvoicePayment:
         assert p["posting_date"] == p["reference_date"] == "2026-03-05"
         assert p["docstatus"] == 0 and p["unallocated_amount"] == 0.0
 
-    def test_sales_payment_creates_receive_entry(self, somiko, fake_api):
+    def test_sales_payment_creates_receive_entry(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         inv = invoice.Invoice(sinv_doc(), True)
         p = inv.payment("Bank - SoMiKo", 100.0, "2026-03-05")
         assert p["payment_type"] == "Receive"
@@ -82,13 +89,14 @@ class TestInvoicePayment:
         assert p["references"][0]["reference_doctype"] == "Sales Invoice"
         assert p["unallocated_amount"] == 0.0
 
-    def test_zero_amount_creates_nothing(self, somiko, fake_api, capsys):
+    def test_zero_amount_creates_nothing(self, somiko: Company, fake_api: FakeFrappeClient,
+                                         capsys: pytest.CaptureFixture[str]) -> None:
         inv = invoice.Invoice(sinv_doc(), True)
         assert inv.payment("Bank - SoMiKo", 0, "2026-03-05") is None
         assert "Ausstehender Betrag ist 0" in capsys.readouterr().out
         assert fake_api.calls_of("insert") == []
 
-    def test_use_advance_payment(self, somiko, fake_api):
+    def test_use_advance_payment(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         name = fake_api.add("Purchase Invoice", **pinv_doc())
         py_name = fake_api.add("Payment Entry", remarks="Anzahlung", paid_amount=50.0, party="Lieferant A")
         import doc
@@ -100,7 +108,7 @@ class TestInvoicePayment:
                                                    "remarks": "Anzahlung", "advance_amount": 50.0,
                                                    "allocated_amount": 50.0}]
 
-    def test_payment_from_bank_transaction_submits(self, somiko, fake_api):
+    def test_payment_from_bank_transaction_submits(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         bacc = F.make_bank_account(fake_api, somiko)
         import bank
         bt_name = fake_api.add("Bank Transaction", **F.bank_transaction_doc(bacc.name, withdrawal=119.0))
@@ -115,26 +123,28 @@ class TestInvoicePayment:
 
 
 class TestCreatePayment:
-    def test_negative_amount_flips_direction(self, somiko, fake_api):
+    def test_negative_amount_flips_direction(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         p = payment.create_payment(True, somiko, "Bank - SoMiKo", -40.0, "2026-01-01", "Kunde", "Customer", "ref", [])
         assert p["payment_type"] == "Pay" and p["paid_amount"] == 40.0
         assert p["paid_from"] == "Bank - SoMiKo" and p["paid_to"] == somiko.payable_account
 
-    def test_exchange_rates_and_company(self, somiko, fake_api):
+    def test_exchange_rates_and_company(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         p = payment.create_payment(False, somiko, "Bank - SoMiKo", 10.0, "2026-01-01", "L", "Supplier", "r", [])
         assert p["company"] == somiko.name
         assert p["finance_book"] == somiko.default_finance_book
         assert (p["source_exchange_rate"], p["target_exchange_rate"], p["exchange_rate"]) == (1.0, 1.0, 1.0)
 
-    def test_buchen_setting_submits(self, somiko, fake_api, user_settings, capsys):
+    def test_buchen_setting_submits(self, somiko: Company, fake_api: FakeFrappeClient, user_settings: UserSettings,
+                                    capsys: pytest.CaptureFixture[str]) -> None:
         user_settings["-buchen-"] = True
         p = payment.create_payment(False, somiko, "Bank - SoMiKo", 10.0, "2026-01-01", "L", "Supplier", "r", [])
         assert fake_api.get_doc("Payment Entry", p["name"])["docstatus"] == 1
         out = capsys.readouterr().out
         assert "erstellt" in out and "gebucht" in out
 
-    def test_insert_failure_returns_none(self, somiko, fake_api, monkeypatch, capsys):
-        def broken(doc):
+    def test_insert_failure_returns_none(self, somiko: Company, fake_api: FakeFrappeClient,
+                                         monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+        def broken(doc: dict[str, Any]) -> NoReturn:
             raise RuntimeError("Server weg")
         monkeypatch.setattr(fake_api, "insert", broken)
         assert payment.create_payment(False, somiko, "B", 1.0, "2026-01-01", "L", "Supplier", "r", []) is None
@@ -142,7 +152,8 @@ class TestCreatePayment:
 
 
 class TestAccrual:
-    def test_accrual_classifies_invoices(self, fake_api, in_tmp_cwd, capsys):
+    def test_accrual_classifies_invoices(self, fake_api: FakeFrappeClient, in_tmp_cwd: Path,
+                                         capsys: pytest.CaptureFixture[str]) -> None:
         c = F.COMPANY
         fake_api.add("Sales Invoice", name="R 2025-1", company=c, docstatus=1, total=10, posting_date="2025-05-01")
         fake_api.add("Sales Invoice", name="R 2025-2", company=c, docstatus=1, total=10, posting_date="2025-06-01")

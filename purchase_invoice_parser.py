@@ -1,11 +1,26 @@
+from __future__ import annotations
+
 import re
+from typing import TYPE_CHECKING, Any
 import utils
 from settings import NKK_ACCOUNTS, KORNKRAFT_ACCOUNTS
 from supplier_item import SupplierItem
 
+if TYPE_CHECKING:
+    from purchase_invoice import PurchaseInvoice
+
 
 class PurchaseInvoiceParser:
-    def __init__(self, purchase_invoice, supplier, lines, is_test=False):
+    purchase_invoice: PurchaseInvoice
+    supplier: str
+    lines: list[str]
+    is_test: bool
+    line_items: list[list[str]]
+    is_rechnung: bool
+    rounding_error: float
+
+    def __init__(self, purchase_invoice: PurchaseInvoice, supplier: str, lines: list[str],
+                 is_test: bool = False) -> None:
         self.purchase_invoice = purchase_invoice
         self.supplier = supplier
         self.lines = lines
@@ -14,7 +29,7 @@ class PurchaseInvoiceParser:
         self.is_rechnung = False
         self.rounding_error = 0
 
-    def get_purchase_data(self):
+    def get_purchase_data(self) -> dict[str, Any]:
         supplier = self.purchase_invoice.supplier
         bill_no = self.purchase_invoice.no
         order_id = self.purchase_invoice.order_id
@@ -25,7 +40,7 @@ class PurchaseInvoiceParser:
 
         taxes = [{"rate":r,"tax_amount":t} for r, t in self.purchase_invoice.vat.items()]
 
-        items = []
+        items: list[dict[str, Any]] = []
         for s_item in self.purchase_invoice.items:
             items.append({
                 "description": s_item.description,
@@ -35,7 +50,7 @@ class PurchaseInvoiceParser:
                 "amount": s_item.amount
             })
 
-        result = {
+        result: dict[str, Any] = {
             "supplier": supplier,
             "total": total,
             "grand_total": grand_total,
@@ -64,24 +79,24 @@ class PurchaseInvoiceParser:
 
         return result
 
-    def set_purchase_info(self):
+    def set_purchase_info(self) -> PurchaseInvoice:
         if self.supplier == 'generic':
             self.set_generic_info()
         else:
             self.set_basic_info()
-            self.purchase_invoice.items  : list [SupplierItem] = []
+            self.purchase_invoice.items = []
             self.purchase_invoice.shipping = 0
             self.set_totals()
             self.set_items()
         return self.purchase_invoice
 
-    def set_generic_info(self):
+    def set_generic_info(self) -> None:
         self.purchase_invoice.parse_generic(self.lines, is_test=self.is_test)
 
-    def set_basic_info(self):
+    def set_basic_info(self) -> None:
         self.purchase_invoice.date = None
         self.purchase_invoice.no = None
-        item = []
+        item: list[str] = []
         if self.supplier == 'nkk':
             for line in self.lines:
                 words = line.split()
@@ -209,7 +224,7 @@ class PurchaseInvoiceParser:
                     item.append(line)
             self.line_items.append(item)
 
-    def set_no_wagner(self, line, words):
+    def set_no_wagner(self, line: str, words: list[str]) -> bool:
         """
         Extract the invoice number of a Wagner invoice from line, and remember whether it is
         a proper invoice (Rechnung) or a pro forma one (Vorkasserechnung, Auftragsbestätigung).
@@ -229,7 +244,7 @@ class PurchaseInvoiceParser:
             return True
         return False
 
-    def set_items(self):
+    def set_items(self) -> None:
         if self.supplier == 'nkk':
             self.purchase_invoice.items = []
             self.purchase_invoice.assign_default_e_items(NKK_ACCOUNTS)
@@ -362,7 +377,7 @@ class PurchaseInvoiceParser:
                     print("Position konnte nicht gelesen werden:",
                           " ".join(item_lines[0].split())[0:82], "-", e)
 
-    def set_item_wagner(self, item_lines):
+    def set_item_wagner(self, item_lines: list[str]) -> None:
         item_str = item_lines[0]
         words = item_str.split()
         try:
@@ -413,7 +428,7 @@ class PurchaseInvoiceParser:
         self.rounding_error += s_item.amount - s_item.rate * s_item.qty
         self.purchase_invoice.items.append(s_item)
 
-    def set_totals(self):
+    def set_totals(self) -> None:
         if self.supplier == 'nkk':
             self.purchase_invoice.shipping = 0
         elif self.supplier == 'kornkraft':
@@ -482,5 +497,5 @@ class PurchaseInvoiceParser:
         self.purchase_invoice.compute_total()
 
     @classmethod
-    def get_amount_krannich(cls, lines):
+    def get_amount_krannich(cls, lines: list[str]) -> float:
         return sum(map(lambda line: utils.read_float(line[-9:-1]), lines))

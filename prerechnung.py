@@ -1,4 +1,7 @@
+from __future__ import annotations
+
 import os
+from typing import Any
 import PySimpleGUI as sg
 import utils
 import project
@@ -18,7 +21,7 @@ from google.cloud import documentai_v1beta3 as documentai
 from google.api_core.client_options import ClientOptions
 
 
-ENTITIES_DATA_SCHEMA = {
+ENTITIES_DATA_SCHEMA: dict[str, Any] = {
     "title": "Entities format",
     "required": ["total_amount"],
     "type": "object",
@@ -53,7 +56,7 @@ ENTITIES_DATA_SCHEMA = {
 }
 
 
-def process(company_name):
+def process(company_name: str) -> None:
     prs = Api.api.get_list(
         "PreRechnung",
         filters={'company': company_name, 'processed': False},
@@ -65,7 +68,7 @@ def process(company_name):
     print("Prerechnungen vorprozessiert")
 
 
-def extract_invoice_info(pdf_file_content) -> dict:
+def extract_invoice_info(pdf_file_content: bytes) -> dict[str, Any]:
     project_id = sg.UserSettings()['-google-credentials-']['project_id']
     processor_id = sg.UserSettings()['-invoice-processor-']
     location = "eu"
@@ -101,9 +104,9 @@ def extract_invoice_info(pdf_file_content) -> dict:
     text = document.text
 
     # Get the entities from the document
-    sub_entities = []
+    sub_entities: list[dict[str, Any]] = []
     for entity in document.entities:
-        props = []
+        props: list[dict[str, Any]] = []
         for prop in entity.properties:
             if prop.confidence >= 0.2:
                 props.append({
@@ -115,7 +118,7 @@ def extract_invoice_info(pdf_file_content) -> dict:
         # Sort the data by type and confidence in descending order
         sorted_data = sorted(props, key=lambda x: (x['type'], -x['confidence']))
         # Get the dictionaries with the highest confidence for each type
-        highest_confidence_props = []
+        highest_confidence_props: list[dict[str, Any]] = []
         for group, group_values in groupby(sorted_data, key=lambda x: x['type']):
             highest_confidence_dict = max(group_values, key=lambda x: x['confidence'])
             highest_confidence_props.append(highest_confidence_dict)
@@ -135,9 +138,9 @@ def extract_invoice_info(pdf_file_content) -> dict:
             })
     sub_entities = sorted(sub_entities, key=lambda x: (x['page_number'], x['line_number']))
 
-    keys = []
-    entities = []
-    base_entity_info = {}
+    keys: list[str] = []
+    entities: list[dict[str, Any]] = []
+    base_entity_info: dict[str, Any] = {}
     for sub_entity in sub_entities:
         if sub_entity['type'] == 'item':
             prop_types = [d['type'] for d in sub_entity['properties']]
@@ -168,7 +171,7 @@ def extract_invoice_info(pdf_file_content) -> dict:
     return {"document_text": text, "entities": entities}
 
 
-def process_inv(pr):
+def process_inv(pr: dict[str, Any]) -> None:
     """
     Preprocesses the pre invoice and updates the database with the extracted information.
 
@@ -221,7 +224,7 @@ def process_inv(pr):
         Api.api.update(pr)
 
 
-def to_pay(company_name):
+def to_pay(company_name: str) -> list[dict[str, Any]]:
     prs = Api.api.get_list("PreRechnung", filters={'company': company_name,
                                                    'vom_konto_überwiesen': False,
                                                    'zu_zahlen_am': ['>', '01-01-1980']},
@@ -237,7 +240,8 @@ def to_pay(company_name):
     return prs
 
 
-def read_and_transfer(inv, check_dup=True, cli_overrides=None):
+def read_and_transfer(inv: dict[str, Any], check_dup: bool = True,
+                      cli_overrides: dict[str, Any] | None = None) -> purchase_invoice.PurchaseInvoice | None:
     """
     Process a pre invoice and create an ERPNext invoice for it.
 
@@ -279,7 +283,8 @@ def read_and_transfer(inv, check_dup=True, cli_overrides=None):
     return pinv
 
 
-def cli_read_and_transfer(name=None, advance=False, overrides=None):
+def cli_read_and_transfer(name: str | None = None, advance: bool = False,
+                          overrides: dict[str, Any] | None = None) -> purchase_invoice.PurchaseInvoice | None:
     """List open PreRechnungen and process the selected one (or a named one directly).
 
     Args:
@@ -344,7 +349,10 @@ def cli_read_and_transfer(name=None, advance=False, overrides=None):
     return read_and_transfer(inv, cli_overrides=overrides)
 
 
-def read_and_transfer_pdf(file, update_stock = True, account=None, paid_by_submitter=False,project=None,supplier=None,check_dup=True):
+def read_and_transfer_pdf(file: str, update_stock: bool = True, account: str | None = None,
+                          paid_by_submitter: bool = False, project: str | None = None,
+                          supplier: str | None = None,
+                          check_dup: bool = True) -> purchase_invoice.PurchaseInvoice | None:
     """
     Process a PDF and directly create an ERPNext invoice for it (without using pre invoices).
     Standalone function to be called from the command line.

@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import datetime
 import decimal
 import json
+from typing import TYPE_CHECKING, Any
 
-def as_unicode(text: str, encoding: str = "utf-8") -> str:
+def as_unicode(text: str | bytes | None, encoding: str = "utf-8") -> str:
 	"""Convert to unicode if required"""
 	if isinstance(text, str):
 		return text
@@ -13,31 +16,37 @@ def as_unicode(text: str, encoding: str = "utf-8") -> str:
 	else:
 		return str(text)
 
-def cstr(s, encoding="utf-8"):
+def cstr(s: Any, encoding: str = "utf-8") -> str:
         return as_unicode(s, encoding)
 
 class _dict(dict):
 	"""dict like object that exposes keys as attributes"""
 
 	__slots__ = ()
-	__getattr__ = dict.get
-	__setattr__ = dict.__setitem__
-	__delattr__ = dict.__delitem__
+	if TYPE_CHECKING:
+		# Attributzugriff ist dict.get/dict.__setitem__; so versteht es auch der Typpruefer
+		def __getattr__(self, name: str) -> Any: ...
+		def __setattr__(self, name: str, value: Any) -> None: ...
+		def __delattr__(self, name: str) -> None: ...
+	else:
+		__getattr__ = dict.get
+		__setattr__ = dict.__setitem__
+		__delattr__ = dict.__delitem__
 	__setstate__ = dict.update
 
-	def __getstate__(self):
+	def __getstate__(self) -> _dict:
 		return self
 
-	def update(self, *args, **kwargs):
+	def update(self, *args: Any, **kwargs: Any) -> _dict:  # type: ignore[override]
 		"""update and return self -- the missing dict feature in python"""
 
 		super().update(*args, **kwargs)
 		return self
 
-	def copy(self):
+	def copy(self) -> _dict:
 		return _dict(self)
 
-def json_handler(obj):
+def json_handler(obj: Any) -> Any:
 	"""serialize non-serializable data for json"""
 	from collections.abc import Iterable
 	from re import Match
@@ -68,7 +77,7 @@ def json_handler(obj):
 			f"""Object of type {type(obj)} with value of {repr(obj)} is not JSON serializable"""
 		)
 
-def as_json(obj, indent=1, separators=None) -> str:
+def as_json(obj: Any, indent: int | None = 1, separators: tuple[str, str] | None = None) -> str:
 #	from frappe.utils.response import json_handler
 
 	if separators is None:

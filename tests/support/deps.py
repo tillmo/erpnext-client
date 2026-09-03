@@ -3,13 +3,15 @@
 Die Stubs aus :mod:`support.stubs` machen die Projektmodule importierbar;
 Tests, die das echte Verhalten eines Pakets prüfen, überspringen sich hier.
 """
+from __future__ import annotations
+
 import shutil
 import sys
 
 import pytest
 
 
-def _real(name):
+def _real(name: str) -> bool:
     mod = sys.modules.get(name)
     if mod is None:
         try:
@@ -36,7 +38,7 @@ requires_pdftotext = pytest.mark.skipif(not HAVE_PDFTOTEXT, reason="pdftotext ni
 requires_pdftk = pytest.mark.skipif(not HAVE_PDFTK, reason="pdftk nicht installiert")
 
 
-def de_locale_available():
+def de_locale_available() -> bool:
     import locale
     try:
         old = locale.setlocale(locale.LC_ALL)
@@ -50,7 +52,7 @@ def de_locale_available():
 requires_de_locale = pytest.mark.skipif(not de_locale_available(), reason="Locale de_DE.utf8 fehlt")
 
 
-def skip_module_without_pdftotext():
+def skip_module_without_pdftotext() -> None:
     """Am Modulanfang aufrufen, bevor purchase_invoice importiert wird:
     dessen Import ruft ``pdftotext -v`` auf und scheitert ohne das Programm."""
     if not HAVE_PDFTOTEXT:

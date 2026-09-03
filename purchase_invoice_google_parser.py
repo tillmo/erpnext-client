@@ -1,8 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 import datefinder
 from supplier_item import SupplierItem
 
+if TYPE_CHECKING:
+    from purchase_invoice import PurchaseInvoice
 
-def get_element_with_high_confidence(invoice_json, element_type):
+
+def get_element_with_high_confidence(invoice_json: dict[str, Any], element_type: str) -> Any:
     elements = [el for el in invoice_json['entities'] if el.get('type') == element_type]
     sorted_list = sorted(elements, key=lambda k: -float(k['confidence']))
     best_elem = sorted_list[0]['value'] if len(sorted_list) > 0 else None
@@ -11,7 +18,7 @@ def get_element_with_high_confidence(invoice_json, element_type):
     return best_elem
 
 
-def get_float_number(float_str: str):
+def get_float_number(float_str: str) -> float:
     try:
         float_str = float_str.replace('USD', '').replace('EUR', '')
         if ',' in float_str:
@@ -20,20 +27,27 @@ def get_float_number(float_str: str):
     except ValueError:
         return 0
 
-def find_date(date_string: str):
+def find_date(date_string: str) -> str | None:
     matches = list(datefinder.find_dates(date_string))
     return matches[0].strftime('%Y-%m-%d') if matches else None
 
 
 class PurchaseInvoiceGoogleParser:
-    def __init__(self, purchase_invoice, invoice_json, supplier, is_test):
+    purchase_invoice: PurchaseInvoice
+    invoice_json: dict[str, Any]
+    supplier: str | None
+    is_test: bool
+    company_name: str
+
+    def __init__(self, purchase_invoice: PurchaseInvoice, invoice_json: dict[str, Any],
+                 supplier: str | None, is_test: bool) -> None:
         self.purchase_invoice = purchase_invoice
         self.invoice_json = invoice_json
         self.supplier = supplier
         self.is_test = is_test
         self.company_name = purchase_invoice.company_name
 
-    def get_purchase_data(self):
+    def get_purchase_data(self) -> dict[str, Any]:
         supplier = self.purchase_invoice.supplier
         bill_no = self.purchase_invoice.no
         order_id = self.purchase_invoice.order_id
@@ -42,11 +56,11 @@ class PurchaseInvoiceGoogleParser:
         total = self.purchase_invoice.totals[self.purchase_invoice.default_vat] if self.purchase_invoice.totals[self.purchase_invoice.default_vat] else 0
         grand_total = self.purchase_invoice.gross_total if self.purchase_invoice.gross_total else 0
 
-        taxes = []
+        taxes: list[dict[str, Any]] = []
         if self.purchase_invoice.vat[self.purchase_invoice.default_vat]:
             taxes.append({"rate": 19, "tax_amount": self.purchase_invoice.vat[self.purchase_invoice.default_vat]})
 
-        items = []
+        items: list[dict[str, Any]] = []
         for s_item in self.purchase_invoice.items:
             items.append({
                 "item_code": s_item.item_code,
@@ -57,7 +71,7 @@ class PurchaseInvoiceGoogleParser:
                 "amount": s_item.amount
             })
 
-        result = {
+        result: dict[str, Any] = {
             "supplier": supplier,
             "total": total,
             "grand_total": grand_total,
@@ -86,9 +100,9 @@ class PurchaseInvoiceGoogleParser:
 
         return result
 
-    def set_purchase_info(self):
+    def set_purchase_info(self) -> PurchaseInvoice:
         try:
-            rounding_error = 0
+            rounding_error: float = 0
             self.purchase_invoice.items = []
             self.purchase_invoice.shipping = 0
             self.purchase_invoice.extract_items = self.purchase_invoice.update_stock
@@ -136,7 +150,7 @@ class PurchaseInvoiceGoogleParser:
 
             if self.purchase_invoice.update_stock:
                 line_items = [el for el in self.invoice_json['entities'] if el.get('type') in ['item', 'line_item']]
-                sum_amount = 0
+                sum_amount: float = 0
                 for line_item in line_items:
                     s_item = SupplierItem(self)
                     for prop in line_item.get('properties'):

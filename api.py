@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from api_wrapper import gui_api_wrapper, api_wrapper_test
 import json
 from os.path import expanduser 
@@ -8,16 +10,17 @@ import itertools
 import PySimpleGUI as sg
 import requests
 import time
+from typing import Any
 
 LIMIT = 100000 # limit_page_length
 
 class Api(object):
-    api = None
-    items_by_code = {}
-    item_code_translation = []
-    accounts_by_company = {}
+    api: FrappeClient = None  # type: ignore[assignment]
+    items_by_code: dict[str, dict[str, Any]] = {}
+    item_code_translation: dict[str, dict[str, str]] = []
+    accounts_by_company: dict[str, list[dict[str, Any]]] = {}
     @classmethod
-    def initialize(cls):
+    def initialize(cls) -> list[dict[str, Any]]:
         settings = sg.UserSettings()
         Api.api = FrappeClient(settings['-server-'],
                                api_key=settings['-key-'],
@@ -27,12 +30,12 @@ class Api(object):
 #            exit(1)
         return Api.api.get_list("Company")
     @classmethod
-    def initialize_with_settings(cls):
+    def initialize_with_settings(cls) -> None:
         sg.user_settings_filename(filename='erpnext.json')
         settings = sg.UserSettings()
         settings['-setup-'] = not api_wrapper_test(Api.initialize)
     @classmethod
-    def load_item_data(cls):
+    def load_item_data(cls) -> None:
         if not Api.items_by_code:
             Api.items_by_code = {}
             Api.item_code_translation = defaultdict(lambda: {})
@@ -57,7 +60,7 @@ class Api(object):
             for row in supplier_rows:
                 if not row.get('si_supplier_part_no'):
                     continue
-                item = Api.items_by_code.get(row['item_code'])
+                item = Api.items_by_code.get(row['item_code'])  # type: ignore[assignment]
                 if not item:
                     continue
                 supplier = row['si_supplier']
@@ -74,12 +77,12 @@ class Api(object):
                 fields=['name', 'item_code',
                         '`tabItem Default`.company as default_company',
                         '`tabItem Default`.expense_account as default_expense_account'])
-            items_with_defaults = set()
+            items_with_defaults: set[str] = set()
             for row in defaults_rows:
                 if row.get('default_company') != company_name:
                     continue
                 items_with_defaults.add(row['name'])
-                item = Api.items_by_code.get(row.get('item_code'))
+                item = Api.items_by_code.get(row.get('item_code'))  # type: ignore[assignment, arg-type]
                 if item and row.get('default_expense_account'):
                     item['expense_account'] = row['default_expense_account']
             missing_defaults = [item for item in items
@@ -97,7 +100,7 @@ class Api(object):
                 print()
             
     @classmethod
-    def load_account_data(cls):
+    def load_account_data(cls) -> None:
         if not Api.accounts_by_company:
             accounts = Api.api.get_list('Account',
                                         fields=['name','account_name','company',
@@ -108,12 +111,12 @@ class Api(object):
                 Api.accounts_by_company[c] = list(accs)
 
     @classmethod
-    def submit_doc(cls,doctype,docname):
+    def submit_doc(cls, doctype: str, docname: str) -> None:
         doc = gui_api_wrapper(Api.api.get_doc,doctype,docname)
         gui_api_wrapper(Api.api.submit,doc)
 
     @classmethod
-    def create_supplier(cls,supplier):
+    def create_supplier(cls, supplier: str) -> None:
         supps = gui_api_wrapper(Api.api.get_list,"Supplier",
                               filters={'name':supplier})
         if not supps:

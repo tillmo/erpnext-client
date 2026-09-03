@@ -1,3 +1,7 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 import company
 import utils
 from api import Api, LIMIT
@@ -9,7 +13,10 @@ import csv
 import os
 import report
 
-def invoice_for_payment(payment_entry):
+if TYPE_CHECKING:
+    from company import Company
+
+def invoice_for_payment(payment_entry: str) -> dict[str, Any] | None:
     pe = Api.api.get_doc('Payment Entry',payment_entry)
     try:
         inv = pe['references'][0]['reference_name']
@@ -19,7 +26,7 @@ def invoice_for_payment(payment_entry):
     except Exception:
         return None
 
-def add_party_acc(account_entry,ref_je=None):
+def add_party_acc(account_entry: dict[str, Any],ref_je: tuple[str, str] | None=None) -> dict[str, Any]:
     account = account_entry['account']
     if isinstance(account, str):
         return account_entry
@@ -34,11 +41,12 @@ def add_party_acc(account_entry,ref_je=None):
             account_entry['is_advance'] = 'Yes'
         return account_entry
 
-def add_party(account_entries,ref_je=None):
+def add_party(account_entries: list[dict[str, Any]],ref_je: tuple[str, str] | None=None) -> list[dict[str, Any]]:
     return [add_party_acc(account_entry,ref_je) for account_entry in account_entries]
 
-def journal_entry(company,account,against_account,debit,credit,title,
-                  remark,date,cheque_no=None):
+def journal_entry(company: Company,account: str | dict[str, Any],against_account: str | dict[str, Any],
+                  debit: float,credit: float,title: str,
+                  remark: str,date: str,cheque_no: str | None=None) -> dict[str, Any]:
     #print("company;account;against_account;debit;credit;title;remark;date;cheque_no\n{};{};{};{};{};{};{};{};{}".format(company.name,account,against_account,str(debit).replace(".",","),str(credit).replace(".",","),title,remark.replace("\n"," "),date,cheque_no))
     #return
     account_entries = [{'account': account,
@@ -54,7 +62,7 @@ def journal_entry(company,account,against_account,debit,credit,title,
          'credit': debit,
          'credit_in_account_currency': debit}]
     account_entries = add_party(account_entries)
-    entry = {'doctype' : 'Journal Entry',
+    entry: dict[str, Any] = {'doctype' : 'Journal Entry',
              'title': title,
              'voucher_type': 'Journal Entry',
              'company': company.name,
@@ -70,14 +78,16 @@ def journal_entry(company,account,against_account,debit,credit,title,
     print("Buchungssatz {} erstellt".format(j['name']))
     return j
 
-def journal_entry3(company,account,against_account1,against_account2,amount1,amount2,title,remark,date,cheque_no=None,ref_je=None):
+def journal_entry3(company: Company,account: str | dict[str, Any],against_account1: str | dict[str, Any],
+                   against_account2: str | dict[str, Any],amount1: float,amount2: float,title: str,remark: str,
+                   date: str,cheque_no: str | None=None,ref_je: tuple[str, str] | None=None) -> dict[str, Any]:
     if amount1 < 0:
-        debit = 0
-        credit = -amount1-amount2
-        debit1 = -amount1
-        credit1 = 0
-        debit2 = -amount2
-        credit2 = 0
+        debit: float = 0
+        credit: float = -amount1-amount2
+        debit1: float = -amount1
+        credit1: float = 0
+        debit2: float = -amount2
+        credit2: float = 0
     else:
         debit = amount1+amount2
         credit = 0
@@ -104,7 +114,7 @@ def journal_entry3(company,account,against_account1,against_account2,amount1,amo
          'credit': credit2,
          'credit_in_account_currency': credit2}]
     account_entries = add_party(account_entries,ref_je)
-    entry = {'doctype' : 'Journal Entry',
+    entry: dict[str, Any] = {'doctype' : 'Journal Entry',
              'title': title,
              'voucher_type': 'Journal Entry',
              'company': company.name,
@@ -120,8 +130,9 @@ def journal_entry3(company,account,against_account1,against_account2,amount1,amo
     print("Buchungssatz {} erstellt".format(j['name']))
     return j
 
-def get_gl(company_name,start_date,end_date,accounts,voucher_no = None):
-    filters={'company' : company_name,
+def get_gl(company_name: str,start_date: str,end_date: str,accounts: list[str],
+           voucher_no: str | None = None) -> list[dict[str, Any]]:
+    filters: dict[str, Any] = {'company' : company_name,
              'account' : accounts,
              'from_date' : start_date,
              'to_date' : end_date,
@@ -136,12 +147,13 @@ def get_gl(company_name,start_date,end_date,accounts,voucher_no = None):
     except Exception as e:
         raise e
 
-def get_gl_total(company_name,start_date,end_date,accounts,voucher_no = None):
+def get_gl_total(company_name: str,start_date: str,end_date: str,accounts: list[str],
+                 voucher_no: str | None = None) -> float:
     gl = get_gl(company_name,start_date,end_date,accounts,voucher_no)
     total = [gle for gle in gl if gle['account'] in ["'Total'","'Summe'"]]
     return total[0]['balance']
 
-def create_tax_journal_entries(company_name,quarter):
+def create_tax_journal_entries(company_name: str,quarter: str) -> None:
     if not company_name in TAX_ACCOUNTS:
         print("Keine Steuerkonten für {} bekannt".format(company_name))
         return
@@ -165,13 +177,13 @@ def create_tax_journal_entries(company_name,quarter):
         else:
             print("Keine Umsatzsteuer zu buchen")
 
-def create_income_dist_journal_entries(company_name,quarter):
+def create_income_dist_journal_entries(company_name: str,quarter: str) -> list[dict[str, Any]] | None:
     if not company_name in INCOME_DIST_ACCOUNTS:
         print("Keine Umverteilungskonten für {} bekannt".format(company_name))
-        return
+        return None
     this_company = company.Company.companies_by_name[company_name]
     start_date,end_date = utils.quarter_to_dates(quarter)
-    def get_gl_total_acc(account):
+    def get_gl_total_acc(account: str) -> float:
         return get_gl_total(company_name,start_date,end_date,[account])
     dist_accounts = INCOME_DIST_ACCOUNTS[company_name]
     expense_accs = dist_accounts['expense']
@@ -188,7 +200,7 @@ def create_income_dist_journal_entries(company_name,quarter):
     for tax, rel_exp in rel_expenses.items():
       descr += "{}% USt: {:.4f}% Anteil\n".format(tax,rel_exp*100)
     print(descr)
-    entries = []
+    entries: list[dict[str, Any]] = []
     for accs in income_accs:
         unclear = -get_gl_total_acc(accs['unclear'])
         for tax, rel_exp in rel_expenses.items():
@@ -204,7 +216,7 @@ def create_income_dist_journal_entries(company_name,quarter):
                                              base_title,descr,end_date))
     return entries
 
-def create_advance_payment_journal_entry(payment_entry,tax_rate,revert=False):
+def create_advance_payment_journal_entry(payment_entry: str,tax_rate: float,revert: bool=False) -> None:
     print("Erstelle {}buchungssatz für {}".format("Rück" if revert else "Um",
                                                   payment_entry))
     pe = Api.api.get_doc('Payment Entry',payment_entry)
@@ -249,7 +261,7 @@ def create_advance_payment_journal_entry(payment_entry,tax_rate,revert=False):
         if not jes:
             print("Keine zugehörige Umbuchung für Zahlung {} gefunden".format(payment_entry))
             return
-        ref_je = (jes[0]['name'],pe['payment_type'])
+        ref_je: tuple[str, str] | None = (jes[0]['name'],pe['payment_type'])
     else:
         date = pe['posting_date']
         title = "Umbuchung Anzahlung {}".format(payment_entry)
@@ -268,7 +280,7 @@ def create_advance_payment_journal_entry(payment_entry,tax_rate,revert=False):
                        net_amount,tax_amount,title,remark,date,
                        payment_entry,ref_je)
 
-def create_advance_payment_journal_entries(company_name,year):
+def create_advance_payment_journal_entries(company_name: str,year: int) -> None:
     start_date = str(year)+"-01-01"
     end_date = str(year)+"-12-31"
     pes = Api.api.get_list('Payment Entry',
@@ -287,15 +299,15 @@ def create_advance_payment_journal_entries(company_name,year):
         except:
             pass
 
-def income(company_name,start_date,end_date):
-    income = {}
+def income(company_name: str,start_date: str,end_date: str) -> dict[float, float]:
+    income: dict[float, float] = {}
     if not company_name in INCOME_ACCOUNTS:
         print("Keine Ertragskonten für {} bekannt".format(company_name))
     for vat, accounts in INCOME_ACCOUNTS.get(company_name,{}).items():
         income[vat] = -get_gl_total(company_name,start_date,end_date,accounts)
     return income
 
-def pretax(company_name,start_date,end_date):
+def pretax(company_name: str,start_date: str,end_date: str) -> float:
     if not company_name in TAX_ACCOUNTS:
         print("Keine Steuerkonten für {} bekannt".format(company_name))
         return 0.0
@@ -304,14 +316,14 @@ def pretax(company_name,start_date,end_date):
         return 0.0
     return get_gl_total(company_name,start_date,end_date,accounts)
 
-def pretax_details(company_name,start_date,end_date):
+def pretax_details(company_name: str,start_date: str,end_date: str) -> list[tuple[str, str, float]]:
     accounts = TAX_ACCOUNTS[company_name]['pre_tax_accounts']
-    gl = get_gl(company_name,start_date,end_date,accounts)
+    gl: list[Any] = get_gl(company_name,start_date,end_date,accounts)
     gl = [(gle['voucher_no'],gle['account'],gle['debit']-gle['credit']) \
            for gle in gl if gle.get('voucher_type') == 'Purchase Invoice']
     return gl
 
-def save_pretax_details(company_name,quarter):
+def save_pretax_details(company_name: str,quarter: str) -> str:
     start_date,end_date = utils.quarter_to_dates(quarter)
     suffix = "-{}-{}".format(company_name.replace(" ","_"),quarter)
     dir = "Vorsteuer"+suffix
@@ -319,7 +331,7 @@ def save_pretax_details(company_name,quarter):
     with open("{}/EK-Rechnungen{}.csv".format(dir,suffix), mode='w') as csv_file:
         writer = csv.writer(csv_file,delimiter=";")
         writer.writerow(["Rechnungsnr.","Steuersatz","Vorsteuer"])
-        tax_sum = 0
+        tax_sum: float = 0
         for (inv_name,acc,tax) in pretax_details(company_name,start_date,end_date):
             print(".",end="",flush=True)
             tax_rate = acc.split("%")[0].split()[-1]
@@ -334,19 +346,19 @@ def save_pretax_details(company_name,quarter):
         print()
     return dir    
 
-def vat_declaration(company_name,quarter):
+def vat_declaration(company_name: str,quarter: str) -> None:
     start_date,end_date = utils.quarter_to_dates(quarter)
     cs = company.Company.descendants_by_name(company_name)
-    incomes = { c : income(c,start_date,end_date) for c in cs }
+    incomes: dict[str, Any] = { c : income(c,start_date,end_date) for c in cs }
     incomes['Summe'] = utils.sum_dict(incomes)
     print("Umsätze")
     utils.print_dict2(incomes)
-    pretaxes = { c : pretax(c,start_date,end_date) for c in cs }
+    pretaxes: dict[str, float] = { c : pretax(c,start_date,end_date) for c in cs }
     pretaxes['Summe'] = sum(pretaxes.values())
     print("\nVorsteuer")
     utils.print_dict(pretaxes)
 
-def save_purchase_invoices(company_name,account):
+def save_purchase_invoices(company_name: str,account: str) -> str:
     start_date,end_date = report.get_dates()
     start_date_str = start_date.strftime('%Y-%m-%d')
     end_date_str = end_date.strftime('%Y-%m-%d')

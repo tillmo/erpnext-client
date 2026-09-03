@@ -1,30 +1,37 @@
 """Einkaufsrechnung aus PDF anlegen - Ende-zu-Ende gegen die Testinstanz."""
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+
 import pytest
 
 from api import Api, LIMIT
 from frappeclient import FrappeException
 from support import factories as F
 from support.deps import skip_module_without_pdftotext
-from support.live import tag
+from support.live import Cleanup, LiveState, tag
+from support.stubs import EasyguiStub, UserSettings
 
 skip_module_without_pdftotext()
 
 from purchase_invoice import PurchaseInvoice  # noqa: E402
 
 
-def attachments(api, name):
+def attachments(api: Any, name: str) -> list[dict[str, Any]]:
     return api.get_list("File", filters={"attached_to_doctype": "Purchase Invoice", "attached_to_name": name},
                         fields=["name", "file_url", "is_private", "attached_to_field"], limit_page_length=LIMIT)
 
 
 @pytest.fixture
-def invoice_pdf(tmp_path):
+def invoice_pdf(tmp_path: Path) -> tuple[str, str]:
     no = tag("RE")
     return no, F.write_generic_invoice_pdf(tmp_path / "rechnung.pdf", no=no)
 
 
 class TestReadAndTransfer:
-    def test_draft_invoice_from_pdf(self, live, api, cleanup, test_supplier, invoice_pdf, gui, user_settings):
+    def test_draft_invoice_from_pdf(self, live: LiveState, api: Any, cleanup: Cleanup, test_supplier: str,
+                                    invoice_pdf: tuple[str, str], gui: EasyguiStub, user_settings: UserSettings) -> None:
         if not live.company.taxes:
             pytest.skip("Firma ohne Vorsteuer-Vorlage: create_taxes hätte nichts zu tun")
         no, pdf = invoice_pdf
@@ -53,7 +60,8 @@ class TestReadAndTransfer:
         assert name in {inv.name for inv in live.company.get_purchase_invoices(True)}
         assert "Später buchen" in gui.calls[-1][1][2]
 
-    def test_duplicate_is_detected(self, live, api, cleanup, test_supplier, invoice_pdf, gui):
+    def test_duplicate_is_detected(self, live: LiveState, api: Any, cleanup: Cleanup, test_supplier: str,
+                                   invoice_pdf: tuple[str, str], gui: EasyguiStub) -> None:
         no, pdf = invoice_pdf
         gui.answers["buttonbox"] = "Später buchen"
         gui.answers["msgbox"] = None
@@ -69,7 +77,8 @@ class TestReadAndTransfer:
         assert len(api.get_list("Purchase Invoice", filters={"bill_no": no})) == 1
         assert len(attachments(api, first.doc["name"])) >= 2
 
-    def test_silent_transfer_without_dialogs(self, live, api, cleanup, test_supplier, invoice_pdf, gui):
+    def test_silent_transfer_without_dialogs(self, live: LiveState, api: Any, cleanup: Cleanup, test_supplier: str,
+                                             invoice_pdf: tuple[str, str], gui: EasyguiStub) -> None:
         no, pdf = invoice_pdf
         pinv = PurchaseInvoice.read_and_transfer(None, pdf, False, check_dup=False,
                                                  cli_overrides={"konto": live.expense_leaf(), "lieferant": test_supplier,
@@ -78,7 +87,8 @@ class TestReadAndTransfer:
         assert gui.calls == []
         assert api.get_doc("Purchase Invoice", pinv.doc["name"])["bill_no"] == no
 
-    def test_delete_removes_attachments(self, live, api, cleanup, test_supplier, invoice_pdf, gui):
+    def test_delete_removes_attachments(self, live: LiveState, api: Any, cleanup: Cleanup, test_supplier: str,
+                                        invoice_pdf: tuple[str, str], gui: EasyguiStub) -> None:
         no, pdf = invoice_pdf
         gui.answers["buttonbox"] = "Später buchen"
         pinv = PurchaseInvoice.read_and_transfer(None, pdf, False,
@@ -92,7 +102,8 @@ class TestReadAndTransfer:
 
 
 class TestSubmit:
-    def test_book_immediately(self, live, api, cleanup, test_supplier, invoice_pdf, gui, submit_allowed):
+    def test_book_immediately(self, live: LiveState, api: Any, cleanup: Cleanup, test_supplier: str,
+                              invoice_pdf: tuple[str, str], gui: EasyguiStub, submit_allowed: bool) -> None:
         no, pdf = invoice_pdf
         gui.answers["buttonbox"] = "Sofort buchen"
         pinv = PurchaseInvoice.read_and_transfer(None, pdf, False,

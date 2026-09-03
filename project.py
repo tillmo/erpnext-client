@@ -1,9 +1,13 @@
+from __future__ import annotations
+
+from typing import Any
+
 import stock
 from api import Api
 from api_wrapper import gui_api_wrapper
 from settings import LUMP_SUM_STOCK_PROJECT_TYPES
 
-def complete_project(pname):
+def complete_project(pname: str) -> None:
     # close project
     doc = Api.api.get_doc("Project",pname)
     doc['status'] = 'Completed'
@@ -12,10 +16,10 @@ def complete_project(pname):
         # withdraw material from stock
         stock.project_into_stock(pname,False)
 
-def is_stock(doc):
+def is_stock(doc: dict[str, Any]) -> bool:
     return 'project_type' in doc and doc['project_type'] in LUMP_SUM_STOCK_PROJECT_TYPES
 
-def project_type(pname):
+def project_type(pname: str) -> str:
     doc = Api.api.get_doc("Project",pname)
     return doc['project_type']
 

@@ -1,21 +1,29 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 from api import Api
 from api_wrapper import gui_api_wrapper
 import PySimpleGUI as sg
 
-def create_payment(is_recv,company,account,amount,date,party,party_type,
-                   ref,references):
+if TYPE_CHECKING:
+    from company import Company
+
+def create_payment(is_recv: bool | None, company: Company, account: str,
+                   amount: float, date: str, party: str, party_type: str,
+                   ref: str, references: list[dict[str, Any]]) -> dict[str, Any] | None:
     # convert to positive amount, changed payment type, if needed
     is_recv = bool(is_recv) != bool(amount < 0)
     amount = abs(amount)
     if is_recv:
-        paid_from = company.receivable_account
-        paid_to = account
+        paid_from: str | None = company.receivable_account
+        paid_to: str | None = account
         payment_type = 'Receive'
     else:
         paid_from = account
         paid_to = company.payable_account
         payment_type = 'Pay'
-    entry = {'doctype' : 'Payment Entry',
+    entry: dict[str, Any] = {'doctype' : 'Payment Entry',
              'title' : party+" "+ref,
              'payment_type': payment_type,
              'posting_date': date,

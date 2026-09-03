@@ -1,3 +1,6 @@
+from __future__ import annotations
+
+from typing import Any
 
 DEFAULT_ITEM_CODE = "000.000.000"
 DEFAULT_ITEMS = ['026.000.315','026.000.600']
@@ -17,7 +20,7 @@ STOCK_PRE_ACCOUNTS = ['Herstellungskosten']
 LUMP_SUM_STOCK_PROJECT_TYPES =  ['Solaranlage']
 STOCK_ITEM_GROUPS = ['Solarmodul','Balkon-Solarmodule','Wechselrichter','Steckdosen','Batterie','Mikro-Wechselrichter']
 BUNDLE_ITEM_GROUPS = ['Balkon-Anlage']
-AGGREGATE_ITEMS = {'Elektro-Komponenten':'000.100.302','default':'000.100.301'}
+AGGREGATE_ITEMS: dict[str, str] = {'Elektro-Komponenten':'000.100.302','default':'000.100.301'}
 AGGREGATE_ITEM_VALUE = 100.0
 STANDARD_NAMING_SERIES_PINV = 'EK .YYYY.-'
 VAT_DESCRIPTION = 'Umsatzsteuer'
@@ -27,14 +30,14 @@ VALIDITY_DATE = '2020-10-01'
 LEAD_OWNERS = ['Chris','Paul','Henrik']
 EBAY_ACCOUNT = '1230 - Guthaben bei EBay - SoMiKo'
 
-NKK_ACCOUNTS = {19.0: '3401 - NKK 19% Vorsteuer - Laden',
+NKK_ACCOUNTS: dict[float, str] = {19.0: '3401 - NKK 19% Vorsteuer - Laden',
                 7.0: '3301 - NKK 7% Vorsteuer - Laden'}
-KORNKRAFT_ACCOUNTS = {19.0: '3402 - Kornkraft 19% Vorsteuer - Laden',
+KORNKRAFT_ACCOUNTS: dict[float, str] = {19.0: '3402 - Kornkraft 19% Vorsteuer - Laden',
                 7.0: '3302 - Kornkraft 7% Vorsteuer - Laden'}
-SOMIKO_ACCOUNTS = {19.0: '4996 - Herstellungskosten - SoMiKo'}
+SOMIKO_ACCOUNTS: dict[float, str] = {19.0: '4996 - Herstellungskosten - SoMiKo'}
 SOMIKO_STOCK_ACCOUNT = '3980 - Warenbestand unsere Lager - SoMiKo'
 
-BALANCE_ACCOUNTS = \
+BALANCE_ACCOUNTS: dict[str, dict[str, tuple[list[str], int]]] = \
  {'Bremer SolidarStrom':
    {
     'Einlage': (['A. Eigenkapital - SoMiKo'],1),
@@ -47,19 +50,19 @@ BALANCE_ACCOUNTS = \
    }
  }
 
-PAYABLE_ACCOUNTS = \
+PAYABLE_ACCOUNTS: dict[str, dict[str, str]] = \
  {'Bremer SolidarStrom':
   {'advance' : '1518 - Geleistete Anzahlungen, 19 % Vorsteuer - SoMiKo',
    'post' : '1600 - IV. Verbindlichkeiten aus Lieferungen und Leistungen - SoMiKo'}
  }
 
-RECEIVABLE_ACCOUNTS = \
+RECEIVABLE_ACCOUNTS: dict[str, dict[str, str]] = \
  {'Bremer SolidarStrom':
   {'advance' : '1718 - Erhaltene, versteuerte Anzahlungen 19 % USt (Verbindlichkeiten) - SoMiKo',
    'post' : '1400 - Forderungen aus Lieferungen und Leistungen - SoMiKo'}
  }
 
-TAX_ACCOUNTS = \
+TAX_ACCOUNTS: dict[str, dict[str, Any]] = \
  {'Bremer SolidarStrom':
   {'tax_pay_account' : '1780 - Umsatzsteuer-Vorauszahlung - SoMiKo',
    'pre_tax_accounts' : ['1576 - Abziehbare VSt. 19% - SoMiKo'],
@@ -77,7 +80,7 @@ TAX_ACCOUNTS = \
   }
  }
 
-INCOME_DIST_ACCOUNTS = \
+INCOME_DIST_ACCOUNTS: dict[str, dict[str, Any]] = \
  {'Laden':
     {'income' : [{'unclear' : '8503 - Ladenkasse Ust. noch unklar - Laden',
                   7 : '8301 - Ladenkasse Ust.7% - Laden',
@@ -95,7 +98,7 @@ INCOME_DIST_ACCOUNTS = \
     }
  }
 
-INCOME_ACCOUNTS = \
+INCOME_ACCOUNTS: dict[str, dict[int, list[str]]] = \
  {'Laden':
     {7 : ['8301 - Ladenkasse Ust.7% - Laden',
           '8302 - Café an Laden Ust.7% - Laden', 
