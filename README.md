@@ -26,6 +26,10 @@ You now can start the client with `python3 erpnext.py` (or, in Windows 10, with 
 * handle this for multiple companies
 * currently, texts are in German only
  
+## mytools
+* the `mytools/` directory holds private helper scripts, kept in a separate non-public repository
+* it is not needed for using the client: no code in this repository depends on it, and the directory is git-ignored here
+
 ## running tests
 For running tests, please first run
 pip3 install -e .
