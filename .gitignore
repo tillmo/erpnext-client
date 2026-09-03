@@ -30,3 +30,4 @@ helpers/*
 
 mytools/
 google-credentials.json
+.claude/settings.local.json
