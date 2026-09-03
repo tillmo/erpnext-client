@@ -16,7 +16,10 @@ def get_items(sinvs):
     full_items = []
     for item_code,qty in items.items():
         # needed because item_name can have changed
-        full_item = Api.items_by_code[item_code]
+        full_item = Api.items_by_code.get(item_code)
+        if not full_item:
+            # deaktivierte Artikel fehlen im Cache
+            full_item = Api.api.get_doc("Item",item_code)
         full_items.append({'item_name':full_item['item_name'],
                            'item_code':full_item['item_code'],
                            'qty':qty})

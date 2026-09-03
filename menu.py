@@ -617,6 +617,8 @@ def event_handler(event,window):
         balance = event=='Bilanz'   
         tbl = report.build_report(comp,consolidated=consolidated,balance=balance,
                                   periodicity=periodicity)
+        if tbl is None:
+            return "inner"
         # in PDF, always also display balance
         if event != 'Bilanz':
             child = report.build_report(comp,consolidated=False,balance=True)

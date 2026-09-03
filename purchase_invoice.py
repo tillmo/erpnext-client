@@ -951,7 +951,7 @@ class PurchaseInvoice(Invoice):
         lines = [line[0:70] for line in lines]
         return "\n".join(lines)
 
-    def upload_pdfs(self, inv_name=None):
+    def upload_pdfs(self, inv_name=None, docfield=None):
         print("Übertrage PDF der Rechnung")
         if not inv_name:
             inv_name = self.doc['name']
@@ -959,7 +959,7 @@ class PurchaseInvoice(Invoice):
         for infile in self.infiles:
             upload = gui_api_wrapper(Api.api.read_and_attach_file,
                                      "Purchase Invoice", inv_name,
-                                     infile, True)
+                                     infile, True, docfield)
         return upload
 
     def send_to_erpnext(self, silent=False):
@@ -974,10 +974,13 @@ class PurchaseInvoice(Invoice):
         super().__init__(self.doc, False)
         # print(self.doc)
         self.company.purchase_invoices[self.doc['supplier']].append(self.doc)
-        upload = self.upload_pdfs()
         # currently, we can only link to the last PDF
-        self.doc['supplier_invoice'] = upload['file_url']
-        self.update()
+        upload = self.upload_pdfs(docfield='supplier_invoice')
+        if not upload:
+            return None
+        # attach_file hat supplier_invoice serverseitig gesetzt (und den Zeitstempel geändert):
+        # neu laden statt speichern, sonst TimestampMismatchError
+        self.load()
         # enter purchased material separately into stock, if needed
         stock.purchase_invoice_into_stock(self.doc['name'])
         # fallback on manual creation of invoice if necessary

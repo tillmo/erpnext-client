@@ -289,12 +289,19 @@ def create_advance_payment_journal_entries(company_name,year):
 
 def income(company_name,start_date,end_date):
     income = {}
-    for vat, accounts in INCOME_ACCOUNTS[company_name].items():
+    if not company_name in INCOME_ACCOUNTS:
+        print("Keine Ertragskonten für {} bekannt".format(company_name))
+    for vat, accounts in INCOME_ACCOUNTS.get(company_name,{}).items():
         income[vat] = -get_gl_total(company_name,start_date,end_date,accounts)
     return income
 
 def pretax(company_name,start_date,end_date):
+    if not company_name in TAX_ACCOUNTS:
+        print("Keine Steuerkonten für {} bekannt".format(company_name))
+        return 0.0
     accounts = TAX_ACCOUNTS[company_name]['pre_tax_accounts']
+    if not accounts:
+        return 0.0
     return get_gl_total(company_name,start_date,end_date,accounts)
 
 def pretax_details(company_name,start_date,end_date):

@@ -147,7 +147,10 @@ def build_report(company_name,filename="",consolidated=False,balance=False,
         report_name=report_type
         filters['periodicity'] = periodicity
     report = gui_api_wrapper(Api.api.query_report,report_name=report_name,
-                             filters=filters)
+                             filters=filters,ignore_prepared_report=consolidated)
+    if not report or not 'columns' in report:
+        print("Bericht {} liefert keine Daten".format(report_name))
+        return None
     if report_type == 'Profit and Loss Statement':
         subtitle = 'Einnahmen/Ausgaben'
     else:

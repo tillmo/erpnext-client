@@ -357,7 +357,7 @@ class FrappeClient:
 		)
 		return self.post_process_file_stream(request)
 
-	def attach_file(self,doctype,docname,filename,filedata,is_private):
+	def attach_file(self,doctype,docname,filename,filedata,is_private,docfield=None):
 		params = {
 			'cmd': 'frappe.client.attach_file',
 			'doctype': doctype,
@@ -367,18 +367,25 @@ class FrappeClient:
                         'is_private': 1 if is_private else 0,
                         'decode_base64': 1
 		}
+		if docfield:
+			# verknuepft die Datei mit dem Attach-Feld und setzt es; ohne das legt Frappe beim
+			# naechsten Speichern eine weitere, oeffentliche Kopie der Datei an
+			params['docfield'] = docfield
 		return self.post_request(params)
 
-	def read_and_attach_file(self,doctype,docname,filename,is_private):
+	def read_and_attach_file(self,doctype,docname,filename,is_private,docfield=None):
             basename = os.path.basename(filename)
             filedata = open(filename,"rb").read()
-            return self.attach_file(doctype,docname,basename,filedata,is_private)
+            return self.attach_file(doctype,docname,basename,filedata,is_private,docfield)
 
-	def query_report(self,report_name="",filters=None):
+	def query_report(self,report_name="",filters=None,ignore_prepared_report=False):
 		params = {}
 		if filters:
 			params["filters"] = json.dumps(filters)
 		params['report_name'] = report_name
+		if ignore_prepared_report:
+			# "Prepared Reports" (z.B. Consolidated Financial Statement) sonst nur im Hintergrund erstellt
+			params['ignore_prepared_report'] = 1
 		return self.get_api('frappe.desk.query_report.run',params)
 
 	def get_file(self, path):
@@ -483,6 +490,10 @@ class FrappeClient:
 				exc = rjson["exc"]
 
 			raise FrappeException(exc)
+		if rjson and rjson.get("exc_type") and response.status_code >= 400:
+			# Frappe 14 liefert bei 404/417 oft nur exc_type und _server_messages, ohne "exc"
+			raise FrappeException("FrappeClient Request Failed\n\n{}: {}".format(
+				rjson["exc_type"], rjson.get("exception") or rjson.get("_server_messages") or response.status_code))
 		if "message" in rjson:
 			return rjson["message"]
 		elif "data" in rjson:
