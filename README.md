@@ -85,6 +85,25 @@ ERPNext suppliers by VAT id or by name, tolerating legal forms and address suffi
 ERPNext name (`Api.find_supplier`). Claude additionally gets the list of ERPNext supplier names
 as a cached part of the prompt and returns the matching name directly.
 
+## VAT transfers (SKR03)
+Per SKR03 the input VAT accounts (1571, 1576, 1577) and the output VAT accounts (1771, 1776,
+1787) are transferred to 1780 "Umsatzsteuer-Vorauszahlung" at the end of every declaration
+period; the payment or refund from the tax office then clears 1780. `vat_catchup.py` catches up
+the transfers that are missing since 2023: every quarter from 2024 on at its quarter end to 1780,
+and everything before 2024 in one entry dated 2024-01-01 to 1791 "Umsatzsteuer frühere Jahre" -
+the periods before 2024 cannot be reconstructed quarter by quarter (a catch-up transfer in the
+first quarter of 2023 mixed periods, the advance payments on 1718 shifted VAT across the year
+boundary) and the fiscal years up to 2023 are closed by Period Closing Vouchers.
+
+    python3 vat_catchup.py --server URL --key KEY --secret SECRET
+    python3 vat_catchup.py --server URL --key KEY --secret SECRET --apply [--submit]
+
+Without `--apply` it only reports. `--apply` creates drafts, `--submit` books them as well. The
+script is idempotent (a period whose entry exists is skipped), covers all companies with VAT
+balances unless `--company` restricts it, and stops at the last completed quarter unless
+`--until 2026-Q3` says otherwise. What is left on 1780 and 1791 afterwards is the reconciliation
+with the tax office's account, which the tax advisor has to do.
+
 ## mytools
 * the `mytools/` directory holds private helper scripts, kept in a separate non-public repository
 * it is not needed for using the client: no code in this repository depends on it, and the directory is git-ignored here
