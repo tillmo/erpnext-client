@@ -83,7 +83,8 @@ tests/
 │   ├── factories.py       companies, accounts, synthetic invoice PDFs, bank statements, parser lines
 │   ├── deps.py            availability markers for optional dependencies
 │   └── live.py            connection, ReadOnlyClient, LiveState, Cleanup for online tests
-├── offline/               unit and integration tests per module (test_<module>.py) plus
+├── offline/               unit and integration tests per module (test_<module>.py, incl. einvoice and
+│                          claude_parser with a faked API) plus
 │                          test_integration_pipeline.py (end-to-end workflows against the fake)
 ├── online_read/           basic API behaviour, master data, reports, parser regression
 └── online_write/          create/modify/delete: supplier, journal entry, payment, bank statement,

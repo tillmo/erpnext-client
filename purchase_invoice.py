@@ -11,6 +11,8 @@ from settings import STANDARD_PRICE_LIST, STANDARD_NAMING_SERIES_PINV, VAT_DESCR
 import os
 import utils
 import lead_rules
+import einvoice
+import claude_parser
 import PySimpleGUI as sg
 import easygui
 import subprocess
@@ -579,6 +581,48 @@ class PurchaseInvoice(Invoice):
                 elif key == 'shipping':
                     self.shipping = value[1]
 
+    def apply_purchase_data(self, data: dict[str, Any], given_supplier: str | None = None) -> None:
+        """Fill the invoice object from purchase data in the common format (einvoice.py, claude_parser.py):
+        supplier, bill_no, order_id, posting_date, taxes [{rate, net, tax_amount}], total, grand_total,
+        shipping, skonto_percent, items [{item_code, description, qty, uom, rate, amount}]."""
+        self.items = []
+        self.extract_items = self.update_stock
+        self.shipping = round(float(data.get('shipping') or 0), 2)
+        self.supplier = (given_supplier or Api.find_supplier(data.get('supplier'), data.get('supplier_tax_id'))
+                         or data.get('supplier') or self.supplier)
+        if data.get('bill_no'):
+            self.no = str(data['bill_no']).replace(" ", "")
+        if data.get('order_id'):
+            self.order_id = str(data['order_id'])
+        if data.get('posting_date'):
+            self.date = data['posting_date']
+        for rate in self.vat_rates:
+            self.vat[rate] = 0.0
+            self.totals[rate] = 0.0
+        for t in data.get('taxes') or []:
+            rate = float(t.get('rate') or 0)
+            key = next((r for r in self.vat_rates if abs(float(r) - rate) < 0.01), self.default_vat)
+            self.vat[key] = round(self.vat[key] + float(t.get('tax_amount') or 0), 2)
+            self.totals[key] = round(self.totals[key] + float(t.get('net') or 0), 2)
+        if not any(self.totals.values()) and data.get('total'):
+            self.totals[self.default_vat] = round(float(data['total']), 2)
+        for it in data.get('items') or []:
+            s_item = SupplierItem(self)
+            s_item.description = it.get('description') or ''
+            s_item.long_description = s_item.description
+            s_item.item_code = it.get('item_code') or None
+            s_item.qty = float(it['qty']) if it.get('qty') is not None else None
+            s_item.qty_unit = it.get('uom') or 'Stk'
+            s_item.rate = float(it['rate']) if it.get('rate') is not None else None
+            s_item.amount = round(float(it['amount']), 2) if it.get('amount') is not None else None
+            if s_item.qty and s_item.amount is not None and not s_item.rate:
+                s_item.rate = round(s_item.amount / s_item.qty, 4)
+            self.items.append(s_item)
+        # as with the other parsers: totals include the shipping costs, compute_total derives the gross total
+        self.compute_total()
+        if data.get('skonto_percent'):
+            self.skonto = round(self.gross_total * float(data['skonto_percent']) / 100, 2)
+
     def apply_final_data(self, final_data: dict[str, Any]) -> None:
         """
         final_data is the merged (and possibly manually edited) purchase data and thus authoritative.
@@ -661,6 +705,26 @@ class PurchaseInvoice(Invoice):
         normal_purchase_data = None
         google_purchase_data = None
         final_data = None
+        data = einvoice.read_pdf(infile)
+        if data:
+            print("Nutze eingebettete E-Rechnung ({})".format(data.get('profile') or 'XML'))
+            self.parser = "einvoice"
+        elif not invoice_json and claude_parser.configured():
+            print("Nutze Claude zur Rechnungserkennung")
+            try:
+                data = claude_parser.extract_file(infile, given_supplier)
+                self.parser = "claude"
+            except Exception as e:
+                print("Claude-Erkennung fehlgeschlagen: {}".format(str(e)[:200]))
+                data = None
+        if data:
+            self.apply_purchase_data(data, given_supplier)
+            final_data = dict(data)
+            if manual_edit:
+                final_data = self.edit_data_model_manually(final_data, infile)
+            if final_data:
+                self.apply_final_data(final_data)
+            return self.complete_missing_data(account, paid_by_submitter, is_test, check_dup)
         if invoice_json:
             print("Nutze Google invoice parser")
             purchase_invoice_google_parser = PurchaseInvoiceGoogleParser(self, invoice_json, given_supplier, is_test)
@@ -747,13 +811,16 @@ class PurchaseInvoice(Invoice):
                       self.vat[vat])
 
     def assign_default_e_items(self, accounts: dict[float, str]) -> None:
+        # totals include the shipping costs, which create_doc adds as a separate line:
+        # the default item at the default rate must not contain them a second time
         self.e_items = []
         for vat in self.vat_rates:
+            net = self.totals[vat] - (self.shipping if vat == self.default_vat and self.shipping else 0)
             if vat in accounts.keys() and self.totals[vat]:
                 self.e_items.append(
                     {'item_code': settings.DEFAULT_ITEM_CODE,
-                     'qty': 1 if self.totals[vat] >= 0 else -1,
-                     'rate': abs(self.totals[vat]),
+                     'qty': 1 if net >= 0 else -1,
+                     'rate': round(abs(net), 2),
                      'expense_account' : accounts[vat],
                      'cost_center': self.company.cost_center}
                 )

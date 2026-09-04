@@ -254,6 +254,19 @@ def write_generic_invoice_pdf(path: str | PathLike[str], no: str = "2026-0815", 
     return write_pdf(path, lines)
 
 
+def write_einvoice_pdf(path: str | PathLike[str], xml: str, name: str = "factur-x.xml") -> str:
+    """A generic invoice PDF with an embedded e-invoice XML (as ZUGFeRD/Factur-X suppliers send it)."""
+    import pypdf
+    write_generic_invoice_pdf(path)
+    reader = pypdf.PdfReader(str(path))
+    writer = pypdf.PdfWriter()
+    writer.append(reader)
+    writer.add_attachment(name, xml.encode("utf-8"))
+    with open(path, "wb") as fh:
+        writer.write(fh)
+    return str(path)
+
+
 # ------------------------------------------------------ Bank statements
 def write_sparkasse_csv(path: str | PathLike[str], rows: Iterable[dict[str, str]], iban: str = IBAN_SPARKASSE) -> str:
     """CSV in the Sparkasse Bremen export format (ISO-8859-4, ';', 17 columns).

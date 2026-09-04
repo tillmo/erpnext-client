@@ -302,9 +302,12 @@ class TestCli:
 
 
 class TestReadAndTransferPdf:
-    def test_wires_google_and_transfer(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    def test_wires_google_and_transfer(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, user_settings: Any) -> None:
         import args
+        import claude_parser
         import company
+        user_settings["-google-credentials-"] = {"project_id": "p"}
+        monkeypatch.setattr(claude_parser, "configured", lambda: False)
         pdf = tmp_path / "x.pdf"
         pdf.write_bytes(b"%PDF")
         seen: dict[str, Any] = {}
@@ -318,3 +321,20 @@ class TestReadAndTransferPdf:
         assert seen["args"] == ({"entities": [], "content": b"%PDF"}, str(pdf), True)
         assert seen["kwargs"] == {"account_abbrv": "4210", "paid_by_submitter": False, "project": "P", "supplier": "S",
                                   "check_dup": True}
+
+    def test_google_is_skipped_with_claude(self, monkeypatch: pytest.MonkeyPatch, tmp_path: Path, user_settings: Any) -> None:
+        import args
+        import claude_parser
+        import company
+        user_settings["-google-credentials-"] = {"project_id": "p"}
+        monkeypatch.setattr(claude_parser, "configured", lambda: True)
+        pdf = tmp_path / "x.pdf"
+        pdf.write_bytes(b"%PDF")
+        seen: dict[str, Any] = {}
+        monkeypatch.setattr(args, "init", lambda: None)
+        monkeypatch.setattr(company.Company, "init_companies", classmethod(lambda cls: None))
+        monkeypatch.setattr(prerechnung, "extract_invoice_info", lambda c: pytest.fail("Google darf nicht gerufen werden"))
+        monkeypatch.setattr(purchase_invoice.PurchaseInvoice, "read_and_transfer",
+                            classmethod(lambda cls, *a, **k: seen.update(args=a) or "PINV"))
+        assert prerechnung.read_and_transfer_pdf(str(pdf), False) == "PINV"
+        assert seen["args"] == (None, str(pdf), False)          # the client decides itself: e-invoice or Claude

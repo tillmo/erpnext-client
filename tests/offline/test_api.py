@@ -127,3 +127,30 @@ class TestSubmitAndSupplier:
         doc = fake_api.get_doc("Supplier", "Neuer Lieferant")
         assert doc["supplier_group"] == DEFAULT_SUPPLIER_GROUP
         assert len(fake_api.calls_of("insert")) == 1
+
+
+class TestFindSupplier:
+    @pytest.fixture
+    def suppliers(self, fake_api: FakeFrappeClient) -> FakeFrappeClient:
+        fake_api.add("Supplier", supplier_name="Krannich Solar GmbH & Co KG", tax_id=None)
+        fake_api.add("Supplier", supplier_name="Memodo GmbH", tax_id="DE 318463541")
+        fake_api.add("Supplier", supplier_name="Wagner Solar", tax_id=None)
+        Api.suppliers_cache = None
+        return fake_api
+
+    def test_exact_and_normalised_names(self, suppliers: FakeFrappeClient) -> None:
+        assert Api.find_supplier("Memodo GmbH") == "Memodo GmbH"
+        assert Api.find_supplier("Krannich Solar GmbH & Co. KG") == "Krannich Solar GmbH & Co KG"     # punctuation
+        assert Api.find_supplier("KRANNICH SOLAR GMBH UND CO KG") == "Krannich Solar GmbH & Co KG"
+        assert Api.find_supplier("Wagner Solar GmbH") is None                                         # too different
+        assert Api.find_supplier("Unbekannte Firma AG") is None
+        assert Api.find_supplier(None) is None and Api.find_supplier("") is None
+
+    def test_tax_id_wins(self, suppliers: FakeFrappeClient) -> None:
+        assert Api.find_supplier("Memodo Solar Shop", "DE318463541") == "Memodo GmbH"
+        assert Api.find_supplier(None, "DE000000000") is None
+
+    def test_cache(self, suppliers: FakeFrappeClient) -> None:
+        Api.find_supplier("Memodo GmbH")
+        Api.find_supplier("Memodo GmbH")
+        assert len(suppliers.calls_of("get_list")) == 1

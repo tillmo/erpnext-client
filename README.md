@@ -64,6 +64,24 @@ contact. The menu item "Kontaktdaten nachtragen" does the same for existing real
 a phone number. Both actions also attach the missing vCards of all real leads whose name, phone
 number and address are already complete.
  
+## reading purchase invoices: e-invoice XML, Claude, fixed parsers
+`purchase_invoice.parse_invoice` tries, in this order:
+
+1. **Embedded e-invoice** (`einvoice.py`): if the PDF carries a ZUGFeRD / Factur-X / XRechnung XML
+   (CII or UBL), totals per VAT rate, line items, shipping charges and the early-payment discount
+   are taken from the XML - exact and free. Krannich, Memodo and Wagner Solar already send these.
+2. **Claude** (`claude_parser.py`): otherwise, if an Anthropic API key is configured, the PDF goes to
+   Claude as a document (text and page images, so scans work too) and the answer is forced into the
+   client's purchase-data schema; totals are checked arithmetically with one correction round. The
+   key is passed once with `--claude-key KEY` (stored in the settings like the ERPNext key) or set as
+   `ANTHROPIC_API_KEY`; `--claude-model` overrides `settings.CLAUDE_MODEL`. Roughly 2-4 cents per
+   invoice.
+3. Google Document AI (PreRechnung JSON) and the supplier-specific parsers as before.
+
+The confirmation dialog stays in every case. Both new paths fill the invoice via
+`PurchaseInvoice.apply_purchase_data`; the supplier printed on the invoice is matched to the
+ERPNext suppliers by normalised name or VAT id (`Api.find_supplier`).
+
 ## mytools
 * the `mytools/` directory holds private helper scripts, kept in a separate non-public repository
 * it is not needed for using the client: no code in this repository depends on it, and the directory is git-ignored here

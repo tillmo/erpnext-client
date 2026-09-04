@@ -8,7 +8,7 @@ from typing import Any
 import pytest
 
 from support import factories as F
-from support.deps import skip_module_without_pdftotext
+from support.deps import requires_pypdf, skip_module_without_pdftotext
 from support.fakes import FakeFrappeClient
 from support.stubs import EasyguiStub, GuiCalled
 
@@ -183,6 +183,11 @@ class TestTotalsAndItems:
         by_rate = {i["rate"]: i for i in p.e_items}
         assert by_rate[50.0]["qty"] == -1 and by_rate[50.0]["expense_account"] == settings.NKK_ACCOUNTS[19.0]
         assert by_rate[20.0]["qty"] == 1 and by_rate[20.0]["expense_account"] == settings.NKK_ACCOUNTS[7.0]
+
+    def test_assign_default_e_items_excludes_shipping(self, pinv: PurchaseInvoice) -> None:
+        pinv.totals[19.0], pinv.shipping = 900.0, 115.0     # totals include shipping, create_doc posts it separately
+        pinv.assign_default_e_items({19.0: "4210 - Miete und Nebenkosten - SoMiKo"})
+        assert pinv.e_items[0]["rate"] == 785.0 and pinv.e_items[0]["qty"] == 1
 
     def test_assign_default_e_items_skips_zero_totals(self, pinv: PurchaseInvoice) -> None:
         pinv.assign_default_e_items({19.0: "X"})
@@ -514,6 +519,87 @@ class TestParseAndDump:
         monkeypatch.setattr(PurchaseInvoice, "parse_invoice", lambda self, *a, **k: None)
         PurchaseInvoice.parse_and_dump(generic_pdf, False)
         assert "konnte nicht gelesen werden" in capsys.readouterr().out
+
+
+class TestApplyPurchaseData:
+    DATA = {"supplier": "Krannich Solar GmbH & Co. KG", "supplier_tax_id": "DE814994131", "bill_no": "2106 4076249",
+            "order_id": "84570", "posting_date": "2026-08-21", "total": 900.0, "grand_total": 1071.0, "shipping": 100.0,
+            "skonto_percent": 3.0, "taxes": [{"rate": 19, "net": 900.0, "tax_amount": 171.0}],
+            "items": [{"item_code": "0131888", "description": "Solarkabel", "qty": 2, "uom": "Stk", "rate": 389.5, "amount": 779.0},
+                      {"item_code": None, "description": "Schrauben", "qty": 50, "uom": "Stk", "rate": None, "amount": 21.0}]}
+
+    def test_fields_taxes_items(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
+        fake_api.add("Supplier", supplier_name="Krannich Solar GmbH & Co KG")
+        pinv = F.make_purchase_invoice(somiko, True)
+        pinv.apply_purchase_data(self.DATA)
+        assert pinv.supplier == "Krannich Solar GmbH & Co KG"            # matched despite the dot
+        assert pinv.no == "21064076249" and pinv.order_id == "84570" and pinv.date == "2026-08-21"
+        assert pinv.totals[19.0] == 900.0 and pinv.vat[19.0] == 171.0 and pinv.shipping == 100.0
+        assert pinv.total == 900.0 and pinv.gross_total == 1071.0 and pinv.skonto == 32.13
+        assert [(i.item_code, i.qty, i.qty_unit, i.rate, i.amount) for i in pinv.items] == \
+            [("0131888", 2.0, "Stk", 389.5, 779.0), (None, 50.0, "Stk", 0.42, 21.0)]
+        assert pinv.extract_items is True
+
+    def test_given_supplier_and_total_fallback(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
+        pinv = F.make_purchase_invoice(somiko)
+        pinv.apply_purchase_data({"supplier": "Irgendwer", "bill_no": "1", "total": 100.0, "grand_total": 119.0, "taxes": [],
+                                  "items": []}, given_supplier="Vorgabe GmbH")
+        assert pinv.supplier == "Vorgabe GmbH" and pinv.totals[19.0] == 100.0 and pinv.vat[19.0] == 0.0
+        assert pinv.gross_total == 100.0 and pinv.items == [] and pinv.skonto == 0
+
+    def test_unknown_rate_goes_to_default(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
+        pinv = F.make_purchase_invoice(somiko)
+        pinv.apply_purchase_data({"supplier": "X", "taxes": [{"rate": 7, "net": 50.0, "tax_amount": 3.5}], "items": []})
+        assert pinv.totals[pinv.default_vat] == 50.0 and pinv.vat[pinv.default_vat] == 3.5
+
+
+class TestParseInvoiceEinvoice:
+    @requires_pypdf
+    def test_embedded_xml_wins(self, pinv: PurchaseInvoice, tmp_path: Path, fake_api: FakeFrappeClient) -> None:
+        from offline.test_einvoice import CII
+        pdf = F.write_einvoice_pdf(tmp_path / "krannich.pdf", CII)
+        result = pinv.parse_invoice(None, pdf, is_test=True)
+        assert result is pinv and pinv.parser == "einvoice"
+        assert pinv.no == "2106-4076249" and pinv.date == "2026-08-21" and pinv.gross_total == 1071.0
+        assert pinv.supplier == "Krannich Solar GmbH & Co. KG"          # not in the fake instance: name as printed
+        assert pinv.shipping == 115.0 and pinv.totals[19.0] == 900.0
+        assert fake_api.calls_of("insert") == []
+
+    def test_claude_is_used_without_xml(self, pinv: PurchaseInvoice, generic_pdf: str, monkeypatch: pytest.MonkeyPatch,
+                                        capsys: pytest.CaptureFixture[str]) -> None:
+        import claude_parser
+        monkeypatch.setattr(claude_parser, "configured", lambda: True)
+        seen: dict[str, Any] = {}
+
+        def fake_extract(path: str, hint: str | None = None, client: Any = None) -> dict[str, Any]:
+            seen["path"], seen["hint"] = path, hint
+            return {"supplier": "Muster Solartechnik GmbH", "bill_no": "C-1", "posting_date": "2026-09-03", "total": 100.0,
+                    "grand_total": 119.0, "shipping": 0, "taxes": [{"rate": 19, "net": 100.0, "tax_amount": 19.0}], "items": [],
+                    "source": "claude", "problems": []}
+        monkeypatch.setattr(claude_parser, "extract_file", fake_extract)
+        assert pinv.parse_invoice(None, generic_pdf, given_supplier="Muster Solartechnik GmbH", is_test=True) is pinv
+        assert pinv.parser == "claude" and pinv.no == "C-1" and pinv.gross_total == 119.0
+        assert seen == {"path": generic_pdf, "hint": "Muster Solartechnik GmbH"}
+        assert "Nutze Claude" in capsys.readouterr().out
+
+    def test_claude_failure_falls_back(self, pinv: PurchaseInvoice, generic_pdf: str, monkeypatch: pytest.MonkeyPatch,
+                                       capsys: pytest.CaptureFixture[str]) -> None:
+        import claude_parser
+        monkeypatch.setattr(claude_parser, "configured", lambda: True)
+
+        def boom(path: str, hint: str | None = None, client: Any = None) -> dict[str, Any]:
+            raise RuntimeError("API down")
+        monkeypatch.setattr(claude_parser, "extract_file", boom)
+        assert pinv.parse_invoice(None, generic_pdf, is_test=True) is pinv
+        assert pinv.parser == "generic" and pinv.no == "2026-0815"
+        assert "Claude-Erkennung fehlgeschlagen" in capsys.readouterr().out
+
+    def test_google_json_skips_claude(self, pinv: PurchaseInvoice, generic_pdf: str, monkeypatch: pytest.MonkeyPatch) -> None:
+        import claude_parser
+        monkeypatch.setattr(claude_parser, "configured", lambda: True)
+        monkeypatch.setattr(claude_parser, "extract_file", lambda *a, **k: pytest.fail("Claude darf nicht gerufen werden"))
+        pinv.parse_invoice(F.google_invoice_json(), generic_pdf, given_supplier="Muster Solartechnik GmbH", is_test=True)
+        assert pinv.parser != "claude"
 
 
 class TestParseInvoice:

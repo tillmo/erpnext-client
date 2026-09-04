@@ -39,6 +39,10 @@ def arg_parser() -> argparse.ArgumentParser:
                         help='Google invoice processor id')
     parser.add_argument('--google-json', dest='google_credentials', type=str,
                         help='Google API credentials')
+    parser.add_argument('--claude-key', dest='claude_key', type=str,
+                        help='Anthropic API key for invoice extraction with Claude')
+    parser.add_argument('--claude-model', dest='claude_model', type=str,
+                        help='Claude model for invoice extraction (default: settings.CLAUDE_MODEL)')
     parser.add_argument('--company', dest='company', type=str,
                         help='company to work with')
     parser.add_argument('--update-stock', dest='update_stock', action='store_true',
@@ -106,5 +110,9 @@ def init() -> argparse.Namespace:
         settings['-invoice-processor-'] = args.invoice_processor
     if args.google_credentials:
         set_google_credentials(args.google_credentials)
+    if args.claude_key:
+        settings['-claude-key-'] = args.claude_key
+    if args.claude_model:
+        settings['-claude-model-'] = args.claude_model
     settings['-setup-'] = not Api.initialize()
     return args

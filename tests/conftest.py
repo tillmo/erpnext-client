@@ -99,6 +99,7 @@ def _reset_project_state() -> None:
         api.Api.items_by_code = {}
         api.Api.item_code_translation = defaultdict(dict)
         api.Api.accounts_by_company = {}
+        api.Api.suppliers_cache = None
     company = sys.modules.get("company")
     if company is not None:
         company.Company.companies_by_name = {}

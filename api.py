@@ -8,7 +8,9 @@ from collections import defaultdict
 from settings import WAREHOUSE, DEFAULT_SUPPLIER_GROUP
 import itertools
 import PySimpleGUI as sg
+import re
 import requests
+from difflib import SequenceMatcher
 import time
 from typing import Any
 
@@ -19,6 +21,7 @@ class Api(object):
     items_by_code: dict[str, dict[str, Any]] = {}
     item_code_translation: dict[str, dict[str, str]] = defaultdict(dict)
     accounts_by_company: dict[str, list[dict[str, Any]]] = {}
+    suppliers_cache: list[dict[str, Any]] | None = None
     @classmethod
     def initialize(cls) -> list[dict[str, Any]]:
         settings = sg.UserSettings()
@@ -114,6 +117,35 @@ class Api(object):
     def submit_doc(cls, doctype: str, docname: str) -> None:
         doc = gui_api_wrapper(Api.api.get_doc,doctype,docname)
         gui_api_wrapper(Api.api.submit,doc)
+
+    @classmethod
+    def find_supplier(cls, name: str | None, tax_id: str | None = None) -> str | None:
+        """The ERPNext supplier for a name as printed on an invoice (punctuation and legal-form
+        spelling tolerated) or for a VAT id; None if unknown."""
+        if not name and not tax_id:
+            return None
+        if Api.suppliers_cache is None:
+            Api.suppliers_cache = Api.api.get_list('Supplier', fields=['name', 'supplier_name', 'tax_id'],
+                                                   limit_page_length=LIMIT)
+
+        def norm(s: str | None) -> str:
+            return re.sub(r'[^a-z0-9]', '', (s or '').lower().replace('&', 'und').replace('ß', 'ss'))
+        if tax_id:
+            for s in Api.suppliers_cache:
+                if s.get('tax_id') and norm(s['tax_id']) == norm(tax_id):
+                    return s['name']
+        key = norm(name)
+        if not key:
+            return None
+        for s in Api.suppliers_cache:
+            if key in (norm(s['name']), norm(s.get('supplier_name'))):
+                return s['name']
+        best, best_score = None, 0.0
+        for s in Api.suppliers_cache:
+            score = SequenceMatcher(None, key, norm(s['name'])).ratio()
+            if score > best_score:
+                best, best_score = s['name'], score
+        return best if best_score >= 0.9 else None
 
     @classmethod
     def create_supplier(cls, supplier: str) -> None:

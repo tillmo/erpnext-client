@@ -101,6 +101,31 @@ class TestReadAndTransfer:
         assert attachments(api, name) == []
 
 
+class TestEinvoice:
+    def test_draft_from_embedded_xml(self, live: LiveState, api: Any, cleanup: Cleanup, test_supplier: str, tmp_path: Path,
+                                     gui: EasyguiStub) -> None:
+        pytest.importorskip("pypdf")
+        from offline.test_einvoice import CII
+        if not live.company.taxes:
+            pytest.skip("Firma ohne Vorsteuer-Vorlage")
+        no = tag("EINV")
+        xml = (CII.replace("Krannich Solar GmbH &amp; Co. KG", test_supplier.replace("&", "&amp;"))
+               .replace("2106-4076249", no).replace("DE814994131", "DE000000000"))
+        pdf = F.write_einvoice_pdf(tmp_path / "einvoice.pdf", xml)
+        gui.answers["buttonbox"] = "Später buchen"
+        pinv = PurchaseInvoice.read_and_transfer(None, pdf, False, cli_overrides={"konto": live.expense_leaf()})
+        assert pinv is not None and not pinv.is_duplicate and pinv.parser == "einvoice"
+        name = pinv.doc["name"]
+        cleanup.add("Purchase Invoice", name)
+        doc = api.get_doc("Purchase Invoice", name)
+        assert doc["supplier"] == test_supplier and doc["bill_no"] == no and doc["posting_date"] == "2026-08-21"
+        # net incl. shipping 900 + 19 % = 1071; 3 % Skonto from the payment terms as discount
+        assert doc["grand_total"] == pytest.approx(1071.0) or doc["grand_total"] == pytest.approx(1071.0 - 32.13)
+        assert doc.get("discount_amount") == pytest.approx(32.13)
+        assert doc["taxes"] and doc["taxes"][0]["account_head"] == live.company.taxes[19.0]
+        assert api.get_file(doc["supplier_invoice"])[:4] == b"%PDF"
+
+
 class TestSubmit:
     def test_book_immediately(self, live: LiveState, api: Any, cleanup: Cleanup, test_supplier: str,
                               invoice_pdf: tuple[str, str], gui: EasyguiStub, submit_allowed: bool) -> None:

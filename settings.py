@@ -28,6 +28,7 @@ DELIVERY_COST_ACCOUNT = '3800 - Bezugsnebenkosten - SoMiKo'
 DELIVERY_COST_DESCRIPTION = 'Bezugsnebenkosten'
 VALIDITY_DATE = '2020-10-01'
 LEAD_OWNERS = ['Chris','Paul','Henrik']
+CLAUDE_MODEL = 'claude-opus-5'       # invoice extraction (claude_parser.py); key via --claude-key or ANTHROPIC_API_KEY
 # Check field on Lead: the server script installed by lead_dnc_setup.py keeps flagged leads
 # in status "Do Not Contact" although Frappe reopens a lead on every received e-mail
 LEAD_DNC_FIELD = 'custom_nicht_kontaktieren'

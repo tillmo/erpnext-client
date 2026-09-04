@@ -27,6 +27,7 @@ HAVE_JSONEDITOR = _real("jsoneditor")
 HAVE_ANYTREE = _real("anytree")
 HAVE_DATEFINDER = _real("datefinder")
 HAVE_PLOTLY = _real("plotly")
+HAVE_PYPDF = _real("pypdf")
 HAVE_PDFTOTEXT = shutil.which("pdftotext") is not None
 HAVE_PDFTK = shutil.which("pdftk") is not None
 
@@ -57,3 +58,4 @@ def skip_module_without_pdftotext() -> None:
     its import runs ``pdftotext -v`` and fails without the program."""
     if not HAVE_PDFTOTEXT:
         pytest.skip("pdftotext nicht installiert", allow_module_level=True)
+requires_pypdf = pytest.mark.skipif(not HAVE_PYPDF, reason="pypdf nicht installiert")

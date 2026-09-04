@@ -7,6 +7,8 @@ anytree
 plotly
 pandas
 google-cloud-documentai==2.14.0
+anthropic
+pypdf
 jsondiff
 datefinder
 jsonschema==4.17.3

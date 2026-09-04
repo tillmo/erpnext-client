@@ -8,6 +8,8 @@ import project
 import doc
 import settings
 import purchase_invoice
+import einvoice
+import claude_parser
 from purchase_invoice_google_parser import get_element_with_high_confidence
 from api import Api, LIMIT
 from itertools import groupby
@@ -181,8 +183,8 @@ def process_inv(pr: dict[str, Any]) -> None:
     print(pr['name'])
     pdf = pr['pdf']
     contents = Api.api.get_file(pdf)
-    if sg.UserSettings().get('-google-credentials-'):
-        # use Google invoice AI
+    if sg.UserSettings().get('-google-credentials-') and not einvoice.extract_xml(contents) and not claude_parser.configured():
+        # use Google invoice AI (only without an embedded e-invoice and without Claude)
         try:
             pr['json'] = json.dumps(extract_invoice_info(contents))
             myjson = json.loads(pr['json'])
@@ -370,7 +372,9 @@ def read_and_transfer_pdf(file: str, update_stock: bool = True, account: str | N
     company.Company.init_companies()
     with open(file,"rb") as f:
         contents = f.read()
-    myjson = extract_invoice_info(contents)
+    myjson = None
+    if sg.UserSettings().get('-google-credentials-') and not einvoice.extract_xml(contents) and not claude_parser.configured():
+        myjson = extract_invoice_info(contents)
     pinv = purchase_invoice.PurchaseInvoice.read_and_transfer(
         myjson, file, update_stock,
         account_abbrv=account, paid_by_submitter=paid_by_submitter,
