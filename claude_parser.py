@@ -25,7 +25,8 @@ SCHEMA: dict[str, Any] = {
     "required": ["supplier", "supplier_tax_id", "bill_no", "posting_date", "order_id", "total", "grand_total",
                  "shipping", "skonto_percent", "taxes", "items"],
     "properties": {
-        "supplier": {"type": "string", "description": "legal name of the supplier (issuer of the invoice)"},
+        "supplier": {"type": "string", "description": "the supplier (issuer of the invoice): exactly one of the known ERPNext "
+                                                       "supplier names if the issuer is among them, otherwise the legal name as printed"},
         "supplier_tax_id": {"type": ["string", "null"], "description": "VAT ID of the supplier (USt-IdNr., e.g. DE123456789)"},
         "bill_no": {"type": "string", "description": "invoice number exactly as printed"},
         "posting_date": {"type": "string", "description": "invoice date as YYYY-MM-DD"},
@@ -124,11 +125,23 @@ def check(data: dict[str, Any]) -> list[str]:
     return problems
 
 
-def _call(client: Any, messages: list[dict[str, Any]]) -> tuple[dict[str, Any], str]:
+def system_blocks(suppliers: list[str] | None) -> list[dict[str, Any]]:
+    """Rules plus the ERPNext supplier list; the list is cached across calls (prompt caching)."""
+    blocks: list[dict[str, Any]] = [{"type": "text", "text": SYSTEM}]
+    if suppliers:
+        blocks.append({"type": "text",
+                       "text": "Known ERPNext supplier names (return exactly one of these as \"supplier\" when the invoice "
+                               "issuer is among them, tolerating different spelling, legal form or an address in the name):\n"
+                               + "\n".join(suppliers),
+                       "cache_control": {"type": "ephemeral"}})
+    return blocks
+
+
+def _call(client: Any, messages: list[dict[str, Any]], suppliers: list[str] | None = None) -> tuple[dict[str, Any], str]:
     response = client.beta.messages.create(
         model=model(),
         max_tokens=16000,
-        system=SYSTEM,
+        system=system_blocks(suppliers),
         messages=messages,
         output_config={"format": {"type": "json_schema", "schema": SCHEMA}},
         betas=["server-side-fallback-2026-07-01"],
@@ -140,12 +153,16 @@ def _call(client: Any, messages: list[dict[str, Any]]) -> tuple[dict[str, Any], 
     text = next((b.text for b in response.content if b.type == 'text'), '')
     usage = getattr(response, 'usage', None)
     if usage is not None:
-        print(f"Claude ({response.model}): {usage.input_tokens} Eingabe-, {usage.output_tokens} Ausgabe-Tokens")
+        cached = getattr(usage, 'cache_read_input_tokens', 0) or 0
+        print(f"Claude ({response.model}): {usage.input_tokens} Eingabe-, {usage.output_tokens} Ausgabe-Tokens"
+              + (f", {cached} aus dem Cache" if cached else ""))
     return json.loads(text), text
 
 
-def extract(pdf: bytes, supplier_hint: str | None = None, client: Any = None) -> dict[str, Any]:
-    """Purchase data of an invoice PDF. Raises on API errors or refusal."""
+def extract(pdf: bytes, supplier_hint: str | None = None, client: Any = None,
+            suppliers: list[str] | None = None) -> dict[str, Any]:
+    """Purchase data of an invoice PDF. Raises on API errors or refusal.
+    ``suppliers``: known ERPNext supplier names, so that the model returns the matching one."""
     client = client or _client()
     prompt = "Extract the invoice data from this PDF."
     if supplier_hint:
@@ -154,14 +171,14 @@ def extract(pdf: bytes, supplier_hint: str | None = None, client: Any = None) ->
         {"type": "document", "source": {"type": "base64", "media_type": "application/pdf",
                                         "data": base64.standard_b64encode(pdf).decode('ascii')}},
         {"type": "text", "text": prompt}]}]
-    data, text = _call(client, messages)
+    data, text = _call(client, messages, suppliers)
     problems = check(data)
     if problems:
         print("Claude-Ergebnis unstimmig, zweiter Versuch: " + "; ".join(problems))
         messages += [{"role": "assistant", "content": text},
                      {"role": "user", "content": "The arithmetic check found problems:\n- " + "\n- ".join(problems)
                       + "\nRe-read the invoice carefully and return the corrected JSON."}]
-        data2, _ = _call(client, messages)
+        data2, _ = _call(client, messages, suppliers)
         problems2 = check(data2)
         if len(problems2) <= len(problems):
             data, problems = data2, problems2
@@ -173,5 +190,11 @@ def extract(pdf: bytes, supplier_hint: str | None = None, client: Any = None) ->
 
 
 def extract_file(path: str, supplier_hint: str | None = None, client: Any = None) -> dict[str, Any]:
+    """Like ``extract``, with the ERPNext supplier names as hint (if the API is available)."""
+    from api import Api
+    try:
+        suppliers = Api.supplier_names() if Api.api else None
+    except Exception:
+        suppliers = None
     with open(path, 'rb') as f:
-        return extract(f.read(), supplier_hint, client)
+        return extract(f.read(), supplier_hint, client, suppliers)

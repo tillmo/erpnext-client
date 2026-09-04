@@ -571,7 +571,7 @@ class TestParseInvoiceEinvoice:
         monkeypatch.setattr(claude_parser, "configured", lambda: True)
         seen: dict[str, Any] = {}
 
-        def fake_extract(path: str, hint: str | None = None, client: Any = None) -> dict[str, Any]:
+        def fake_extract(path: str, hint: str | None = None, client: Any = None, **kw: Any) -> dict[str, Any]:
             seen["path"], seen["hint"] = path, hint
             return {"supplier": "Muster Solartechnik GmbH", "bill_no": "C-1", "posting_date": "2026-09-03", "total": 100.0,
                     "grand_total": 119.0, "shipping": 0, "taxes": [{"rate": 19, "net": 100.0, "tax_amount": 19.0}], "items": [],
@@ -587,7 +587,7 @@ class TestParseInvoiceEinvoice:
         import claude_parser
         monkeypatch.setattr(claude_parser, "configured", lambda: True)
 
-        def boom(path: str, hint: str | None = None, client: Any = None) -> dict[str, Any]:
+        def boom(path: str, hint: str | None = None, client: Any = None, **kw: Any) -> dict[str, Any]:
             raise RuntimeError("API down")
         monkeypatch.setattr(claude_parser, "extract_file", boom)
         assert pinv.parse_invoice(None, generic_pdf, is_test=True) is pinv

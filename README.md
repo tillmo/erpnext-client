@@ -80,7 +80,9 @@ number and address are already complete.
 
 The confirmation dialog stays in every case. Both new paths fill the invoice via
 `PurchaseInvoice.apply_purchase_data`; the supplier printed on the invoice is matched to the
-ERPNext suppliers by normalised name or VAT id (`Api.find_supplier`).
+ERPNext suppliers by VAT id or by name, tolerating legal forms and address suffixes in the
+ERPNext name (`Api.find_supplier`). Claude additionally gets the list of ERPNext supplier names
+as a cached part of the prompt and returns the matching name directly.
 
 ## mytools
 * the `mytools/` directory holds private helper scripts, kept in a separate non-public repository

@@ -142,9 +142,23 @@ class TestFindSupplier:
         assert Api.find_supplier("Memodo GmbH") == "Memodo GmbH"
         assert Api.find_supplier("Krannich Solar GmbH & Co. KG") == "Krannich Solar GmbH & Co KG"     # punctuation
         assert Api.find_supplier("KRANNICH SOLAR GMBH UND CO KG") == "Krannich Solar GmbH & Co KG"
-        assert Api.find_supplier("Wagner Solar GmbH") is None                                         # too different
+        assert Api.find_supplier("Wagner Solar GmbH") == "Wagner Solar"                               # legal form ignored
         assert Api.find_supplier("Unbekannte Firma AG") is None
         assert Api.find_supplier(None) is None and Api.find_supplier("") is None
+
+    def test_names_with_address_or_legal_form(self, fake_api: FakeFrappeClient) -> None:
+        fake_api.add("Supplier", supplier_name="CarpeDiem Energy, Lägelerstr. 53, 88250 Weingarten")
+        fake_api.add("Supplier", supplier_name="eibmarkt.com GmbH - Kemmlerstrasse 1 - 08527 Plauen")
+        fake_api.add("Supplier", supplier_name="Hans-Wilken_Löhrmann")
+        fake_api.add("Supplier", supplier_name="Solar AG")
+        fake_api.add("Supplier", supplier_name="Solar GmbH")
+        Api.suppliers_cache = None
+        assert Api.find_supplier("CarpeDiem Energy GmbH") == "CarpeDiem Energy, Lägelerstr. 53, 88250 Weingarten"
+        assert Api.find_supplier("eibmarkt.com GmbH") == "eibmarkt.com GmbH - Kemmlerstrasse 1 - 08527 Plauen"
+        assert Api.find_supplier("Hans-Wilken Löhrmann") == "Hans-Wilken_Löhrmann"
+        assert Api.find_supplier("Solar e.V.") is None                # ambiguous core name: no guess
+        assert Api.supplier_names()[:2] == ["CarpeDiem Energy, Lägelerstr. 53, 88250 Weingarten",
+                                            "Hans-Wilken_Löhrmann"]
 
     def test_tax_id_wins(self, suppliers: FakeFrappeClient) -> None:
         assert Api.find_supplier("Memodo Solar Shop", "DE318463541") == "Memodo GmbH"

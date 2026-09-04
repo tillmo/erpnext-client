@@ -67,10 +67,15 @@ class TestConfiguration:
 class TestExtract:
     def test_request_shape_and_result(self) -> None:
         client = FakeClient([GOOD])
-        d = claude_parser.extract(b"%PDF-1.4 test", supplier_hint="Muster Solartechnik GmbH", client=client)
+        d = claude_parser.extract(b"%PDF-1.4 test", supplier_hint="Muster Solartechnik GmbH", client=client,
+                                  suppliers=["Krannich Solar GmbH & Co KG", "Muster Solartechnik GmbH"])
         assert d["source"] == "claude" and d["problems"] == [] and d["bill_no"] == "2026-0815"
         req = client.requests[0]
         assert req["model"] == "claude-opus-5" and req["output_config"]["format"]["schema"] is claude_parser.SCHEMA
+        # rules first, then the cached supplier list
+        assert req["system"][0]["text"] == claude_parser.SYSTEM and "cache_control" not in req["system"][0]
+        assert "Krannich Solar GmbH & Co KG\nMuster Solartechnik GmbH" in req["system"][1]["text"]
+        assert req["system"][1]["cache_control"] == {"type": "ephemeral"}
         assert req["fallbacks"] == "default" and "server-side-fallback-2026-07-01" in req["betas"]
         content = req["messages"][0]["content"]
         assert content[0]["type"] == "document" and content[0]["source"]["media_type"] == "application/pdf"
@@ -97,3 +102,8 @@ class TestExtract:
     def test_refusal_raises(self) -> None:
         with pytest.raises(RuntimeError, match="abgelehnt"):
             claude_parser.extract(b"pdf", client=FakeClient([GOOD], stop_reason="refusal"))
+
+    def test_without_supplier_list(self) -> None:
+        client = FakeClient([GOOD])
+        claude_parser.extract(b"pdf", client=client)
+        assert client.requests[0]["system"] == [{"type": "text", "text": claude_parser.SYSTEM}]

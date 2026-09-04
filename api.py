@@ -130,6 +130,12 @@ class Api(object):
 
         def norm(s: str | None) -> str:
             return re.sub(r'[^a-z0-9]', '', (s or '').lower().replace('&', 'und').replace('ß', 'ss'))
+
+        def core(s: str | None) -> str:
+            """name without legal form and without an address appended (ERPNext names often carry one)"""
+            t = re.split(r'[,|·]| - ', s or '')[0]
+            t = re.sub(r'\b(gmbh|mbh|co\.?|kg|ag|e\.?\s?v\.?|ohg|gbr|ug|se|inc\.?|ltd\.?|und|&)\b', ' ', t, flags=re.I)
+            return norm(t)
         if tax_id:
             for s in Api.suppliers_cache:
                 if s.get('tax_id') and norm(s['tax_id']) == norm(tax_id):
@@ -140,12 +146,25 @@ class Api(object):
         for s in Api.suppliers_cache:
             if key in (norm(s['name']), norm(s.get('supplier_name'))):
                 return s['name']
+        ckey = core(name)
+        if len(ckey) >= 5:
+            hits = [s['name'] for s in Api.suppliers_cache
+                    if core(s['name']) == ckey or core(s.get('supplier_name')) == ckey]
+            if len(hits) == 1:
+                return hits[0]
         best, best_score = None, 0.0
         for s in Api.suppliers_cache:
             score = SequenceMatcher(None, key, norm(s['name'])).ratio()
             if score > best_score:
                 best, best_score = s['name'], score
         return best if best_score >= 0.9 else None
+
+    @classmethod
+    def supplier_names(cls) -> list[str]:
+        """All ERPNext supplier names (cached), e.g. as a hint for the invoice extraction."""
+        if Api.suppliers_cache is None:
+            Api.find_supplier('-')
+        return sorted(s['name'] for s in (Api.suppliers_cache or []))
 
     @classmethod
     def create_supplier(cls, supplier: str) -> None:
