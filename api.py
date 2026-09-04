@@ -132,8 +132,8 @@ class Api(object):
             return re.sub(r'[^a-z0-9]', '', (s or '').lower().replace('&', 'und').replace('ß', 'ss'))
 
         def core(s: str | None) -> str:
-            """name without legal form and without an address appended (ERPNext names often carry one)"""
-            t = re.split(r'[,|·]| - ', s or '')[0]
+            """name without legal form, address or brand in parentheses (ERPNext names often carry one)"""
+            t = re.split(r'[,|·(]| - ', s or '')[0]
             t = re.sub(r'\b(gmbh|mbh|co\.?|kg|ag|e\.?\s?v\.?|ohg|gbr|ug|se|inc\.?|ltd\.?|und|&)\b', ' ', t, flags=re.I)
             return norm(t)
         if tax_id:

@@ -152,13 +152,16 @@ class TestFindSupplier:
         fake_api.add("Supplier", supplier_name="Hans-Wilken_Löhrmann")
         fake_api.add("Supplier", supplier_name="Solar AG")
         fake_api.add("Supplier", supplier_name="Solar GmbH")
+        fake_api.add("Supplier", supplier_name="sprd.net AG (Spreadshirt)")
         Api.suppliers_cache = None
+        assert Api.find_supplier("sprd.net AG") == "sprd.net AG (Spreadshirt)"      # brand in parentheses ignored
         assert Api.find_supplier("CarpeDiem Energy GmbH") == "CarpeDiem Energy, Lägelerstr. 53, 88250 Weingarten"
         assert Api.find_supplier("eibmarkt.com GmbH") == "eibmarkt.com GmbH - Kemmlerstrasse 1 - 08527 Plauen"
         assert Api.find_supplier("Hans-Wilken Löhrmann") == "Hans-Wilken_Löhrmann"
         assert Api.find_supplier("Solar e.V.") is None                # ambiguous core name: no guess
         assert Api.supplier_names()[:2] == ["CarpeDiem Energy, Lägelerstr. 53, 88250 Weingarten",
                                             "Hans-Wilken_Löhrmann"]
+        assert "sprd.net AG (Spreadshirt)" in Api.supplier_names()
 
     def test_tax_id_wins(self, suppliers: FakeFrappeClient) -> None:
         assert Api.find_supplier("Memodo Solar Shop", "DE318463541") == "Memodo GmbH"
