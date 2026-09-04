@@ -231,6 +231,21 @@ def event_handler(event: Any,window: sg.Window) -> str:
                 args.set_google_credentials(values[1])
                 print("Neue Einstellung gespeichert")
             window1.close()
+    elif event == 'Claude':
+        layout = [  [sg.Text('Anthropic API key für die Rechnungserkennung mit Claude')],
+                    [sg.Input(default_text = user_settings['-claude-key-'] or '', k='-key-', size=(70,1))],
+                    [sg.Text('Claude-Modell (leer: {})'.format(settings.CLAUDE_MODEL))],
+                    [sg.Input(default_text = user_settings['-claude-model-'] or '', k='-model-', size=(70,1))],
+                    [sg.Button('Speichern')] ]
+        window1 = sg.Window("Claude-Einstellungen", layout, finalize=True)
+        window1.bring_to_front()
+        event, values = window1.read()
+        if event == 'Speichern' and values:
+            user_settings['-claude-key-'] = values['-key-'].strip()
+            user_settings['-claude-model-'] = values['-model-'].strip()
+            print("Neue Einstellung gespeichert" if values['-key-'].strip()
+                  else "Claude-Schlüssel gelöscht: Rechnungen werden wieder mit den vorhandenen Parsern gelesen")
+        window1.close()
     elif event == 'Update':
         print()
         print("Aktualisiere dieses Programm...")
@@ -754,7 +769,7 @@ def menus() -> bool:
                 ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen',
                             'USt-Rechnungen zusammenstellen','EK-Rechnungen nach Konto']],
                 ['Lead',['Leads bearbeiten', 'Leadübersicht', 'Kontaktdaten nachtragen']],
-                ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Google', 'Update']], 
+                ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Google', 'Claude', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
 
 

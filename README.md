@@ -73,9 +73,10 @@ number and address are already complete.
 2. **Claude** (`claude_parser.py`): otherwise, if an Anthropic API key is configured, the PDF goes to
    Claude as a document (text and page images, so scans work too) and the answer is forced into the
    client's purchase-data schema; totals are checked arithmetically with one correction round. The
-   key is passed once with `--claude-key KEY` (stored in the settings like the ERPNext key) or set as
-   `ANTHROPIC_API_KEY`; `--claude-model` overrides `settings.CLAUDE_MODEL`. Roughly 2-4 cents per
-   invoice.
+   key is entered under "Einstellungen - Claude" in the menu, passed once with `--claude-key KEY`
+   (stored in the settings like the ERPNext key) or set as `ANTHROPIC_API_KEY`; the model can be
+   overridden there as well or with `--claude-model` (default `settings.CLAUDE_MODEL`). Roughly
+   2-5 cents per invoice. Clearing the key falls back to the parsers below.
 3. Google Document AI (PreRechnung JSON) and the supplier-specific parsers as before.
 
 The confirmation dialog stays in every case. Both new paths fill the invoice via

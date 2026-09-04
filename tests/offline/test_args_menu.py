@@ -190,6 +190,34 @@ class TestEventHandler:
         for ev in ("Hilfe Server", "Hilfe Banktransaktionen", "Hilfe Buchen"):
             assert menu.event_handler(ev, Window()) == "inner"
 
+    def test_claude_settings(self, fake_api: FakeFrappeClient, user_settings: UserSettings,
+                             monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+        import PySimpleGUI as sg
+        import claude_parser
+        windows: list[dict[str, Any]] = []
+
+        class SettingsWindow(Window):
+            def __init__(self, title: str, layout: list[list[Any]], **kw: Any) -> None:
+                super().__init__()
+                self.title = title
+                windows.append({"title": title, "layout": layout})
+
+            def bring_to_front(self) -> None:
+                pass
+
+            def read(self) -> tuple[str, dict[str, str]]:
+                return "Speichern", {"-key-": " sk-ant-test ", "-model-": "claude-sonnet-5"}
+        monkeypatch.setattr(sg, "Window", SettingsWindow, raising=False)
+        monkeypatch.setattr(sg, "Text", lambda *a, **k: ("Text", a and a[0]), raising=False)
+        monkeypatch.setattr(sg, "Input", lambda *a, **k: ("Input", k.get("default_text")), raising=False)
+        monkeypatch.setattr(sg, "Button", lambda *a, **k: ("Button", a and a[0]), raising=False)
+        assert menu.event_handler("Claude", Window()) == "inner"
+        assert user_settings["-claude-key-"] == "sk-ant-test"          # stripped
+        assert user_settings["-claude-model-"] == "claude-sonnet-5"
+        assert claude_parser.configured() and claude_parser.model() == "claude-sonnet-5"
+        assert windows[0]["title"] == "Claude-Einstellungen"
+        assert "Neue Einstellung gespeichert" in capsys.readouterr().out
+
     def test_setup_required_message(self, fake_api: FakeFrappeClient, user_settings: UserSettings,
                                     capsys: pytest.CaptureFixture[str]) -> None:
         user_settings["-setup-"] = True
