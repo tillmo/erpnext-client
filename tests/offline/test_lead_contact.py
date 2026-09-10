@@ -269,24 +269,6 @@ class TestCompleteLeads:
         assert len(dialog.calls) == 1 and [c[0] for c in gui.calls] == ["ynbox"]
 
 
-class TestAttachMissingVcards:
-    def test_only_complete_leads_without_vcard(self, lead_doc: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
-        lead_doc.docs("Lead")["L-1"].update(status="Replied", first_name="Max", last_name="Mustermann", mobile_no="+49 170 1",
-                                            creation="2026-09-01 10:00:00")
-        lead_doc.add("Address", address_line1="Weg 1", pincode="28199", city="Bremen", links=[{"link_doctype": "Lead", "link_name": "L-1"}])
-        lead_doc.add("Lead", name="L-NO-ADDR", status="Converted", last_name="Ohne", mobile_no="+49 170 2", creation="2026-09-02 10:00:00")
-        lead_doc.add("Lead", name="L-NO-PHONE", status="Converted", last_name="Stumm", city="Bremen", creation="2026-09-02 10:00:00")
-        lead_doc.add("Lead", name="L-HAS", status="Converted", last_name="Hat", mobile_no="+49 170 3", creation="2026-09-02 10:00:00")
-        lead_doc.add("Address", address_line1="Weg 2", pincode="28199", city="Bremen", links=[{"link_doctype": "Lead", "link_name": "L-HAS"}])
-        lead_doc.attach_file("Lead", "L-HAS", "L-HAS.vcf", b"BEGIN:VCARD", True)
-        lead_doc.add("Lead", name="L-DNC", status="Do Not Contact", last_name="Spam", mobile_no="+49 170 4", creation="2026-09-02 10:00:00")
-        assert lc.attach_missing_vcards() == 1
-        files = sorted(f["attached_to_name"] for f in lead_doc.get_list("File", fields=["attached_to_name"]))
-        assert files == ["L-1", "L-HAS"]
-        assert "1 vCards" in capsys.readouterr().out
-        assert lc.attach_missing_vcards() == 0          # idempotent
-
-
 class TestExcerpt:
     def test_limits_display_lines(self) -> None:
         text = "\n".join(f"Zeile {i}" for i in range(40))

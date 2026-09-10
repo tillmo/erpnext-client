@@ -61,8 +61,29 @@ mails are ignored), shows them in an editable dialog, fills the empty lead field
 linked Address if there is none, and attaches a vCard (`<lead>.vcf`, private) to the lead.
 The lead owners open the lead in the ERPNext app on the phone and tap the vCard to add the
 contact. The menu item "Kontaktdaten nachtragen" does the same for existing real leads without
-a phone number. Both actions also attach the missing vCards of all real leads whose name, phone
-number and address are already complete.
+a phone number.
+
+## vCards of assigned leads in Nextcloud (CardDAV)
+`vcard_export.py` mirrors the leads assigned to a lead owner into that owner's Nextcloud address
+book (`settings.NEXTCLOUD_ADDRESSBOOK`, one book per owner). The phones subscribe to it via
+CardDAV (DAVx5 on Android, CardDAV on iOS), so an assigned lead shows up in the contacts without
+any import. A lead is exported as soon as it is assigned, even when name, phone number or address
+are still missing - the display name then falls back to the e-mail address, and the owner can call
+and complete the data later. The lead id is the card's UID, so a later export replaces the card
+instead of duplicating it, `CATEGORIES:ERPNext Lead` marks the cards the export manages (other
+cards in the book are never touched), and a lead that is no longer assigned or was marked
+"Do Not Contact" loses its card again. The client exports at the end of "Leads bearbeiten" and
+"Kontaktdaten nachtragen", and on demand via "Lead - vCards exportieren".
+
+Credentials go in once under "Einstellungen - Nextcloud" (URL, the user owning the address books,
+and an app password); the address books have to be shared with the lead owners in Nextcloud once.
+The same export also runs standalone, e.g. from cron, with the credentials in
+NEXTCLOUD_URL, NEXTCLOUD_USER and NEXTCLOUD_PASSWORD:
+
+    python3 vcard_export.py --server URL --key KEY --secret SECRET
+    python3 vcard_export.py --server URL --key KEY --secret SECRET --apply --create --delete
+
+Without `--apply` it only reports what it would write.
  
 ## reading purchase invoices: e-invoice XML, Claude, fixed parsers
 `purchase_invoice.parse_invoice` tries, in this order:

@@ -335,11 +335,16 @@ def _vcard_escape(s: str) -> str:
     return s.replace('\\', '\\\\').replace(';', '\\;').replace(',', '\\,').replace('\n', '\\n')
 
 
-def vcard(name: str, contact: Contact, url: str) -> str:
+def display_name(name: str, contact: Contact) -> str:
+    """What a phone shows: the name, otherwise the e-mail address, otherwise the lead id."""
+    return contact.full_name() or contact.email or name
+
+
+def vcard(name: str, contact: Contact, url: str, categories: str | None = None, note: str | None = None) -> str:
     """vCard 3.0 for the phone; UID is the lead name so that a re-export replaces the contact."""
     e = _vcard_escape
     lines = ['BEGIN:VCARD', 'VERSION:3.0', f'UID:{e(name)}',
-             f'N:{e(contact.last_name)};{e(contact.first_name)};;;', f'FN:{e(contact.full_name() or name)}']
+             f'N:{e(contact.last_name)};{e(contact.first_name)};;;', f'FN:{e(display_name(name, contact))}']
     if contact.mobile_no:
         lines.append(f'TEL;TYPE=CELL:{contact.mobile_no}')
     if contact.phone:
@@ -348,7 +353,11 @@ def vcard(name: str, contact: Contact, url: str) -> str:
         lines.append(f'EMAIL;TYPE=INTERNET:{contact.email}')
     if contact.street or contact.city:
         lines.append(f'ADR;TYPE=HOME:;;{e(contact.street)};{e(contact.city)};;{e(contact.pincode)};{e(COUNTRY)}')
-    lines += [f'URL:{url}', f'NOTE:{e("ERPNext Lead " + name)}', 'END:VCARD']
+    lines.append(f'URL:{url}')
+    lines.append(f'NOTE:{e(note or ("ERPNext Lead " + name))}')
+    if categories:
+        lines.append(f'CATEGORIES:{e(categories)}')
+    lines.append('END:VCARD')
     return "\r\n".join(lines) + "\r\n"
 
 
@@ -446,8 +455,7 @@ def complete_lead(name: str, doc: dict[str, Any], comms: list[dict[str, Any]], a
 
 
 def complete_leads() -> None:
-    """Menu: vCards for complete leads, then contact data (and vCards) for real leads without a phone number."""
-    attach_missing_vcards()
+    """Menu: contact data (and a vCard at the lead) for real leads without a phone number."""
     todo = [l for l in real_leads() if not (l.get('mobile_no') or l.get('phone'))]
     print(f"{len(todo)} Leads ohne Telefonnummer")
     done = 0
@@ -467,29 +475,3 @@ def real_leads() -> list[dict[str, Any]]:
                                              'phone', 'city', '_assign', 'creation'],
                              filters={'status': ['!=', 'Do Not Contact']}, order_by='creation desc', limit_page_length=LIMIT)
     return [l for l in leads if l['status'] in GOOD_STATUSES or l['_assign'] not in (None, '', '[]')]
-
-
-def is_complete(contact: Contact) -> bool:
-    return bool(contact.last_name and (contact.mobile_no or contact.phone) and contact.street and contact.city)
-
-
-def leads_with_vcard() -> set[str]:
-    files = Api.api.get_list('File', filters={'attached_to_doctype': 'Lead', 'file_name': ['like', '%.vcf']},
-                             fields=['attached_to_name'], limit_page_length=LIMIT)
-    return {f['attached_to_name'] for f in files}
-
-
-def attach_missing_vcards() -> int:
-    """vCards for all real leads with complete contact data that have none yet. Returns the number attached."""
-    have = leads_with_vcard()
-    count = 0
-    for l in real_leads():
-        if l['name'] in have or not (l.get('last_name') and (l.get('mobile_no') or l.get('phone'))):
-            continue
-        contact = from_lead(l, linked_address(l['name']))
-        if is_complete(contact):
-            attach_vcard(l['name'], contact)
-            count += 1
-    if count:
-        print(f"{count} vCards für Leads mit vollständigen Kontaktdaten angehängt")
-    return count

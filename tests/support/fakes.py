@@ -25,6 +25,7 @@ import json
 import os
 import re
 import urllib.parse
+from xml.sax.saxutils import escape as xml_escape
 from typing import Any, Iterable, Iterator
 
 import frappe
@@ -637,3 +638,69 @@ class FakeSession:
 
     def put(self, url: str, **kwargs: Any) -> FakeResponse:
         return self._pop("PUT", url, kwargs)
+
+    def request(self, method: str, url: str, **kwargs: Any) -> FakeResponse:
+        return self._pop(method.upper(), url, kwargs)
+
+
+class FakeCardDavSession:
+    """In-memory CardDAV server in the Nextcloud layout, for the vcard_export tests.
+
+    ``books`` maps an address book name to {file name: vCard}; a book that is not in it answers
+    404. ``status[METHOD]`` forces a status code, ``requests`` records every call.
+    """
+
+    PREFIX = "/remote.php/dav/addressbooks/users/"
+
+    def __init__(self, books: dict[str, dict[str, str]] | None = None) -> None:
+        self.books: dict[str, dict[str, str]] = {k: dict(v) for k, v in (books or {}).items()}
+        self.requests: list[tuple[str, str]] = []
+        self.status: dict[str, int] = {}
+
+    def href(self, book: str, filename: str) -> str:
+        return "{}user/{}/{}".format(self.PREFIX, book, filename)
+
+    def _split(self, url: str) -> tuple[str, str]:
+        path = urllib.parse.unquote(urllib.parse.urlsplit(url).path)
+        parts = path.split(self.PREFIX, 1)[1].split("/")      # user / book / [file]
+        return parts[1], parts[2] if len(parts) > 2 else ""
+
+    def _multistatus(self, book: str, with_data: bool) -> str:
+        responses = ['<d:response><d:href>{}user/{}/</d:href><d:propstat><d:prop/>'
+                     '<d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>'.format(self.PREFIX, book)]
+        if with_data:
+            for filename, body in sorted(self.books[book].items()):
+                responses.append(
+                    '<d:response><d:href>{}user/{}/{}</d:href><d:propstat><d:prop>'
+                    '<d:getetag>"{}"</d:getetag><card:address-data>{}</card:address-data>'
+                    '</d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat></d:response>'.format(
+                        self.PREFIX, book, filename, len(body), xml_escape(body)))
+        return ('<?xml version="1.0"?><d:multistatus xmlns:d="DAV:" '
+                'xmlns:card="urn:ietf:params:xml:ns:carddav">{}</d:multistatus>'.format("".join(responses)))
+
+    def request(self, method: str, url: str, data: Any = None, headers: Any = None, auth: Any = None,
+                timeout: Any = None) -> FakeResponse:
+        method = method.upper()
+        self.requests.append((method, url))
+        if method in self.status:
+            return FakeResponse(status_code=self.status[method])
+        book, filename = self._split(url)
+        if method == "MKCOL":
+            if book in self.books:
+                return FakeResponse(status_code=405)
+            self.books[book] = {}
+            return FakeResponse(status_code=201)
+        if book not in self.books:
+            return FakeResponse(status_code=404)
+        if method in ("PROPFIND", "REPORT"):
+            return FakeResponse(status_code=207, text=self._multistatus(book, method == "REPORT"))
+        if method == "PUT":
+            new = filename not in self.books[book]
+            self.books[book][filename] = data.decode("utf-8") if isinstance(data, bytes) else str(data)
+            return FakeResponse(status_code=201 if new else 204)
+        if method == "DELETE":
+            if filename not in self.books[book]:
+                return FakeResponse(status_code=404)
+            del self.books[book][filename]
+            return FakeResponse(status_code=204)
+        return FakeResponse(status_code=405)

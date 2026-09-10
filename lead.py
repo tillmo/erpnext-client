@@ -6,6 +6,7 @@ from settings import LEAD_OWNERS, LEAD_DNC_FIELD
 import lead_rules
 import lead_contact
 import utils
+import vcard_export
 import easygui
 import json
 import table
@@ -114,7 +115,7 @@ def process_open_leads() -> None:
             lead_contact.complete_lead(lead1['name'], doc, comms)
     print(f"Leads fertig bearbeitet: {n_auto} automatisch als \"nicht kontaktieren\" markiert, "
           f"{n_manual} von Hand entschieden, {n_skipped} übersprungen")
-    lead_contact.attach_missing_vcards()
+    vcard_export.export_all(apply=True, create=True, delete=True)
 
 def cleanup_leads() -> None:
     leads = Api.api.get_list("Lead",

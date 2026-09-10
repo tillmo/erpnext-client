@@ -13,6 +13,7 @@ import purchase_invoice
 import project
 import lead
 import lead_contact
+import vcard_export
 import sales_invoice
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper, api_wrapper
@@ -231,6 +232,25 @@ def event_handler(event: Any,window: sg.Window) -> str:
                 args.set_google_credentials(values[1])
                 print("Neue Einstellung gespeichert")
             window1.close()
+    elif event == 'Nextcloud':
+        layout = [  [sg.Text('Nextcloud-URL, z. B. https://cloud.example')],
+                    [sg.Input(default_text = user_settings['-nextcloud-url-'] or '', k='-url-', size=(70,1))],
+                    [sg.Text('Benutzer (Eigentümer der Lead-Adressbücher)')],
+                    [sg.Input(default_text = user_settings['-nextcloud-user-'] or '', k='-user-', size=(70,1))],
+                    [sg.Text('App-Passwort')],
+                    [sg.Input(default_text = user_settings['-nextcloud-password-'] or '', k='-password-', size=(70,1),
+                              password_char='*')],
+                    [sg.Button('Speichern')] ]
+        window1 = sg.Window("Nextcloud-Einstellungen", layout, finalize=True)
+        window1.bring_to_front()
+        event, values = window1.read()
+        if event == 'Speichern' and values:
+            user_settings['-nextcloud-url-'] = values['-url-'].strip().rstrip('/')
+            user_settings['-nextcloud-user-'] = values['-user-'].strip()
+            user_settings['-nextcloud-password-'] = values['-password-'].strip()
+            print("Neue Einstellung gespeichert" if vcard_export.configured()
+                  else "Nextcloud-Zugang unvollständig: der vCard-Export bleibt aus")
+        window1.close()
     elif event == 'Claude':
         layout = [  [sg.Text('Anthropic API key für die Rechnungserkennung mit Claude')],
                     [sg.Input(default_text = user_settings['-claude-key-'] or '', k='-key-', size=(70,1))],
@@ -713,6 +733,9 @@ def event_handler(event: Any,window: sg.Window) -> str:
         lead.show_open_leads()
     elif event == 'Kontaktdaten nachtragen':
         lead_contact.complete_leads()
+        vcard_export.export_all(apply=True, create=True, delete=True)
+    elif event == 'vCards exportieren':
+        vcard_export.export_all(apply=True, create=True, delete=True)
     elif event == 'Zahlungen für EBay-Rechnungen':
         sales_invoice.ebay_sales(user_settings['-company-'],
                                  user_settings['-buchen-'])
@@ -768,8 +791,8 @@ def menus() -> bool:
                 ['Bereich', company.Company.all()], 
                 ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen',
                             'USt-Rechnungen zusammenstellen','EK-Rechnungen nach Konto']],
-                ['Lead',['Leads bearbeiten', 'Leadübersicht', 'Kontaktdaten nachtragen']],
-                ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Google', 'Claude', 'Update']], 
+                ['Lead',['Leads bearbeiten', 'Leadübersicht', 'Kontaktdaten nachtragen', 'vCards exportieren']],
+                ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Google', 'Claude', 'Nextcloud', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
 
 
