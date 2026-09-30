@@ -83,7 +83,7 @@ def test_parsers_against_real_invoices(api: Any, live: LiveState, tmp_path: Path
         entry = {"name": doc["name"], "supplier": doc.get("supplier"), "expected": doc.get("bill_no"),
                  "parsed": None, "parser": None, "error": None, "gross": None, "expected_gross": doc.get("grand_total")}
         try:
-            pinv.parse_invoice(None, pdf, given_supplier=doc.get("supplier"), is_test=True)
+            pinv.parse_invoice(pdf, given_supplier=doc.get("supplier"), is_test=True)
             entry["parsed"], entry["parser"], entry["gross"] = pinv.no, pinv.parser, pinv.gross_total
         except Exception as e:  # noqa: BLE001 - every exception is a finding here
             entry["error"] = "{}: {}".format(type(e).__name__, e)

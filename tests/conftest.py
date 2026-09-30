@@ -86,8 +86,6 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "-setup-": False,
     "-year-": 2026,
     "-folder-": ROOT,
-    "-google-credentials-": None,
-    "-invoice-processor-": None,
 }
 
 

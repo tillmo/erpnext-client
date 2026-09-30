@@ -3,12 +3,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from purchase_invoice_google_parser import PurchaseInvoiceGoogleParser
 from purchase_invoice_parser import PurchaseInvoiceParser, SupplierItem
 from settings import STANDARD_PRICE_LIST, STANDARD_NAMING_SERIES_PINV, VAT_DESCRIPTION, DELIVERY_COST_ACCOUNT, \
     DELIVERY_COST_DESCRIPTION, SOMIKO_ACCOUNTS, AGGREGATE_ITEMS
 
-import os
 import utils
 import lead_rules
 import einvoice
@@ -27,9 +25,6 @@ import stock
 from invoice import Invoice
 from collections import defaultdict
 from pprint import pprint
-import jsondiff
-from jsondiff.symbols import insert, delete
-import jsoneditor
 
 if TYPE_CHECKING:
     from company import Company
@@ -200,8 +195,6 @@ class PurchaseInvoice(Invoice):
     cli_overrides: dict[str, Any] | None
     # only set by the parsers or in compute_total/create_taxes
     supplier: str | None
-    supplier_address: str | None
-    shipping_address: str | None
     no: str | None
     shipping: float
     items: list[SupplierItem]
@@ -474,113 +467,6 @@ class PurchaseInvoice(Invoice):
         elif self.complete_data_by_gui(account, paid_by_submitter):
             return self
 
-    def apply_info_changes(self, diff: dict[Any, Any], new_data_model: dict[str, Any] | None) -> None:
-        """
-        Whenever we want to change the information obtained from parsers' purchase data,
-         it is necessary to call this method so that the changes are also applied to the purchase invoice object.
-        """
-        for key in diff.keys():
-            value = diff[key]
-            if key == insert:
-                for new_key in value.keys():
-                    if new_key == 'supplier':
-                        self.supplier = value[new_key]
-                    elif new_key == 'taxes':
-                        for tax_info in value[new_key]:
-                            self.vat[tax_info['rate']] = tax_info['tax_amount']
-                            self.total_vat += tax_info['tax_amount']
-                        if self.total_vat == 0 and self.default_vat:
-                            self.vat[self.default_vat] = 0
-                    elif new_key == 'items':
-                        for item in value[new_key]:
-                            s_item = SupplierItem(self)
-                            s_item.description = item.get('description')
-                            s_item.qty = item.get('qty')
-                            s_item.qty_unit = item.get('uom')
-                            s_item.rate = item.get('rate')
-                            s_item.amount = item.get('amount')
-                            self.items.append(s_item)
-                    elif new_key == 'total':
-                        self.totals[self.default_vat] = value[new_key]
-                    elif new_key == 'grand_total':
-                        self.gross_total = value[new_key]
-                    elif new_key == 'bill_no':
-                        self.no = value[new_key]
-                    elif new_key == 'order_id':
-                        self.order_id = value[new_key]
-                    elif new_key == 'posting_date':
-                        self.date = value[new_key]
-                    elif new_key == 'shipping':
-                        self.shipping = value[new_key]
-            elif key == delete:
-                for deleted_key in value.keys():
-                    if deleted_key == 'supplier':
-                        self.supplier = None
-                    elif deleted_key == 'taxes':
-                        self.vat[self.default_vat] = 0
-                        self.total_vat = 0
-                    elif deleted_key == 'items':
-                        self.items = []
-                        if new_data_model and new_data_model.get('items'):
-                            for item in new_data_model.get('items'):
-                                s_item = SupplierItem(self)
-                                s_item.description = item.get('description')
-                                s_item.qty = item.get('qty')
-                                s_item.qty_unit = item.get('uom')
-                                s_item.rate = item.get('rate')
-                                s_item.amount = item.get('amount')
-                                self.items.append(s_item)
-                    elif deleted_key == 'total':
-                        self.totals[self.default_vat] = 0
-                    elif deleted_key == 'grand_total':
-                        self.gross_total = 0
-                    elif deleted_key == 'bill_no':
-                        self.no = None
-                    elif deleted_key == 'order_id':
-                        self.order_id = None
-                    elif deleted_key == 'posting_date':
-                        self.date = None
-                    elif deleted_key == 'shipping':
-                        self.shipping = 0
-            else:
-                if key == 'supplier':
-                    self.supplier = value[1]
-                elif key == 'taxes':
-                    self.total_vat = 0
-                    if type(value) is list:
-                        for tax_info in value[1]:
-                            self.vat[tax_info['rate']] = tax_info['tax_amount']
-                            self.total_vat += tax_info['tax_amount']
-                    elif new_data_model:
-                        for tax_info in new_data_model['taxes']:
-                            self.vat[tax_info['rate']] = tax_info['tax_amount']
-                            self.total_vat += tax_info['tax_amount']
-                    if self.total_vat == 0 and self.default_vat:
-                        self.vat[self.default_vat] = 0
-                elif key == 'items':
-                    self.items = []
-                    if new_data_model and new_data_model.get('items'):
-                        for item in new_data_model.get('items'):
-                            s_item = SupplierItem(self)
-                            s_item.description = item.get('description')
-                            s_item.qty = item.get('qty')
-                            s_item.qty_unit = item.get('uom')
-                            s_item.rate = item.get('rate')
-                            s_item.amount = item.get('amount')
-                            self.items.append(s_item)
-                elif key == 'total':
-                    self.totals[self.default_vat] = value[1]
-                elif key == 'grand_total':
-                    self.gross_total = value[1]
-                elif key == 'bill_no':
-                    self.no = value[1]
-                elif key == 'order_id':
-                    self.order_id = value[1]
-                elif key == 'posting_date':
-                    self.date = value[1]
-                elif key == 'shipping':
-                    self.shipping = value[1]
-
     def apply_purchase_data(self, data: dict[str, Any], given_supplier: str | None = None) -> None:
         """Fill the invoice object from purchase data in the common format (einvoice.py, claude_parser.py):
         supplier, bill_no, order_id, posting_date, taxes [{rate, net, tax_amount}], total, grand_total,
@@ -649,57 +535,9 @@ class PurchaseInvoice(Invoice):
                 print("Übernehme {} = {!r} aus final_data (Objekt hatte {!r})".format(key, value, old_value))
                 setattr(self, attr, value)
 
-    def edit_data_model_manually(self, data_model: dict[str, Any], infile: str) -> dict[str, Any] | None:
-        """
-        This method is used to manually change the information obtained from the parsers' purchase data.
-        """
-        diff: dict[Any, Any] | None = None
-        new_data_model: dict[str, Any] | None = None
-
-        if utils.running_linux():
-            os.system("evince " + infile + " &")
-
-        def store_json(json_data: dict[str, Any]) -> None:
-            nonlocal diff, new_data_model
-            new_data_model = json_data
-            diff = jsondiff.diff(data_model, json_data, syntax='symmetric')
-
-        jsoneditor.editjson(data_model, callback=store_json)
-
-        if diff:
-            self.apply_info_changes(diff, new_data_model)
-
-        return new_data_model
-
-    def merge_items(self, items1: list[dict[str, Any]] | None,
-                    items2: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        if not items1:
-            return items2
-        dict1 = {item.get("item_code", 0): item for item in items1}
-        dict2 = {item.get("item_code", 0): item for item in items2}
-        for item_code, item in dict1.items():
-            if dict2.get(item_code):
-                description = dict2.get(item_code).get('description')
-                if description:
-                    item['description'] = description
-        for item_code, item in dict2.items():
-            if not dict1.get(item_code):
-                dict1[item_code] = item
-        merged_list = []
-        all_items = [item for item in dict1.values() if item.get('item_code')]
-        for item_code, item in dict1.items():
-            if item_code == 0:
-                for data in all_items:
-                    if item.get('description') and data.get('description') and item.get('description') in data.get('description'):
-                        merged_list.append(data)
-                        continue
-            merged_list.append(item)
-        print("Merged list of items .......", merged_list)
-        return merged_list
-
-    def parse_invoice(self, invoice_json: dict[str, Any] | None, infile: str, account_abbrv: str | None = None,
+    def parse_invoice(self, infile: str, account_abbrv: str | None = None,
                       paid_by_submitter: bool = False, given_supplier: str | None = None,
-                      is_test: bool = False, check_dup: bool = True, manual_edit: bool = False) -> PurchaseInvoice | None:
+                      is_test: bool = False, check_dup: bool = True) -> PurchaseInvoice | None:
         account = None
         if account_abbrv:
             accounts = self.company.leaf_accounts_for_credit
@@ -709,8 +547,6 @@ class PurchaseInvoice(Invoice):
                     account = acc
 
         normal_purchase_data = None
-        google_purchase_data = None
-        final_data = None
         try:
             text_of_pdf = "\n".join(pdf_to_text(infile))
         except Exception:
@@ -719,7 +555,7 @@ class PurchaseInvoice(Invoice):
         if data:
             print("Nutze eingebettete E-Rechnung ({})".format(data.get('profile') or 'XML'))
             self.parser = "einvoice"
-        elif not invoice_json and claude_parser.configured():
+        elif claude_parser.configured():
             print("Nutze Claude zur Rechnungserkennung")
             try:
                 data = claude_parser.extract_file(infile, given_supplier)
@@ -729,17 +565,8 @@ class PurchaseInvoice(Invoice):
                 data = None
         if data:
             self.apply_purchase_data(data, given_supplier)
-            final_data = dict(data)
-            if manual_edit:
-                final_data = self.edit_data_model_manually(final_data, infile)
-            if final_data:
-                self.apply_final_data(final_data)
+            self.apply_final_data(dict(data))
             return self.complete_missing_data(account, paid_by_submitter, is_test, check_dup)
-        if invoice_json:
-            print("Nutze Google invoice parser")
-            purchase_invoice_google_parser = PurchaseInvoiceGoogleParser(self, invoice_json, given_supplier, is_test)
-            purchase_invoice_google_parser.set_purchase_info()
-            google_purchase_data = purchase_invoice_google_parser.get_purchase_data()
         print("Nutze internen Parser")
         self.extract_items = self.update_stock
         lines = pdf_to_text(infile)
@@ -774,34 +601,17 @@ class PurchaseInvoice(Invoice):
                         purchase_invoice_parser.set_purchase_info()
                         normal_purchase_data = purchase_invoice_parser.get_purchase_data()
         except Exception as e:
-            if google_purchase_data:
-                print(e)
-            elif self.update_stock:
+            if self.update_stock:
                 raise e
             elif not is_test:
                 print(e)
                 print("Rückfall auf Standard-Rechnungsbehandlung")
 
-        print("Google parser data ...", google_purchase_data)
         print("Internal parser data ...", normal_purchase_data)
-        if google_purchase_data:
-            if normal_purchase_data:
-                if google_purchase_data.get('items'):
-                    normal_purchase_data['items'] = self.merge_items(normal_purchase_data.get('items'), google_purchase_data.get('items'))
-                google_purchase_data.update(normal_purchase_data)
-                diff = jsondiff.diff(normal_purchase_data, google_purchase_data, syntax='symmetric')
-                self.apply_info_changes(diff, normal_purchase_data)
-            final_data = google_purchase_data
-        elif normal_purchase_data:
-            final_data = normal_purchase_data
-        if final_data:
+        if normal_purchase_data:
             if not self.date and lines:
                 self.date = extract_date(lines)
-            if manual_edit:
-                final_data = self.edit_data_model_manually(final_data, infile)
-            print("Final Data ...")
-            print(final_data)
-            self.apply_final_data(final_data)
+            self.apply_final_data(normal_purchase_data)
             return self.complete_missing_data(account, paid_by_submitter, is_test, check_dup)
 
         print("Verwende generischen Rechnungsparser")
@@ -977,7 +787,7 @@ class PurchaseInvoice(Invoice):
     @classmethod
     def parse_and_dump(cls, infile: str, update_stock: bool, account_abbrv: str | None = None,
                        paid_by_submitter: bool = False) -> None:
-        inv = PurchaseInvoice(update_stock).parse_invoice(None, infile, account_abbrv, paid_by_submitter)
+        inv = PurchaseInvoice(update_stock).parse_invoice(infile, account_abbrv, paid_by_submitter)
         if inv is None:
             print("Rechnung {} konnte nicht gelesen werden".format(infile))
             return
@@ -985,7 +795,7 @@ class PurchaseInvoice(Invoice):
         pprint(list(map(lambda x: pprint(vars(x)), inv.items)))
 
     @classmethod
-    def read_and_transfer(cls, invoice_json: dict[str, Any] | None, infile: str, update_stock: bool,
+    def read_and_transfer(cls, infile: str, update_stock: bool,
                           account_abbrv: str | None = None, paid_by_submitter: bool = False, project: str | None = None,
                           supplier: str | None = None, check_dup: bool = True, cli_overrides: dict[str, Any] | None = None,
                           pre_invoice: dict[str, Any] | None = None) -> PurchaseInvoice | None:
@@ -997,8 +807,7 @@ class PurchaseInvoice(Invoice):
                 aggregate_item_code = AGGREGATE_ITEMS['Elektro-Komponenten']
         pinv_obj = PurchaseInvoice(update_stock, aggregate_item_code=aggregate_item_code)
         pinv_obj.cli_overrides = cli_overrides
-        inv = pinv_obj.read_pdf(
-                invoice_json, infile, account_abbrv, paid_by_submitter, supplier, check_dup=check_dup)
+        inv = pinv_obj.read_pdf(infile, account_abbrv, paid_by_submitter, supplier, check_dup=check_dup)
         if inv and inv.is_duplicate:
             return inv
         if inv and not inv.is_duplicate:
@@ -1008,10 +817,10 @@ class PurchaseInvoice(Invoice):
             print("Keine Einkaufsrechnung angelegt")
         return inv
 
-    def read_pdf(self, invoice_json: dict[str, Any] | None, infile: str, account_abbrv: str | None = None,
+    def read_pdf(self, infile: str, account_abbrv: str | None = None,
                  paid_by_submitter: bool = False, supplier: str | None = None, check_dup: bool = True) -> PurchaseInvoice | None:
         self.infiles = [infile]
-        if not self.parse_invoice(invoice_json, infile, account_abbrv, paid_by_submitter, supplier, check_dup=check_dup):
+        if not self.parse_invoice(infile, account_abbrv, paid_by_submitter, supplier, check_dup=check_dup):
             return None
         try:        # e-mail domains of the supplier help to sort leads created from e-mails (lead_rules.py)
             lead_rules.note_supplier_domains(self.supplier, "\n".join(pdf_to_text(infile)))

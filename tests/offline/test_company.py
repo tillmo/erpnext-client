@@ -161,7 +161,7 @@ class TestQueries:
         fake_api.add("PreRechnung", company="Andere", eingepflegt=False, typ="Rechnung", datum="2026-01-04")
         pre = somiko.get_open_pre_invoices(False)
         assert len(pre) == 1 and pre[0]["lieferant"] == "A"
-        assert set(pre[0]) >= {"datum", "name", "chance", "lieferant", "pdf", "json", "lager", "selbst_bezahlt",
+        assert set(pre[0]) >= {"datum", "name", "chance", "lieferant", "pdf", "lager", "selbst_bezahlt",
                                "vom_konto_überwiesen", "typ", "processed", "balkonmodule", "buchungskonto",
                                "nuruk", "nurelektromaterial"}
         assert len(somiko.get_open_pre_invoices(True)) == 1

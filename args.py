@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import json
 import PySimpleGUI as sg
 
 import argparse
-from typing import Any
 import purchase_invoice
 from api import Api
 from api_wrapper import api_wrapper_test
@@ -35,10 +33,6 @@ def arg_parser() -> argparse.ArgumentParser:
                         help='API key')
     parser.add_argument('--secret', dest='secret', type=str,
                         help='API secrect')
-    parser.add_argument('--invoice-processor', dest='invoice_processor', type=str,
-                        help='Google invoice processor id')
-    parser.add_argument('--google-json', dest='google_credentials', type=str,
-                        help='Google API credentials')
     parser.add_argument('--claude-key', dest='claude_key', type=str,
                         help='Anthropic API key for invoice extraction with Claude')
     parser.add_argument('--claude-model', dest='claude_model', type=str,
@@ -79,16 +73,6 @@ def arg_parser() -> argparse.ArgumentParser:
     parser.set_defaults(price_dates=False)
     return parser
 
-def set_google_credentials(credentials: Any) -> None:
-    if type(credentials)==str:
-        credentials = json.loads(credentials)
-    for key in credentials.keys():
-        credentials[key] = credentials[key].replace("\\n", "\n")
-    with open("google-credentials.json", "w") as f:
-        json.dump(credentials, f)
-    sg.UserSettings()['-google-credentials-'] = credentials
-
-
 def init() -> argparse.Namespace:
     # process command line arguments
     args = arg_parser().parse_args()
@@ -106,10 +90,6 @@ def init() -> argparse.Namespace:
         settings['-key-'] = args.key
     if args.secret:
         settings['-secret-'] = args.secret
-    if args.invoice_processor:
-        settings['-invoice-processor-'] = args.invoice_processor
-    if args.google_credentials:
-        set_google_credentials(args.google_credentials)
     if args.claude_key:
         settings['-claude-key-'] = args.claude_key
     if args.claude_model:

@@ -1,4 +1,4 @@
-"""Invoice extraction with Claude (replacement for Google Document AI and the fixed parsers).
+"""Invoice extraction with Claude (replaces the fixed text parsers where no e-invoice XML is embedded).
 
 The PDF goes to the model as a document (text and page images, so scans work too); the answer
 is forced into the client's purchase-data schema with structured outputs. The totals are checked

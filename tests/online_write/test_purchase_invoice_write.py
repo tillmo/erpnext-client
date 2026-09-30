@@ -36,7 +36,7 @@ class TestReadAndTransfer:
             pytest.skip("Firma ohne Vorsteuer-Vorlage: create_taxes hätte nichts zu tun")
         no, pdf = invoice_pdf
         gui.answers["buttonbox"] = "Später buchen"
-        pinv = PurchaseInvoice.read_and_transfer(None, pdf, False,
+        pinv = PurchaseInvoice.read_and_transfer(pdf, False,
                                                  cli_overrides={"konto": live.expense_leaf(), "lieferant": test_supplier,
                                                                 "rechnungsnr": no})
         assert pinv is not None and not pinv.is_duplicate
@@ -65,11 +65,11 @@ class TestReadAndTransfer:
         no, pdf = invoice_pdf
         gui.answers["buttonbox"] = "Später buchen"
         gui.answers["msgbox"] = None
-        first = PurchaseInvoice.read_and_transfer(None, pdf, False,
+        first = PurchaseInvoice.read_and_transfer(pdf, False,
                                                   cli_overrides={"konto": live.expense_leaf(), "lieferant": test_supplier,
                                                                  "rechnungsnr": no})
         cleanup.add("Purchase Invoice", first.doc["name"])
-        second = PurchaseInvoice.read_and_transfer(None, pdf, False,
+        second = PurchaseInvoice.read_and_transfer(pdf, False,
                                                    cli_overrides={"konto": live.expense_leaf(), "lieferant": test_supplier,
                                                                   "rechnungsnr": no})
         assert second.is_duplicate and second.doc["name"] == first.doc["name"]
@@ -80,7 +80,7 @@ class TestReadAndTransfer:
     def test_silent_transfer_without_dialogs(self, live: LiveState, api: Any, cleanup: Cleanup, test_supplier: str,
                                              invoice_pdf: tuple[str, str], gui: EasyguiStub) -> None:
         no, pdf = invoice_pdf
-        pinv = PurchaseInvoice.read_and_transfer(None, pdf, False, check_dup=False,
+        pinv = PurchaseInvoice.read_and_transfer(pdf, False, check_dup=False,
                                                  cli_overrides={"konto": live.expense_leaf(), "lieferant": test_supplier,
                                                                 "rechnungsnr": no})
         cleanup.add("Purchase Invoice", pinv.doc["name"])
@@ -91,7 +91,7 @@ class TestReadAndTransfer:
                                         invoice_pdf: tuple[str, str], gui: EasyguiStub) -> None:
         no, pdf = invoice_pdf
         gui.answers["buttonbox"] = "Später buchen"
-        pinv = PurchaseInvoice.read_and_transfer(None, pdf, False,
+        pinv = PurchaseInvoice.read_and_transfer(pdf, False,
                                                  cli_overrides={"konto": live.expense_leaf(), "lieferant": test_supplier,
                                                                 "rechnungsnr": no})
         name = pinv.doc["name"]
@@ -113,7 +113,7 @@ class TestEinvoice:
                .replace("2106-4076249", no).replace("DE814994131", "DE000000000"))
         pdf = F.write_einvoice_pdf(tmp_path / "einvoice.pdf", xml)
         gui.answers["buttonbox"] = "Später buchen"
-        pinv = PurchaseInvoice.read_and_transfer(None, pdf, False, cli_overrides={"konto": live.expense_leaf()})
+        pinv = PurchaseInvoice.read_and_transfer(pdf, False, cli_overrides={"konto": live.expense_leaf()})
         assert pinv is not None and not pinv.is_duplicate and pinv.parser == "einvoice"
         name = pinv.doc["name"]
         cleanup.add("Purchase Invoice", name)
@@ -131,7 +131,7 @@ class TestSubmit:
                               invoice_pdf: tuple[str, str], gui: EasyguiStub, submit_allowed: bool) -> None:
         no, pdf = invoice_pdf
         gui.answers["buttonbox"] = "Sofort buchen"
-        pinv = PurchaseInvoice.read_and_transfer(None, pdf, False,
+        pinv = PurchaseInvoice.read_and_transfer(pdf, False,
                                                  cli_overrides={"konto": live.expense_leaf(), "lieferant": test_supplier,
                                                                 "rechnungsnr": no})
         cleanup.add("Purchase Invoice", pinv.doc["name"])

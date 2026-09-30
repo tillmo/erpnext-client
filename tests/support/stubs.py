@@ -5,9 +5,8 @@ Two reasons for stubs:
 * PySimpleGUI / PySimpleGUIWx / easygui are ALWAYS replaced, even if they are
   installed: tests must neither open windows nor overwrite the user's real
   ``erpnext.json`` (sg.UserSettings with autosave).
-* jsondiff, jsoneditor, anytree, plotly, datefinder, google-cloud-documentai
-  are only replaced if they are missing, so that the project modules remain
-  importable. Tests that need the real behaviour of these packages carry the
+* anytree and plotly are only replaced if they are missing, so that the project
+  modules remain importable. Tests that need the real behaviour of these packages carry the
   ``requires_*`` markers from :mod:`support.deps`.
 
 Every GUI call that was not explicitly answered by a test raises
@@ -137,43 +136,6 @@ class EasyguiStub(types.ModuleType):
 
 
 # ------------------------------------------ optional third-party packages
-def make_jsondiff() -> tuple[types.ModuleType, types.ModuleType]:
-    mod: Any = types.ModuleType("jsondiff")
-    symbols: Any = types.ModuleType("jsondiff.symbols")
-
-    class Symbol:
-        def __init__(self, label: str) -> None:
-            self.label: str = label
-
-        def __repr__(self) -> str:
-            return "$" + self.label
-
-    symbols.Symbol = Symbol
-    symbols.insert = Symbol("insert")
-    symbols.delete = Symbol("delete")
-    symbols.update = Symbol("update")
-    symbols.replace = Symbol("replace")
-    mod.symbols = symbols
-    mod.insert = symbols.insert
-    mod.delete = symbols.delete
-
-    def diff(a: Any, b: Any, syntax: str = "compact", **kwargs: Any) -> NoReturn:
-        raise NotImplementedError("jsondiff ist nicht installiert - Test mit requires_jsondiff markieren")
-    mod.diff = diff
-    mod.__stub__ = True
-    return mod, symbols
-
-
-def make_jsoneditor() -> types.ModuleType:
-    mod: Any = types.ModuleType("jsoneditor")
-
-    def editjson(data: Any, callback: Callable[..., Any] | None = None, **kwargs: Any) -> NoReturn:
-        raise GuiCalled("jsoneditor.editjson wurde aufgerufen")
-    mod.editjson = editjson
-    mod.__stub__ = True
-    return mod
-
-
 def make_anytree() -> types.ModuleType:
     """Minimal but semantically faithful replica of anytree.Node/PostOrderIter/RenderTree."""
     mod: Any = types.ModuleType("anytree")
@@ -274,55 +236,6 @@ def make_plotly() -> tuple[types.ModuleType, types.ModuleType]:
     return plotly, px
 
 
-def make_datefinder() -> types.ModuleType:
-    mod: Any = types.ModuleType("datefinder")
-
-    def find_dates(text: str, **kwargs: Any) -> NoReturn:
-        raise NotImplementedError("datefinder ist nicht installiert - Test mit requires_datefinder markieren")
-    mod.find_dates = find_dates
-    mod.__stub__ = True
-    return mod
-
-
-def make_google() -> tuple[Any, dict[str, types.ModuleType]]:
-    """google.cloud.documentai_v1beta3 and google.api_core.client_options."""
-    created: dict[str, types.ModuleType] = {}
-    google: Any
-    try:
-        google = importlib.import_module("google")
-    except ImportError:
-        google = types.ModuleType("google")
-        google.__path__ = []
-        created["google"] = google
-
-    cloud: Any = types.ModuleType("google.cloud")
-    cloud.__path__ = []
-    documentai: Any = types.ModuleType("google.cloud.documentai_v1beta3")
-
-    class DocumentProcessorServiceClient:
-        def __init__(self, *args: Any, **kwargs: Any) -> None:
-            raise RuntimeError("google-cloud-documentai ist nicht installiert")
-    documentai.DocumentProcessorServiceClient = DocumentProcessorServiceClient
-    documentai.__stub__ = True
-    cloud.documentai_v1beta3 = documentai
-    created["google.cloud"] = cloud
-    created["google.cloud.documentai_v1beta3"] = documentai
-
-    api_core: Any = types.ModuleType("google.api_core")
-    api_core.__path__ = []
-    client_options: Any = types.ModuleType("google.api_core.client_options")
-
-    class ClientOptions:
-        def __init__(self, **kwargs: Any) -> None:
-            self.__dict__.update(kwargs)
-    client_options.ClientOptions = ClientOptions
-    api_core.client_options = client_options
-    created["google.api_core"] = api_core
-    created["google.api_core.client_options"] = client_options
-    return google, created
-
-
-# ------------------------------------------------------------ Installation
 def _missing(name: str) -> bool:
     try:
         importlib.import_module(name)
@@ -348,13 +261,6 @@ def install() -> dict[str, types.ModuleType]:
     sys.modules["easygui"] = eg
     installed["easygui"] = eg
 
-    if _missing("jsondiff"):
-        mod, symbols = make_jsondiff()
-        sys.modules["jsondiff"] = mod
-        sys.modules["jsondiff.symbols"] = symbols
-        installed["jsondiff"] = mod
-    if _missing("jsoneditor"):
-        installed["jsoneditor"] = sys.modules["jsoneditor"] = make_jsoneditor()
     if _missing("anytree"):
         installed["anytree"] = sys.modules["anytree"] = make_anytree()
     if _missing("plotly.express"):
@@ -362,16 +268,6 @@ def install() -> dict[str, types.ModuleType]:
         sys.modules["plotly"] = plotly
         sys.modules["plotly.express"] = px
         installed["plotly"] = plotly
-    if _missing("datefinder"):
-        installed["datefinder"] = sys.modules["datefinder"] = make_datefinder()
-    if _missing("google.cloud.documentai_v1beta3") or _missing("google.api_core.client_options"):
-        google, created = make_google()
-        for name, mod in created.items():
-            sys.modules[name] = mod
-        if hasattr(google, "__path__"):
-            google.cloud = created["google.cloud"]
-            google.api_core = created["google.api_core"]
-        installed.update(created)
     return installed
 
 

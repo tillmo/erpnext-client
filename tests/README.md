@@ -64,10 +64,9 @@ The credentials are read **only** from these variables, never from the user's
 
 ## Optional dependencies
 
-If `jsondiff`, `jsoneditor`, `anytree`, `plotly`, `datefinder` or
-`google-cloud-documentai` are missing, they are replaced by stubs so that the project modules
+If `anytree` or `plotly` are missing, they are replaced by stubs so that the project modules
 remain importable. Tests that need the real package are skipped
-(`requires_jsondiff`, `requires_datefinder`, … in `tests/support/deps.py`).
+(`requires_anytree`, `requires_pypdf`, … in `tests/support/deps.py`).
 `pdftotext` (xpdf, as in `install-ubuntu.sh`) must be installed; without the program,
 the modules around `purchase_invoice` are skipped. The Wagner tests need the
 locale `de_DE.utf8`.

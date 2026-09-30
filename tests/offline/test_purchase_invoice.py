@@ -318,88 +318,13 @@ class TestCheckIfPresent:
         assert pinv.check_if_present() is False
 
 
-class TestApplyChanges:
-    def _diff_symbols(self) -> tuple[Any, Any]:
-        from jsondiff.symbols import insert, delete
-        return insert, delete
-
-    def test_insert(self, pinv: PurchaseInvoice) -> None:
-        insert, delete = self._diff_symbols()
-        diff = {insert: {"supplier": "Neu GmbH", "taxes": [{"rate": 19.0, "tax_amount": 19.0}],
-                         "items": [{"description": "Modul", "qty": 2, "uom": "Stk", "rate": 5.0, "amount": 10.0}],
-                         "total": 100.0, "grand_total": 119.0, "bill_no": "B-1", "order_id": "O-1",
-                         "posting_date": "2026-01-01", "shipping": 3.0}}
-        pinv.apply_info_changes(diff, None)
-        assert pinv.supplier == "Neu GmbH" and pinv.vat[19.0] == 19.0 and pinv.total_vat == 19.0
-        assert len(pinv.items) == 1 and pinv.items[0].description == "Modul" and pinv.items[0].qty_unit == "Stk"
-        assert pinv.totals[19.0] == 100.0 and pinv.gross_total == 119.0
-        assert (pinv.no, pinv.order_id, pinv.date, pinv.shipping) == ("B-1", "O-1", "2026-01-01", 3.0)
-
-    def test_insert_zero_taxes(self, pinv: PurchaseInvoice) -> None:
-        insert, _ = self._diff_symbols()
-        pinv.vat[19.0] = 5.0
-        pinv.apply_info_changes({insert: {"taxes": []}}, None)
-        assert pinv.vat[19.0] == 0 and pinv.total_vat == 0
-
-    def test_delete(self, pinv: PurchaseInvoice) -> None:
-        insert, delete = self._diff_symbols()
-        pinv.supplier, pinv.no, pinv.order_id, pinv.date, pinv.shipping = "S", "N", "O", "D", 1.0
-        pinv.vat[19.0], pinv.totals[19.0], pinv.gross_total = 19.0, 100.0, 119.0
-        pinv.items = [SupplierItem(pinv)]
-        pinv.apply_info_changes({delete: {"supplier": 1, "taxes": 1, "items": 1, "total": 1, "grand_total": 1,
-                                          "bill_no": 1, "order_id": 1, "posting_date": 1, "shipping": 1}},
-                                {"items": [{"description": "aus Modell", "qty": 1}]})
-        assert pinv.supplier is None and pinv.no is None and pinv.order_id is None and pinv.date is None
-        assert pinv.vat[19.0] == 0 and pinv.totals[19.0] == 0 and pinv.gross_total == 0 and pinv.shipping == 0
-        assert [i.description for i in pinv.items] == ["aus Modell"]
-
-    def test_changed_values(self, pinv: PurchaseInvoice) -> None:
-        diff = {"supplier": ["alt", "neu"], "taxes": [[{"rate": 19.0, "tax_amount": 1.0}], [{"rate": 19.0, "tax_amount": 38.0}]],
-                "items": None, "total": [1, 200.0], "grand_total": [1, 238.0], "bill_no": ["a", "b"],
-                "order_id": ["x", "y"], "posting_date": ["d1", "d2"], "shipping": [0, 4.0]}
-        model = {"items": [{"description": "I1", "qty": 1, "uom": "Stk", "rate": 200.0, "amount": 200.0}],
-                 "taxes": [{"rate": 19.0, "tax_amount": 38.0}]}
-        pinv.apply_info_changes(diff, model)
-        assert pinv.supplier == "neu" and pinv.vat[19.0] == 38.0 and pinv.total_vat == 38.0
-        assert [i.description for i in pinv.items] == ["I1"]
-        assert (pinv.totals[19.0], pinv.gross_total, pinv.no, pinv.order_id, pinv.date, pinv.shipping) == \
-            (200.0, 238.0, "b", "y", "d2", 4.0)
-
-    def test_changed_taxes_from_model(self, pinv: PurchaseInvoice) -> None:
-        pinv.apply_info_changes({"taxes": {0: {"tax_amount": [1, 2]}}}, {"taxes": [{"rate": 19.0, "tax_amount": 2.0}]})
-        assert pinv.vat[19.0] == 2.0
-
+class TestApplyFinalData:
     def test_apply_final_data(self, pinv: PurchaseInvoice, capsys: pytest.CaptureFixture[str]) -> None:
         pinv.no, pinv.supplier = "alt", "S"
         pinv.apply_final_data({"bill_no": " neu ", "order_id": "", "posting_date": None, "supplier": "S", "other": 1})
         assert pinv.no == "neu" and pinv.order_id is None and pinv.date is None and pinv.supplier == "S"
         out = capsys.readouterr().out
         assert "Übernehme bill_no = 'neu'" in out and "supplier" not in out
-
-    def test_merge_items(self, pinv: PurchaseInvoice, capsys: pytest.CaptureFixture[str]) -> None:
-        items1 = [{"item_code": "A", "description": "Modul A"}, {"item_code": "B", "description": "Kabel"},
-                  {"description": "nur Text Modul"}]
-        items2 = [{"item_code": "A", "description": "Modul A lang"}, {"item_code": "C", "description": "Neu"},
-                  {"item_code": "D", "description": "nur Text Modul D"}]
-        merged = pinv.merge_items(items1, items2)
-        by_code = {i.get("item_code"): i for i in merged if i.get("item_code")}
-        assert by_code["A"]["description"] == "Modul A lang"
-        assert set(by_code) == {"A", "B", "C", "D"}
-        assert sum(1 for i in merged if i.get("item_code") == "D") == 2   # text position assigned to item D
-        assert [i for i in merged if "item_code" not in i] == [{"description": "nur Text Modul"}]
-        assert pinv.merge_items([], items2) == items2
-
-    def test_edit_data_model_manually(self, pinv: PurchaseInvoice, monkeypatch: pytest.MonkeyPatch) -> None:
-        import jsoneditor
-        insert, _ = self._diff_symbols()
-        monkeypatch.setattr(pinv, "apply_info_changes", lambda diff, model: setattr(pinv, "seen", (diff, model)))
-        monkeypatch.setattr(purchase_invoice.jsondiff, "diff", lambda a, b, syntax: {insert: {"bill_no": "X"}})
-        monkeypatch.setattr(jsoneditor, "editjson", lambda data, callback: callback(dict(data, bill_no="X")))
-        monkeypatch.setattr(purchase_invoice.utils, "running_linux", lambda: False)
-        model = pinv.edit_data_model_manually({"supplier": "S"}, "/tmp/x.pdf")
-        assert model == {"supplier": "S", "bill_no": "X"}
-        assert pinv.seen == ({insert: {"bill_no": "X"}}, model)
-
 
 class TestGenericParsing:
     def test_parse_generic_is_test(self, pinv: PurchaseInvoice) -> None:
@@ -511,7 +436,7 @@ class TestParseAndDump:
             return self
         monkeypatch.setattr(PurchaseInvoice, "parse_invoice", fake_parse)
         PurchaseInvoice.parse_and_dump(generic_pdf, False, "4985")
-        assert seen == [(None, generic_pdf, "4985", False)]
+        assert seen == [(generic_pdf, "4985", False)]
         assert "update_stock" in capsys.readouterr().out
 
     def test_failed_parse_is_reported(self, somiko: Company, generic_pdf: str, monkeypatch: pytest.MonkeyPatch,
@@ -570,7 +495,7 @@ class TestParseInvoiceEinvoice:
     def test_embedded_xml_wins(self, pinv: PurchaseInvoice, tmp_path: Path, fake_api: FakeFrappeClient) -> None:
         from offline.test_einvoice import CII
         pdf = F.write_einvoice_pdf(tmp_path / "krannich.pdf", CII)
-        result = pinv.parse_invoice(None, pdf, is_test=True)
+        result = pinv.parse_invoice(pdf, is_test=True)
         assert result is pinv and pinv.parser == "einvoice"
         assert pinv.no == "2106-4076249" and pinv.date == "2026-08-21" and pinv.gross_total == 1071.0
         assert pinv.supplier == "Krannich Solar GmbH & Co. KG"          # not in the fake instance: name as printed
@@ -589,7 +514,7 @@ class TestParseInvoiceEinvoice:
                     "grand_total": 119.0, "shipping": 0, "taxes": [{"rate": 19, "net": 100.0, "tax_amount": 19.0}], "items": [],
                     "source": "claude", "problems": []}
         monkeypatch.setattr(claude_parser, "extract_file", fake_extract)
-        assert pinv.parse_invoice(None, generic_pdf, given_supplier="Muster Solartechnik GmbH", is_test=True) is pinv
+        assert pinv.parse_invoice(generic_pdf, given_supplier="Muster Solartechnik GmbH", is_test=True) is pinv
         assert pinv.parser == "claude" and pinv.no == "C-1" and pinv.gross_total == 119.0
         assert seen == {"path": generic_pdf, "hint": "Muster Solartechnik GmbH"}
         assert "Nutze Claude" in capsys.readouterr().out
@@ -602,51 +527,32 @@ class TestParseInvoiceEinvoice:
         def boom(path: str, hint: str | None = None, client: Any = None, **kw: Any) -> dict[str, Any]:
             raise RuntimeError("API down")
         monkeypatch.setattr(claude_parser, "extract_file", boom)
-        assert pinv.parse_invoice(None, generic_pdf, is_test=True) is pinv
+        assert pinv.parse_invoice(generic_pdf, is_test=True) is pinv
         assert pinv.parser == "generic" and pinv.no == "2026-0815"
         assert "Claude-Erkennung fehlgeschlagen" in capsys.readouterr().out
 
-    def test_google_json_skips_claude(self, pinv: PurchaseInvoice, generic_pdf: str, monkeypatch: pytest.MonkeyPatch) -> None:
-        import claude_parser
-        monkeypatch.setattr(claude_parser, "configured", lambda: True)
-        monkeypatch.setattr(claude_parser, "extract_file", lambda *a, **k: pytest.fail("Claude darf nicht gerufen werden"))
-        pinv.parse_invoice(F.google_invoice_json(), generic_pdf, given_supplier="Muster Solartechnik GmbH", is_test=True)
-        assert pinv.parser != "claude"
-
-
 class TestParseInvoice:
     def test_generic_pdf_is_test(self, pinv: PurchaseInvoice, generic_pdf: str, fake_api: FakeFrappeClient) -> None:
-        result = pinv.parse_invoice(None, generic_pdf, is_test=True)
+        result = pinv.parse_invoice(generic_pdf, is_test=True)
         assert result is pinv and pinv.parser == "generic"
         assert pinv.supplier == "Muster Solartechnik GmbH" and pinv.no == "2026-0815"
         assert pinv.date == "2026-09-03" and pinv.totals[19.0] == 100.0 and pinv.vat[19.0] == 19.0
         assert fake_api.calls == []
 
     def test_given_supplier_overrides_generic(self, pinv: PurchaseInvoice, generic_pdf: str) -> None:
-        pinv.parse_invoice(None, generic_pdf, given_supplier="Vorgabe GmbH", is_test=True)
+        pinv.parse_invoice(generic_pdf, given_supplier="Vorgabe GmbH", is_test=True)
         assert pinv.supplier == "Vorgabe GmbH"
 
     def test_account_abbreviation_is_resolved(self, pinv: PurchaseInvoice, generic_pdf: str, fake_api: FakeFrappeClient) -> None:
         pinv.cli_overrides = {}
-        pinv.parse_invoice(None, generic_pdf, account_abbrv="4985")
+        pinv.parse_invoice(generic_pdf, account_abbrv="4985")
         assert pinv.e_items[0]["expense_account"] == "4985 - Werkzeuge und Kleingeräte - SoMiKo"
-
-    def test_google_json_without_internal_parser(self, pinv: PurchaseInvoice, generic_pdf: str,
-                                                 monkeypatch: pytest.MonkeyPatch) -> None:
-        import purchase_invoice_google_parser as gp
-        monkeypatch.setattr(gp, "find_date", lambda s: "2024-03-15")
-        result = pinv.parse_invoice(F.google_invoice_json(), generic_pdf, given_supplier="Muster Solartechnik GmbH",
-                                    is_test=True)
-        assert result is pinv
-        assert pinv.no == "RE2024-77" and pinv.order_id == "BEST-1"
-        assert pinv.gross_total == 1190.0 and pinv.totals[19.0] == 1000.0 and pinv.vat[19.0] == 190.0
-        assert pinv.date == "2024-03-15"
 
     def test_solarwatt_uses_generic_parser_headless(self, pinv: PurchaseInvoice, tmp_path: Path,
                                                     fake_api: FakeFrappeClient) -> None:
         pdf = F.write_pdf(tmp_path / "sw.pdf", ["SOLARWATT GmbH", "Rechnungsnummer: SW-1", "Rechnungsdatum 01.02.2026",
                                                   "Netto 100,00", "MwSt 19,00", "Brutto 119,00"])
-        assert pinv.parse_invoice(None, pdf, is_test=True) is pinv
+        assert pinv.parse_invoice(pdf, is_test=True) is pinv
         assert pinv.parser == "generic" and pinv.no == "SW-1"
         assert pinv.supplier == "Solarwatt GmbH"          # configured supplier name
         assert pinv.totals[19.0] == 100.0 and pinv.date == "2026-02-01"
@@ -656,7 +562,7 @@ class TestParseInvoice:
 class TestReadPdfAndTransfer:
     def test_read_pdf_generic(self, pinv: PurchaseInvoice, generic_pdf: str, fake_api: FakeFrappeClient) -> None:
         pinv.cli_overrides = {"konto": "4210"}
-        assert pinv.read_pdf(None, generic_pdf) is pinv
+        assert pinv.read_pdf(generic_pdf) is pinv
         assert pinv.infiles == [generic_pdf]
         assert pinv.e_items[0]["expense_account"] == "4210 - Miete und Nebenkosten - SoMiKo"
         assert pinv.taxes[0]["tax_amount"] == 19.0
@@ -667,13 +573,13 @@ class TestReadPdfAndTransfer:
         gui.answers["msgbox"] = None
         pinv.cli_overrides = {"konto": "4210"}
         # parse_generic already detects the duplicate itself
-        assert pinv.read_pdf(None, generic_pdf) is pinv
+        assert pinv.read_pdf(generic_pdf) is pinv
         assert pinv.is_duplicate is True
 
     def test_read_pdf_aggregate_item(self, somiko: Company, generic_pdf: str, fake_api: FakeFrappeClient) -> None:
         p = F.make_purchase_invoice(somiko, True, aggregate_item_code=settings.AGGREGATE_ITEMS["Elektro-Komponenten"])
         p.cli_overrides = {}
-        assert p.read_pdf(None, generic_pdf, check_dup=False) is p
+        assert p.read_pdf(generic_pdf, check_dup=False) is p
         assert p.e_items == [{"item_code": "000.100.302", "qty": 1.0, "rate": 100.0, "cost_center": "Haupt - SoMiKo"}]
 
     def test_read_and_transfer_chooses_aggregate_code(self, somiko: Company, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -683,17 +589,17 @@ class TestReadPdfAndTransfer:
             seen["code"] = self.aggregate_item_code
             return None
         monkeypatch.setattr(PurchaseInvoice, "read_pdf", fake_read_pdf)
-        PurchaseInvoice.read_and_transfer(None, "x.pdf", True, pre_invoice={"nuruk": 1})
+        PurchaseInvoice.read_and_transfer("x.pdf", True, pre_invoice={"nuruk": 1})
         assert seen["code"] == settings.AGGREGATE_ITEMS["default"]
-        PurchaseInvoice.read_and_transfer(None, "x.pdf", True, pre_invoice={"nurelektromaterial": 1})
+        PurchaseInvoice.read_and_transfer("x.pdf", True, pre_invoice={"nurelektromaterial": 1})
         assert seen["code"] == settings.AGGREGATE_ITEMS["Elektro-Komponenten"]
-        PurchaseInvoice.read_and_transfer(None, "x.pdf", False, pre_invoice={"nuruk": 1})
+        PurchaseInvoice.read_and_transfer("x.pdf", False, pre_invoice={"nuruk": 1})
         assert seen["code"] is None
 
     def test_read_and_transfer_reports_failure(self, somiko: Company, monkeypatch: pytest.MonkeyPatch,
                                                capsys: pytest.CaptureFixture[str]) -> None:
         monkeypatch.setattr(PurchaseInvoice, "read_pdf", lambda self, *a, **k: None)
-        assert PurchaseInvoice.read_and_transfer(None, "x.pdf", False) is None
+        assert PurchaseInvoice.read_and_transfer("x.pdf", False) is None
         assert "Keine Einkaufsrechnung angelegt" in capsys.readouterr().out
 
 
@@ -701,7 +607,7 @@ class TestSendToErpnext:
     def _prepared(self, somiko: Company, generic_pdf: str) -> PurchaseInvoice:
         p = F.make_purchase_invoice(somiko)
         p.cli_overrides = {"konto": "4210"}
-        p.read_pdf(None, generic_pdf)
+        p.read_pdf(generic_pdf)
         return p
 
     def test_silent_creates_draft(self, somiko: Company, generic_pdf: str, fake_api: FakeFrappeClient,
@@ -765,7 +671,7 @@ class TestSendToErpnext:
                                                  gui: EasyguiStub) -> None:
         p = F.make_purchase_invoice(somiko, True)
         p.cli_overrides = {"konto": "4210"}
-        p.read_pdf(None, generic_pdf, check_dup=False)
+        p.read_pdf(generic_pdf, check_dup=False)
         p.update_stock = True    # read_pdf has assigned the default position and reset update_stock
         gui.answers["msgbox"] = None
         assert p.send_to_erpnext() is p

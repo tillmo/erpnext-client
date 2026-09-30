@@ -461,36 +461,5 @@ def kornkraft_lines() -> list[str]:
     return lines
 
 
-def google_invoice_json(supplier: str = "Muster Solartechnik GmbH", bill_no: str = "RE 2024-77",
-                        total: str = "1.190,00 EUR", net: str = "1.000,00", tax: str = "190,00",
-                        posting_date: str = "15.03.2024", due_date: str | None = None, order_id: str = "BEST-1",
-                        items: Iterable[dict[str, Any]] | None = None) -> dict[str, Any]:
-    """Replica of the JSON returned by prerechnung.extract_invoice_info."""
-    ents: list[dict[str, Any]] = []
-
-    def ent(typ: str, value: str | None, conf: float = 0.9) -> None:
-        if value is not None:
-            ents.append({"type": typ, "value": value, "confidence": conf, "properties": []})
-    ent("supplier", supplier)
-    ent("supplier", "Falscher Lieferant", 0.3)
-    ent("bill_no", bill_no)
-    ent("total_amount", total)
-    ent("net_amount", net)
-    ent("total_tax_amount", tax)
-    ent("posting_date", posting_date)
-    ent("due_date", due_date)
-    ent("order_id", order_id)
-    for item in items or []:
-        props: list[dict[str, Any]] = []
-        if "props" in item:   # explicit order (document order matters for the parser)
-            props = [{"type": t, "value": v, "confidence": 0.8} for t, v in item["props"]]
-        for key, typ in (("description", "item-description"), ("code", "item-code"), ("qty", "item-quantity"),
-                         ("rate", "item-unit-price"), ("amount", "item-amount")):
-            if key in item:
-                props.append({"type": typ, "value": item[key], "confidence": 0.8})
-        ents.append({"type": "item", "value": item.get("description"), "confidence": 0.8, "properties": props})
-    return {"document_text": "...", "entities": ents}
-
-
 def today() -> str:
     return datetime.date.today().strftime("%Y-%m-%d")

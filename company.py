@@ -187,7 +187,7 @@ class Company(Doc):
                 filters={'eingepflegt':False,
                          'typ':typ,
                          'company':self.name},
-                fields= ['datum','name','chance','lieferant','pdf','json',
+                fields= ['datum','name','chance','lieferant','pdf',
                          'lager','selbst_bezahlt','vom_konto_überwiesen','typ',
                          'processed', 'balkonmodule', 'buchungskonto',
                          'nuruk', 'nurelektromaterial'],

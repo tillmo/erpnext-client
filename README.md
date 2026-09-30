@@ -103,7 +103,8 @@ Without `--apply` it only reports what it would write.
    (stored in the settings like the ERPNext key) or set as `ANTHROPIC_API_KEY`; the model can be
    overridden there as well or with `--claude-model` (default `settings.CLAUDE_MODEL`). Roughly
    2-5 cents per invoice. Clearing the key falls back to the parsers below.
-3. Google Document AI (PreRechnung JSON) and the supplier-specific parsers as before.
+3. The supplier-specific text parsers and the generic parser as before. (The Google Document AI
+   processor used until September 2026 has been shut down and removed from the client.)
 
 The confirmation dialog stays in every case. Both new paths fill the invoice via
 `PurchaseInvoice.apply_purchase_data`; the supplier printed on the invoice is matched to the

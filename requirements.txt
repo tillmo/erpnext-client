@@ -6,12 +6,7 @@ reportlab
 anytree
 plotly
 pandas
-google-cloud-documentai==2.14.0
 anthropic
 pypdf
-jsondiff
-datefinder
-jsonschema==4.17.3
-jsoneditor==1.5.1
 bs4
 tkinter

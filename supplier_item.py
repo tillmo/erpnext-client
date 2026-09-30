@@ -12,12 +12,10 @@ from settings import STANDARD_ITEM_GROUP, STANDARD_PRICE_LIST, STOCK_ITEM_GROUPS
 
 if TYPE_CHECKING:
     from purchase_invoice import PurchaseInvoice
-    from purchase_invoice_google_parser import PurchaseInvoiceGoogleParser
 
 
 class SupplierItem:
-    # normally the invoice; purchase_invoice_google_parser passes the parser instead
-    purchase_invoice: PurchaseInvoice | PurchaseInvoiceGoogleParser
+    purchase_invoice: PurchaseInvoice
     description: str | None
     long_description: str | None
     qty: float | None
@@ -27,7 +25,7 @@ class SupplierItem:
     amount: float | None
     item_code: str | None
 
-    def __init__(self, inv: PurchaseInvoice | PurchaseInvoiceGoogleParser) -> None:
+    def __init__(self, inv: PurchaseInvoice) -> None:
         self.purchase_invoice = inv
         self.description = None
         self.long_description = None

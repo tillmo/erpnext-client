@@ -22,19 +22,13 @@ def _real(name: str) -> bool:
     return not getattr(mod, "__stub__", False)
 
 
-HAVE_JSONDIFF = _real("jsondiff")
-HAVE_JSONEDITOR = _real("jsoneditor")
 HAVE_ANYTREE = _real("anytree")
-HAVE_DATEFINDER = _real("datefinder")
 HAVE_PLOTLY = _real("plotly")
 HAVE_PYPDF = _real("pypdf")
 HAVE_PDFTOTEXT = shutil.which("pdftotext") is not None
 HAVE_PDFTK = shutil.which("pdftk") is not None
 
-requires_jsondiff = pytest.mark.skipif(not HAVE_JSONDIFF, reason="jsondiff nicht installiert")
-requires_jsoneditor = pytest.mark.skipif(not HAVE_JSONEDITOR, reason="jsoneditor nicht installiert")
 requires_anytree = pytest.mark.skipif(not HAVE_ANYTREE, reason="anytree nicht installiert (Stub aktiv)")
-requires_datefinder = pytest.mark.skipif(not HAVE_DATEFINDER, reason="datefinder nicht installiert")
 requires_pdftotext = pytest.mark.skipif(not HAVE_PDFTOTEXT, reason="pdftotext nicht installiert")
 requires_pdftk = pytest.mark.skipif(not HAVE_PDFTK, reason="pdftk nicht installiert")
 

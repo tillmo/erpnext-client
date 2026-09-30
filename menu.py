@@ -32,7 +32,6 @@ import settings
 import journal
 import prerechnung
 import args
-import json
 
 def initial_loads() -> None:
     if sg.UserSettings()['-setup-']:
@@ -66,7 +65,7 @@ def purchase_inv(update_stock: bool) -> Any:
     filename = utils.get_file('Einkaufsrechnung als PDF')
     if filename:
         print("Lese {} ein ...".format(filename))
-        return purchase_invoice.PurchaseInvoice.read_and_transfer(None,filename,update_stock)
+        return purchase_invoice.PurchaseInvoice.read_and_transfer(filename,update_stock)
     return False
 
 def show_data() -> None:
@@ -215,23 +214,6 @@ def event_handler(event: Any,window: sg.Window) -> str:
                 initial_loads()
                 window.close()
                 return "outer"
-    elif event == 'Google':
-        layout = [  [sg.Text('Google invoice processor id')],     
-                    [sg.Input(default_text = user_settings['-invoice-processor-'])],
-                    [sg.Text('Google API credentials')],     
-                    [sg.Input(default_text = json.dumps(user_settings['-google-credentials-']))],
-                    [sg.Button('Speichren')] ]
-        window1 = sg.Window("Google-Einstellungen", layout, finalize=True)
-        window1.bring_to_front()
-        event, values = window1.read()
-        if values:
-            if len(values)>0 and values[0]:
-                user_settings['-invoice-processor-'] = values[0]
-                print("Neue Einstellung gespeichert")
-            if len(values)>1 and values[1]:
-                args.set_google_credentials(values[1])
-                print("Neue Einstellung gespeichert")
-            window1.close()
     elif event == 'Nextcloud':
         layout = [  [sg.Text('Nextcloud-URL, z. B. https://cloud.example')],
                     [sg.Input(default_text = user_settings['-nextcloud-url-'] or '', k='-url-', size=(70,1))],
@@ -792,7 +774,7 @@ def menus() -> bool:
                 ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen',
                             'USt-Rechnungen zusammenstellen','EK-Rechnungen nach Konto']],
                 ['Lead',['Leads bearbeiten', 'Leadübersicht', 'Kontaktdaten nachtragen', 'vCards exportieren']],
-                ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Google', 'Claude', 'Nextcloud', 'Update']], 
+                ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Claude', 'Nextcloud', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
 
 

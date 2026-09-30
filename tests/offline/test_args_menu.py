@@ -1,7 +1,6 @@
 """Tests for args.py (command line, settings) and the GUI-free parts of menu.py."""
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 from typing import Any, NoReturn
@@ -54,25 +53,12 @@ class TestArgParser:
             args.arg_parser().parse_args(["--betrag", "abc"])
 
 
-class TestGoogleCredentials:
-    def test_set_google_credentials_from_string(self, in_tmp_cwd: Path, user_settings: UserSettings) -> None:
-        args.set_google_credentials(json.dumps({"project_id": "p", "private_key": "a\\nb"}))
-        stored = json.load(open(in_tmp_cwd / "google-credentials.json"))
-        assert stored == {"project_id": "p", "private_key": "a\nb"}
-        assert user_settings["-google-credentials-"] == stored
-
-    def test_set_google_credentials_from_dict(self, in_tmp_cwd: Path, user_settings: UserSettings) -> None:
-        args.set_google_credentials({"project_id": "q"})
-        assert user_settings["-google-credentials-"]["project_id"] == "q"
-
-
 class TestInit:
     def test_init_applies_arguments_and_connects(self, monkeypatch: pytest.MonkeyPatch, user_settings: UserSettings,
                                                  in_tmp_cwd: Path) -> None:
         import PySimpleGUI as sg
         monkeypatch.setattr(sys, "argv", ["erpnext.py", "--company", "Laden", "--server", "https://s", "--key", "k",
-                                          "--secret", "sec", "--invoice-processor", "proc",
-                                          "--google-json", json.dumps({"project_id": "p"}), "-b"])
+                                          "--secret", "sec", "-b"])
         created = {}
 
         def factory(url: str, api_key: str | None = None, api_secret: str | None = None) -> FakeFrappeClient:
@@ -87,8 +73,6 @@ class TestInit:
         assert sg.UserSettings.filename == "erpnext.json"
         assert (user_settings["-company-"], user_settings["-server-"], user_settings["-key-"], user_settings["-secret-"]) == \
             ("Laden", "https://s", "k", "sec")
-        assert user_settings["-invoice-processor-"] == "proc"
-        assert user_settings["-google-credentials-"] == {"project_id": "p"}
         assert user_settings["-setup-"] is False
         assert Api.api is created["c"]
 
