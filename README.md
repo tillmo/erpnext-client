@@ -91,6 +91,11 @@ Without `--apply` it only reports what it would write.
 1. **Embedded e-invoice** (`einvoice.py`): if the PDF carries a ZUGFeRD / Factur-X / XRechnung XML
    (CII or UBL), totals per VAT rate, line items, shipping charges and the early-payment discount
    are taken from the XML - exact and free. Krannich, Memodo and Wagner Solar already send these.
+   Prepayment lines ("Vorkasse", "Anzahlung") are deductions on a final invoice and ignored; if every
+   line is one, it is a prepayment invoice (Wagner: "Vorkasse (100%) für 1 Palette Artikelnr. ...")
+   and the lines become the items, with article number and quantity taken from the line text and the
+   article description and freight lines from the PDF text below the line. Quantities in pallets are
+   converted to pieces (`settings.PALLET_SIZE`, 30 modules per pallet) for every reader.
 2. **Claude** (`claude_parser.py`): otherwise, if an Anthropic API key is configured, the PDF goes to
    Claude as a document (text and page images, so scans work too) and the answer is forced into the
    client's purchase-data schema; totals are checked arithmetically with one correction round. The

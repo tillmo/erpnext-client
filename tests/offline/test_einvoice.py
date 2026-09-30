@@ -117,6 +117,94 @@ class TestUBL:
         assert d["profile"] == "xrechnung_3.0"
 
 
+PREPAYMENT_CII = """<?xml version="1.0" encoding="UTF-8"?>
+<rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
+  xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100"
+  xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100">
+  <rsm:ExchangedDocumentContext><ram:GuidelineSpecifiedDocumentContextParameter>
+    <ram:ID>urn:zugferd.de:2p0:extended</ram:ID></ram:GuidelineSpecifiedDocumentContextParameter></rsm:ExchangedDocumentContext>
+  <rsm:ExchangedDocument><ram:ID>VOR21142</ram:ID><ram:TypeCode>380</ram:TypeCode>
+    <ram:IssueDateTime><udt:DateTimeString format="102">20260905</udt:DateTimeString></ram:IssueDateTime></rsm:ExchangedDocument>
+  <rsm:SupplyChainTradeTransaction>
+    <ram:IncludedSupplyChainTradeLineItem>
+      <ram:SpecifiedTradeProduct><ram:SellerAssignedID>17100</ram:SellerAssignedID><ram:Name>Vorkasse (100%) für 1 Palette Artikelnr. 21001595</ram:Name></ram:SpecifiedTradeProduct>
+      <ram:SpecifiedLineTradeDelivery><ram:BilledQuantity unitCode="H87">1.00</ram:BilledQuantity></ram:SpecifiedLineTradeDelivery>
+      <ram:SpecifiedLineTradeSettlement><ram:SpecifiedTradeSettlementLineMonetarySummation><ram:LineTotalAmount>3219.30</ram:LineTotalAmount></ram:SpecifiedTradeSettlementLineMonetarySummation></ram:SpecifiedLineTradeSettlement>
+    </ram:IncludedSupplyChainTradeLineItem>
+    <ram:IncludedSupplyChainTradeLineItem>
+      <ram:SpecifiedTradeProduct><ram:SellerAssignedID>17100</ram:SellerAssignedID><ram:Name>Vorkasse (100%) für 1 Stück Artikelnr. 21</ram:Name></ram:SpecifiedTradeProduct>
+      <ram:SpecifiedLineTradeDelivery><ram:BilledQuantity unitCode="H87">1.00</ram:BilledQuantity></ram:SpecifiedLineTradeDelivery>
+      <ram:SpecifiedLineTradeSettlement><ram:SpecifiedTradeSettlementLineMonetarySummation><ram:LineTotalAmount>178.00</ram:LineTotalAmount></ram:SpecifiedTradeSettlementLineMonetarySummation></ram:SpecifiedLineTradeSettlement>
+    </ram:IncludedSupplyChainTradeLineItem>
+    <ram:ApplicableHeaderTradeAgreement>
+      <ram:SellerTradeParty><ram:Name>Wagner Solar GmbH</ram:Name>
+        <ram:SpecifiedTaxRegistration><ram:ID schemeID="VA">DE296060787</ram:ID></ram:SpecifiedTaxRegistration></ram:SellerTradeParty>
+    </ram:ApplicableHeaderTradeAgreement>
+    <ram:ApplicableHeaderTradeSettlement>
+      <ram:ApplicableTradeTax><ram:CalculatedAmount>645.49</ram:CalculatedAmount><ram:BasisAmount>3397.30</ram:BasisAmount><ram:RateApplicablePercent>19</ram:RateApplicablePercent></ram:ApplicableTradeTax>
+      <ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+        <ram:TaxBasisTotalAmount>3397.30</ram:TaxBasisTotalAmount><ram:TaxTotalAmount>645.49</ram:TaxTotalAmount>
+        <ram:GrandTotalAmount>4042.79</ram:GrandTotalAmount>
+      </ram:SpecifiedTradeSettlementHeaderMonetarySummation>
+    </ram:ApplicableHeaderTradeSettlement>
+  </rsm:SupplyChainTradeTransaction>
+</rsm:CrossIndustryInvoice>
+"""
+
+# what pdftotext -layout prints for that invoice: amounts in their own column lines, the article
+# description on the line below the position, a customs number after it
+PREPAYMENT_TEXT = """   1. Vorkasserechnung VOR21142
+
+Pos. Nr.  Beschreibung                                            Menge Einheit  VK-Preis Rab.       Betrag
+                                                                                                   3.219,30
+1         Vorkasse (100%) für 1 Palette Artikelnr. 21001595       1              3.219,30
+                                                                                                     178,00
+          PV-Modul CSW-Professional, 490W, BC G-G, (B/B), Pos.Betrag 3.219,30 EUR
+
+          StatWarenNr: 85414300
+
+2         Vorkasse (100%) für 1 Stück Artikelnr. 21               1              178,00
+
+          Fracht und Verpackung, Pos.Betrag 178,00 EUR
+
+          StatWarenNr: 0815
+
+                                                              Nettosumme Vorkasse EUR             3.397,30
+"""
+
+
+class TestPrepaymentInvoice:
+    def test_positions_become_items_with_pdf_text(self) -> None:
+        d = einvoice.parse_xml(PREPAYMENT_CII.encode("utf-8"), PREPAYMENT_TEXT)
+        assert d is not None and d["prepayment"] is True
+        assert d["bill_no"] == "VOR21142" and d["total"] == 3397.3 and d["grand_total"] == 4042.79
+        # the freight position is recognised from the text below it, the module from its article number
+        assert d["shipping"] == 178.0
+        assert d["items"] == [{"item_code": "21001595", "description": "PV-Modul CSW-Professional, 490W, BC G-G, (B/B)",
+                               "qty": 1.0, "uom": "Palette", "rate": 3219.3, "amount": 3219.3}]
+
+    def test_positions_without_pdf_text(self) -> None:
+        d = einvoice.parse_xml(PREPAYMENT_CII.encode("utf-8"))
+        assert d is not None
+        # nothing tells that article 21 is freight, so both stay items with the article number as code
+        assert [(i["item_code"], i["qty"], i["uom"], i["description"]) for i in d["items"]] == \
+            [("21001595", 1.0, "Palette", "1 Palette Artikelnr. 21001595"), ("21", 1.0, "Stk", "1 Stück Artikelnr. 21")]
+        assert d["shipping"] == 0.0
+
+    def test_deduction_on_final_invoice_is_still_dropped(self) -> None:
+        # CII above: real items plus a "Vorkasse (100%)" line -> a final invoice, the prepayment line is no item
+        d = einvoice.parse_xml(CII.encode("utf-8"))
+        assert d is not None and "prepayment" not in d
+        assert [i["description"] for i in d["items"]] == ["Solarkabel 4,0 schwarz 500m", "Schrauben M8"]
+
+    def test_position_parsing(self) -> None:
+        it = einvoice.prepayment_position({"item_code": "17100", "description": "Anzahlung (50%) für 2,5 m Artikel-Nr.: K-77",
+                                           "qty": 1.0, "uom": "Stk", "rate": 50.0, "amount": 50.0})
+        assert (it["item_code"], it["qty"], it["uom"], it["rate"], it["description"]) == ("K-77", 2.5, "m", 20.0, "2,5 m Artikel-Nr.: K-77")
+        plain = {"item_code": None, "description": "Vorauszahlung Montage", "qty": 1.0, "uom": "Stk", "rate": 9.0, "amount": 9.0}
+        assert einvoice.prepayment_position(plain) == plain
+
+
 class TestHelpers:
     def test_dates_numbers_units(self) -> None:
         assert einvoice._date("20260821") == "2026-08-21" and einvoice._date("2026-08-21") == "2026-08-21"

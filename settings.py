@@ -22,6 +22,9 @@ STOCK_ITEM_GROUPS = ['Solarmodul','Balkon-Solarmodule','Wechselrichter','Steckdo
 BUNDLE_ITEM_GROUPS = ['Balkon-Anlage']
 AGGREGATE_ITEMS: dict[str, str] = {'Elektro-Komponenten':'000.100.302','default':'000.100.301'}
 AGGREGATE_ITEM_VALUE = 100.0
+# modules are billed by the pallet (Wagner: "1 Palette Artikelnr. ..."), the stock counts pieces
+PALLET_SIZE = 30
+PALLET_UNITS = ('palette', 'paletten', 'pal', 'xpx')
 STANDARD_NAMING_SERIES_PINV = 'EK .YYYY.-'
 VAT_DESCRIPTION = 'Umsatzsteuer'
 DELIVERY_COST_ACCOUNT = '3800 - Bezugsnebenkosten - SoMiKo'

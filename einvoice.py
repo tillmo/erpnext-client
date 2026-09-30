@@ -84,8 +84,52 @@ def _is_prepayment(name: str | None) -> bool:
     return any(w in (name or '').lower() for w in PREPAYMENT_WORDS)
 
 
-def _finish(data: dict[str, Any], items: list[dict[str, Any]], shipping: float) -> dict[str, Any]:
-    """Shipping positions are summed into 'shipping', prepayment positions dropped (as the parsers do)."""
+PREPAYMENT_POSITION = re.compile(
+    r'^\s*(?:vorkasse|anzahlung|vorauszahlung)\s*(?:\([^)]*\))?[^0-9]*?(\d+(?:[.,]\d+)?)\s+([^\s]+)\s+artikel-?nr\.?\s*:?\s*(\S+)',
+    re.IGNORECASE)
+PREPAYMENT_UNITS = {'palette': 'Palette', 'paletten': 'Palette', 'pal': 'Palette', 'pal.': 'Palette',
+                    'stück': 'Stk', 'stk': 'Stk', 'stk.': 'Stk', 'st': 'Stk', 'st.': 'Stk', 'm': 'm', 'meter': 'm'}
+
+
+def _position_text(text: str, item_code: str) -> str:
+    """The description line the PDF prints below a prepayment position ("Artikelnr. X" ... next position)."""
+    m = re.search(r'Artikel-?nr\.?\s*:?\s*' + re.escape(item_code) + r'\b(.*?)(?=Artikel-?nr\.|Nettosumme|Zwischensumme|\Z)',
+                  text, re.IGNORECASE | re.DOTALL)
+    if not m:
+        return ''
+    for line in m.group(1).splitlines()[1:]:
+        line = " ".join(line.split())
+        if re.search(r'[A-Za-zÄÖÜäöü]{3}', line) and not line.lower().startswith('statwarennr'):  # not an amount column
+            return re.sub(r',?\s*Pos\.?\s*Betrag.*$', '', line).strip()
+    return ''
+
+
+def prepayment_position(it: dict[str, Any], text: str = '') -> dict[str, Any]:
+    """A position of a prepayment invoice ("Vorkasse (100%) für 1 Palette Artikelnr. 21001595") as an item:
+    quantity, unit and the supplier's article number come from the name, the description of the article
+    (and whether it is a freight position) from the PDF text below the position, if available."""
+    it = dict(it)
+    m = PREPAYMENT_POSITION.match(it.get('description') or '')
+    if not m:
+        return it
+    qty = float(m.group(1).replace(',', '.'))
+    it['item_code'] = m.group(3).rstrip('.,;')
+    it['qty'] = qty
+    it['uom'] = PREPAYMENT_UNITS.get(m.group(2).lower(), m.group(2))
+    if it.get('amount') is not None and qty:
+        it['rate'] = round(it['amount'] / qty, 4)
+    it['description'] = _position_text(text, it['item_code']) or re.sub(r'^\s*\S+\s*\([^)]*\)\s*(für\s+)?', '', it['description']).strip()
+    return it
+
+
+def _finish(data: dict[str, Any], items: list[dict[str, Any]], shipping: float, text: str = '') -> dict[str, Any]:
+    """Shipping positions are summed into 'shipping'. Prepayment positions are deductions on a final
+    invoice and dropped (as the parsers do) - unless every position is one: then it is a prepayment
+    invoice (Wagner: "Vorkasse (100%) für 1 Palette Artikelnr. ...") and the positions are the items."""
+    if items and all(_is_prepayment(it['description']) or _is_shipping(it['description']) for it in items) \
+            and any(_is_prepayment(it['description']) and (it.get('amount') or 0) > 0 for it in items):
+        items = [prepayment_position(it, text) if _is_prepayment(it['description']) else it for it in items]
+        data['prepayment'] = True
     kept: list[dict[str, Any]] = []
     for it in items:
         if _is_shipping(it['description']):
@@ -101,7 +145,7 @@ def _finish(data: dict[str, Any], items: list[dict[str, Any]], shipping: float) 
     return data
 
 
-def parse_cii(root: ET.Element) -> dict[str, Any]:
+def parse_cii(root: ET.Element, text_of_pdf: str = '') -> dict[str, Any]:
     ns = CII_NS
 
     def text(path: str, el: ET.Element = root) -> str | None:
@@ -167,10 +211,10 @@ def parse_cii(root: ET.Element) -> dict[str, Any]:
         'taxes': taxes,
         'skonto_percent': skonto,
     }
-    return _finish(data, items, shipping)
+    return _finish(data, items, shipping, text_of_pdf)
 
 
-def parse_ubl(root: ET.Element) -> dict[str, Any]:
+def parse_ubl(root: ET.Element, text_of_pdf: str = '') -> dict[str, Any]:
     ns = UBL_NS
 
     def text(path: str, el: ET.Element = root) -> str | None:
@@ -220,28 +264,29 @@ def parse_ubl(root: ET.Element) -> dict[str, Any]:
         'taxes': taxes,
         'skonto_percent': skonto,
     }
-    return _finish(data, items, shipping)
+    return _finish(data, items, shipping, text_of_pdf)
 
 
-def parse_xml(xml: bytes) -> dict[str, Any] | None:
+def parse_xml(xml: bytes, text_of_pdf: str = '') -> dict[str, Any] | None:
     try:
         root = ET.fromstring(xml)
     except ET.ParseError:
         return None
     tag = root.tag.split('}')[-1]
     if tag == 'CrossIndustryInvoice':
-        return parse_cii(root)
+        return parse_cii(root, text_of_pdf)
     if tag == 'Invoice' and root.tag.startswith('{' + UBL_NS['inv']):
-        return parse_ubl(root)
+        return parse_ubl(root, text_of_pdf)
     return None
 
 
-def read_pdf(path: str) -> dict[str, Any] | None:
-    """Purchase data from the e-invoice embedded in the PDF file, or None."""
+def read_pdf(path: str, text_of_pdf: str = '') -> dict[str, Any] | None:
+    """Purchase data from the e-invoice embedded in the PDF file, or None.
+    The text of the PDF (pdftotext) supplies what the XML lacks on prepayment invoices."""
     try:
         with open(path, 'rb') as f:
             pdf = f.read()
     except OSError:
         return None
     xml = extract_xml(pdf)
-    return parse_xml(xml) if xml else None
+    return parse_xml(xml, text_of_pdf) if xml else None

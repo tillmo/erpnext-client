@@ -540,6 +540,18 @@ class TestApplyPurchaseData:
             [("0131888", 2.0, "Stk", 389.5, 779.0), (None, 50.0, "Stk", 0.42, 21.0)]
         assert pinv.extract_items is True
 
+    def test_pallets_are_counted_in_pieces(self, somiko: Company, fake_api: FakeFrappeClient,
+                                          capsys: pytest.CaptureFixture[str]) -> None:
+        pinv = F.make_purchase_invoice(somiko, True)
+        pinv.apply_purchase_data({"supplier": "Wagner Solar GmbH", "taxes": [{"rate": 19, "net": 3219.3, "tax_amount": 611.67}],
+                                  "items": [{"item_code": "21001595", "description": "PV-Modul CSW-Professional, 490W",
+                                             "qty": 1, "uom": "Palette", "rate": 3219.3, "amount": 3219.3},
+                                            {"item_code": "X", "description": "Kabel", "qty": 2, "uom": "Stk", "rate": 5.0,
+                                             "amount": 10.0}]})
+        assert [(i.item_code, i.qty, i.qty_unit, i.rate, i.amount) for i in pinv.items] == \
+            [("21001595", 30.0, "Stk", 107.31, 3219.3), ("X", 2.0, "Stk", 5.0, 10.0)]
+        assert "Palette als 30 Stück gerechnet" in capsys.readouterr().out
+
     def test_given_supplier_and_total_fallback(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         pinv = F.make_purchase_invoice(somiko)
         pinv.apply_purchase_data({"supplier": "Irgendwer", "bill_no": "1", "total": 100.0, "grand_total": 119.0, "taxes": [],

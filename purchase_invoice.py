@@ -615,6 +615,12 @@ class PurchaseInvoice(Invoice):
             s_item.qty_unit = it.get('uom') or 'Stk'
             s_item.rate = float(it['rate']) if it.get('rate') is not None else None
             s_item.amount = round(float(it['amount']), 2) if it.get('amount') is not None else None
+            if s_item.qty and s_item.qty_unit.lower().rstrip('.') in settings.PALLET_UNITS:
+                # suppliers bill modules by the pallet, the stock is kept in pieces
+                s_item.qty = s_item.qty * settings.PALLET_SIZE
+                s_item.qty_unit = 'Stk'
+                s_item.rate = None
+                print("Palette als {} Stück gerechnet: {}".format(settings.PALLET_SIZE, s_item.description[:60]))
             if s_item.qty and s_item.amount is not None and not s_item.rate:
                 s_item.rate = round(s_item.amount / s_item.qty, 4)
             self.items.append(s_item)
@@ -705,7 +711,11 @@ class PurchaseInvoice(Invoice):
         normal_purchase_data = None
         google_purchase_data = None
         final_data = None
-        data = einvoice.read_pdf(infile)
+        try:
+            text_of_pdf = "\n".join(pdf_to_text(infile))
+        except Exception:
+            text_of_pdf = ''
+        data = einvoice.read_pdf(infile, text_of_pdf)
         if data:
             print("Nutze eingebettete E-Rechnung ({})".format(data.get('profile') or 'XML'))
             self.parser = "einvoice"
