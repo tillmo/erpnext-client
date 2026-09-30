@@ -456,6 +456,11 @@ class FakeFrappeClient:
             changed = {k for k, v in doc.items() if stored.get(k) != v}
             if changed - allowed:
                 raise FrappeException("FrappeClient Request Failed\n\nUpdateAfterSubmitError: {}".format(sorted(changed - allowed)))
+        for row in doc.get("payment_entries") or []:  # frappe: _validate_links on the child table
+            linked = self.docs(row.get("payment_document") or "").get(frappe.cstr(row.get("payment_entry")))
+            if linked is not None and linked.get("docstatus") == 2:
+                raise FrappeException("FrappeClient Request Failed\n\nfrappe.exceptions.CancelledLinkError: "
+                                      "Aufgehobenes Dokument kann nicht verknüpft werden: {}".format(row["payment_entry"]))
         stored.update(copy.deepcopy(dict(doc)))
         if doctype in ("Purchase Invoice", "Sales Invoice", "Journal Entry", "Payment Entry"):
             self._server_side(stored)

@@ -7,6 +7,8 @@ from typing import Any
 
 import pytest
 
+from frappeclient import FrappeException
+
 import bank
 import invoice
 import utils
@@ -84,15 +86,51 @@ class TestBankTransactionBasics:
     def test_link_to(self, bacc: bank.BankAccount, fake_api: FakeFrappeClient) -> None:
         doc = add_bt(fake_api, bacc, deposit=100.0)
         del doc["payment_entries"]
+        je = fake_api.add("Journal Entry", docstatus=1)
+        pe = fake_api.add("Payment Entry", docstatus=1)
         bt = bank.BankTransaction(doc)
-        bt.link_to("Journal Entry", "JV-1", 40.0)
-        assert bt.doc["payment_entries"] == [{"payment_document": "Journal Entry", "payment_entry": "JV-1",
+        bt.link_to("Journal Entry", je, 40.0)
+        assert bt.doc["payment_entries"] == [{"payment_document": "Journal Entry", "payment_entry": je,
                                               "allocated_amount": 40.0}]
         assert bt.doc["unallocated_amount"] == 60.0 and bt.doc["allocated_amount"] == 40.0
         assert bt.doc["status"] == "Pending"
-        bt.link_to("Payment Entry", "PAY-1", 60.0)
+        bt.link_to("Payment Entry", pe, 60.0)
         assert bt.doc["status"] == "Reconciled"
         assert len(bt.doc["payment_entries"]) == 2
+
+    def test_link_to_drops_cancelled_payment(self, bacc: bank.BankAccount, fake_api: FakeFrappeClient,
+                                             capsys: pytest.CaptureFixture[str]) -> None:
+        # a payment cancelled in the web interface leaves its row behind; the server then refuses
+        # to save the bank transaction (CancelledLinkError) - the client has to drop the row first
+        old = fake_api.add("Payment Entry", docstatus=2, paid_amount=40.0)
+        new = fake_api.add("Payment Entry", docstatus=1, paid_amount=100.0)
+        doc = add_bt(fake_api, bacc, deposit=100.0, status="Pending", allocated_amount=0.0, unallocated_amount=100.0,
+                     payment_entries=[{"payment_document": "Payment Entry", "payment_entry": old,
+                                       "allocated_amount": 40.0}])
+        bt = bank.BankTransaction(doc)
+        with pytest.raises(FrappeException, match="CancelledLinkError"):
+            fake_api.update(dict(doc, doctype="Bank Transaction"))
+        bt.link_to("Payment Entry", new, 100.0)
+        assert [r["payment_entry"] for r in bt.doc["payment_entries"]] == [new]
+        assert bt.doc["allocated_amount"] == 100.0 and bt.doc["unallocated_amount"] == 0.0
+        assert bt.doc["status"] == "Reconciled"
+        bt.update()
+        assert fake_api.get_doc("Bank Transaction", doc["name"])["status"] == "Reconciled"
+        assert "storniertem Dokument {}".format(old) in capsys.readouterr().out
+
+    def test_drop_cancelled_links_keeps_valid_rows(self, bacc: bank.BankAccount, fake_api: FakeFrappeClient) -> None:
+        kept = fake_api.add("Journal Entry", docstatus=1)
+        gone = fake_api.add("Journal Entry", docstatus=2)
+        doc = add_bt(fake_api, bacc, withdrawal=100.0, status="Reconciled", allocated_amount=100.0,
+                     unallocated_amount=0.0,
+                     payment_entries=[{"payment_document": "Journal Entry", "payment_entry": kept, "allocated_amount": 30.0},
+                                      {"payment_document": "Journal Entry", "payment_entry": gone, "allocated_amount": 70.0}])
+        bt = bank.BankTransaction(doc)
+        assert bt.drop_cancelled_links() == [gone]
+        assert [r["payment_entry"] for r in bt.doc["payment_entries"]] == [kept]
+        assert bt.doc["allocated_amount"] == 30.0 and bt.doc["unallocated_amount"] == 70.0
+        assert bt.doc["status"] == "Pending"
+        assert bt.drop_cancelled_links() == []
 
 
 class TestBankTransactionBooking:

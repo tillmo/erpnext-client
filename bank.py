@@ -107,12 +107,38 @@ class BankTransaction(Doc):
     def show(self) -> str:
         return(self.doc['name']+" {}\n{}\n{:.2f}€".format(utils.show_date4(self.date),self.description,self.amount))
 
+    def drop_cancelled_links(self) -> list[str]:
+        """Remove rows that link a cancelled or deleted document.
+
+        A payment cancelled in the web interface leaves its row in the bank transaction;
+        the server then refuses to save the transaction at all (CancelledLinkError).
+        Returns the names of the dropped documents; the amounts are recomputed."""
+        doc = self.doc
+        assert doc is not None
+        rows: list[dict[str, Any]] = doc.get('payment_entries') or []
+        dropped = []
+        for row in rows:
+            found = Api.api.get_list(row['payment_document'], filters={'name': row['payment_entry']},
+                                     fields=['docstatus'])
+            if not found or found[0]['docstatus'] == 2:
+                dropped.append(row['payment_entry'])
+        if dropped:
+            doc['payment_entries'] = [r for r in rows if r['payment_entry'] not in dropped]
+            allocated = sum(r['allocated_amount'] for r in doc['payment_entries'])
+            doc['allocated_amount'] = allocated
+            doc['unallocated_amount'] = abs(self.amount) - allocated
+            doc['status'] = 'Reconciled' if not doc['unallocated_amount'] else 'Pending'
+            print("Banktransaktion {}: Verknüpfung mit storniertem Dokument {} entfernt".format(
+                doc['name'], ', '.join(dropped)))
+        return dropped
+
     def link_to(self,doctype: str,docname: str,amount: float) -> None:
         entry = {'payment_document': doctype,
                  'payment_entry': docname,
                  'allocated_amount': amount}
         if not 'payment_entries' in self.doc:
             self.doc['payment_entries'] = []
+        self.drop_cancelled_links()
         self.doc['payment_entries'].append(entry)
         self.doc['unallocated_amount'] -= amount 
         self.doc['allocated_amount'] += amount 
