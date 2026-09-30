@@ -9,4 +9,3 @@ pandas
 anthropic
 pypdf
 bs4
-tkinter
