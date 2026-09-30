@@ -184,7 +184,7 @@ def make_purchase_invoice(comp: Company, update_stock: bool = False, aggregate_i
     parse_invoice or the parsers do. So that individual methods can be tested in isolation,
     these fields are initialised here with their start values (parser_fields=True).
     """
-    import PySimpleGUI as sg
+    import FreeSimpleGUI as sg
     import purchase_invoice
     sg.UserSettings()["-company-"] = comp.name
     pinv = purchase_invoice.PurchaseInvoice(update_stock, aggregate_item_code=aggregate_item_code)

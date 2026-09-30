@@ -1,2 +1,2 @@
-PySimpleGUIWx
+FreeSimpleGUIWx
 pytest

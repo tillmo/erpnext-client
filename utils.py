@@ -21,10 +21,11 @@ from typing import Any, Iterable, Iterator, Mapping
 def running_linux() -> bool:
     return sys.platform.startswith('linux')
 
-import PySimpleGUI as sg
-if running_linux():
-    import PySimpleGUIWx as sgwx
-else:
+import FreeSimpleGUI as sg
+# the wx file dialog is nicer than the tk one on Linux; FreeSimpleGUIWx needs wxPython
+try:
+    import FreeSimpleGUIWx as sgwx
+except ImportError:
     sgwx = sg
 
 

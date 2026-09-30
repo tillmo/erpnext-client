@@ -32,7 +32,7 @@ from typing import Any
 from urllib.parse import quote, unquote
 
 try:
-    import PySimpleGUI as sg
+    import FreeSimpleGUI as sg
 except Exception:                 # headless (cron): the credentials come from the environment
     sg = None                     # type: ignore[assignment]
 

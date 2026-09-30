@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 import utils
-import PySimpleGUI as sg
+import FreeSimpleGUI as sg
 import report
 import company
 import bank
@@ -834,7 +834,7 @@ def main_loop() -> None:
                "SLIDER_DEPTH": 0,
                "PROGRESS_DEPTH": 0,}
 
-    # Add your dictionary to the PySimpleGUI themes
+    # Add your dictionary to the FreeSimpleGUI themes
     sg.theme_add_new('MyAmber', MyAmber)
 
     # Switch your theme to use the newly added one

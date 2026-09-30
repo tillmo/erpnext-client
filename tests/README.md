@@ -44,7 +44,7 @@ The credentials are read **only** from these variables, never from the user's
 
 ## Safety net
 
-* **No dialogs, no foreign settings.** `PySimpleGUI`, `PySimpleGUIWx` and `easygui`
+* **No dialogs, no foreign settings.** `FreeSimpleGUI`, `FreeSimpleGUIWx` and `easygui`
   are replaced by stubs in all tests (`tests/support/stubs.py`). A test that would
   unexpectedly open a dialog fails with `GuiCalled`. The real `erpnext.json`
   is never touched.

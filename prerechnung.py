@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 from typing import Any
-import PySimpleGUI as sg
+import FreeSimpleGUI as sg
 import utils
 import project
 import doc

@@ -32,7 +32,7 @@ from support import stubs  # noqa: E402
 
 STUBS = stubs.install()
 
-import PySimpleGUI as sg  # noqa: E402  (Stub)
+import FreeSimpleGUI as sg  # noqa: E402  (Stub)
 import easygui  # noqa: E402  (Stub)
 
 if TYPE_CHECKING:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-import PySimpleGUI as sg
+import FreeSimpleGUI as sg
 import csv
 import report
 import utils

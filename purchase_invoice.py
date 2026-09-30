@@ -11,7 +11,7 @@ import utils
 import lead_rules
 import einvoice
 import claude_parser
-import PySimpleGUI as sg
+import FreeSimpleGUI as sg
 import easygui
 import subprocess
 import re

@@ -14,7 +14,7 @@ from dataclasses import dataclass, fields as dataclass_fields
 from typing import Any
 
 import easygui
-import PySimpleGUI as sg
+import FreeSimpleGUI as sg
 
 import lead_rules
 import settings
@@ -404,7 +404,7 @@ def visible_text(text: str) -> str:
 
 
 def _dialog(msg: str, title: str, fields: list[str], values: list[str]) -> list[str] | None:
-    """Wide PySimpleGUI window: heading, scrollable mail excerpt, one input per field. None if cancelled."""
+    """Wide FreeSimpleGUI window: heading, scrollable mail excerpt, one input per field. None if cancelled."""
     head, _, text = msg.partition("\n\n")
     keys = [f'-field{i}-' for i in range(len(fields))]
     layout: list[list[Any]] = [[sg.Text(head)],

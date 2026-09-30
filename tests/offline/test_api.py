@@ -31,7 +31,7 @@ class TestInitialize:
         assert (Api.api.url, Api.api.api_key, Api.api.api_secret) == ("https://srv", "k", "s")
 
     def test_initialize_with_settings_sets_setup_flag(self, monkeypatch: pytest.MonkeyPatch, user_settings: UserSettings) -> None:
-        import PySimpleGUI as sg
+        import FreeSimpleGUI as sg
         monkeypatch.setattr(api, "FrappeClient", lambda *a, **k: FakeFrappeClient())
         Api.initialize_with_settings()
         assert sg.UserSettings.filename == "erpnext.json"

@@ -14,7 +14,7 @@ from dateutil import rrule
 from dateutil.relativedelta import relativedelta
 from anytree import Node, RenderTree, PostOrderIter
 from collections import defaultdict
-import PySimpleGUI as sg
+import FreeSimpleGUI as sg
 import plotly.express as px
 import csv
 import journal

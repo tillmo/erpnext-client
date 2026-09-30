@@ -8,7 +8,7 @@ from doc import Doc
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
 import settings
-import PySimpleGUI as sg # type: ignore
+import FreeSimpleGUI as sg # type: ignore
 import company
 import payment
 import journal

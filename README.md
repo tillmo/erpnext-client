@@ -14,6 +14,9 @@
 
 You now can start the client with `python3 erpnext.py` (or, in Windows 10, with `erpnext`)
 
+The GUI uses [FreeSimpleGUI](https://github.com/spyoungtech/FreeSimpleGUI), the free fork of PySimpleGUI 4;
+existing settings in `~/.config/PySimpleGUI/settings/erpnext.json` keep working.
+
 ## features
 * GUI for ERPNext bank reconciliation and purchase invoice creation
   * accesses ERPNext via the API

@@ -13,7 +13,7 @@ from api_wrapper import gui_api_wrapper
 from api import Api, LIMIT
 import menu
 import easygui
-import PySimpleGUI as sg
+import FreeSimpleGUI as sg
 import prerechnung
 from typing import Any
 

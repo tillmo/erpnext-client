@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Any
 
 from api import Api
 from api_wrapper import gui_api_wrapper
-import PySimpleGUI as sg
+import FreeSimpleGUI as sg
 
 if TYPE_CHECKING:
     from company import Company

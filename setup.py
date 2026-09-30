@@ -7,7 +7,7 @@ DESCRIPTION = "A trading framework for cryptocurrencies"
 REQUIRED_PACKAGES = [
     'requests',
     'easygui',
-    'PySimpleGUI',
+    'FreeSimpleGUI',
     'numpy',
     'reportlab',
     'anytree'

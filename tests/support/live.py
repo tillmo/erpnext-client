@@ -19,7 +19,7 @@ import warnings
 from typing import TYPE_CHECKING, Any, Callable, NoReturn
 
 import pytest
-import PySimpleGUI as sg
+import FreeSimpleGUI as sg
 
 from frappeclient import FrappeClient, FrappeException
 

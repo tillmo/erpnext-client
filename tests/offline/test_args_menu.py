@@ -56,7 +56,7 @@ class TestArgParser:
 class TestInit:
     def test_init_applies_arguments_and_connects(self, monkeypatch: pytest.MonkeyPatch, user_settings: UserSettings,
                                                  in_tmp_cwd: Path) -> None:
-        import PySimpleGUI as sg
+        import FreeSimpleGUI as sg
         monkeypatch.setattr(sys, "argv", ["erpnext.py", "--company", "Laden", "--server", "https://s", "--key", "k",
                                           "--secret", "sec", "-b"])
         created = {}
@@ -157,7 +157,7 @@ class Window:
 
 class TestEventHandler:
     def test_exit_and_close(self, fake_api: FakeFrappeClient) -> None:
-        import PySimpleGUI as sg
+        import FreeSimpleGUI as sg
         assert menu.event_handler(sg.WIN_CLOSED, Window()) == "exit"
         assert menu.event_handler("Exit", Window()) == "exit"
 
@@ -176,7 +176,7 @@ class TestEventHandler:
 
     def test_claude_settings(self, fake_api: FakeFrappeClient, user_settings: UserSettings,
                              monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-        import PySimpleGUI as sg
+        import FreeSimpleGUI as sg
         import claude_parser
         windows: list[dict[str, Any]] = []
 

@@ -28,8 +28,8 @@ def test_pdf_module_importable(name: str) -> None:
 
 
 def test_no_real_gui_modules_loaded() -> None:
-    import PySimpleGUI, easygui
-    assert PySimpleGUI.UserSettings.__module__ == "support.stubs"
+    import FreeSimpleGUI, easygui
+    assert FreeSimpleGUI.UserSettings.__module__ == "support.stubs"
     assert type(easygui).__name__ == "EasyguiStub"
 
 

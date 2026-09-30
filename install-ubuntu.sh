@@ -17,7 +17,7 @@ rm -rf $TMP
 # get sources
 git clone https://github.com/tillmo/erpnext-client.git
 
-# settings
+# settings (FreeSimpleGUI keeps the settings directory of PySimpleGUI)
 DIR=$(pwd)/erpnext-client
 mkdir -p $HOME/.config/PySimpleGUI/settings
 SETTINGS=$HOME/.config/PySimpleGUI/settings/erpnext.json

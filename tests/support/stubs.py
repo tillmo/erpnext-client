@@ -2,7 +2,7 @@
 
 Two reasons for stubs:
 
-* PySimpleGUI / PySimpleGUIWx / easygui are ALWAYS replaced, even if they are
+* FreeSimpleGUI / FreeSimpleGUIWx / easygui are ALWAYS replaced, even if they are
   installed: tests must neither open windows nor overwrite the user's real
   ``erpnext.json`` (sg.UserSettings with autosave).
 * anytree and plotly are only replaced if they are missing, so that the project
@@ -24,7 +24,7 @@ class GuiCalled(RuntimeError):
     """A test has reached code that would open a GUI dialog."""
 
 
-# ---------------------------------------------------------------- PySimpleGUI
+# ---------------------------------------------------------------- FreeSimpleGUI
 class UserSettings:
     """Replica of sg.UserSettings: all instances share one store.
 
@@ -66,7 +66,7 @@ def _gui_function(module_name: str, attr: str) -> Callable[..., NoReturn]:
 
 
 def make_pysimplegui() -> types.ModuleType:
-    mod: Any = types.ModuleType("PySimpleGUI")
+    mod: Any = types.ModuleType("FreeSimpleGUI")
     mod.UserSettings = UserSettings
     mod.WIN_CLOSED = None
     mod.WINDOW_CLOSED = None
@@ -84,19 +84,19 @@ def make_pysimplegui() -> types.ModuleType:
     def __getattr__(name: str) -> Callable[..., NoReturn]:
         if name.startswith("__"):
             raise AttributeError(name)
-        return _gui_function("PySimpleGUI", name)
+        return _gui_function("FreeSimpleGUI", name)
     mod.__getattr__ = __getattr__
     return mod
 
 
 def make_pysimpleguiwx() -> types.ModuleType:
-    mod: Any = types.ModuleType("PySimpleGUIWx")
-    mod.PopupGetFile = _gui_function("PySimpleGUIWx", "PopupGetFile")
+    mod: Any = types.ModuleType("FreeSimpleGUIWx")
+    mod.PopupGetFile = _gui_function("FreeSimpleGUIWx", "PopupGetFile")
 
     def __getattr__(name: str) -> Callable[..., NoReturn]:
         if name.startswith("__"):
             raise AttributeError(name)
-        return _gui_function("PySimpleGUIWx", name)
+        return _gui_function("FreeSimpleGUIWx", name)
     mod.__getattr__ = __getattr__
     return mod
 
@@ -252,11 +252,11 @@ def install() -> dict[str, types.ModuleType]:
     installed: dict[str, types.ModuleType] = {}
 
     sg = make_pysimplegui()
-    sys.modules["PySimpleGUI"] = sg
-    installed["PySimpleGUI"] = sg
+    sys.modules["FreeSimpleGUI"] = sg
+    installed["FreeSimpleGUI"] = sg
     sgwx = make_pysimpleguiwx()
-    sys.modules["PySimpleGUIWx"] = sgwx
-    installed["PySimpleGUIWx"] = sgwx
+    sys.modules["FreeSimpleGUIWx"] = sgwx
+    installed["FreeSimpleGUIWx"] = sgwx
     eg = EasyguiStub()
     sys.modules["easygui"] = eg
     installed["easygui"] = eg
