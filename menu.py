@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 import utils
-import FreeSimpleGUI as sg
+from gui import sg
 import report
 import company
 import bank
@@ -22,7 +22,7 @@ from version import VERSION
 import traceback
 import os
 import tempfile
-import easygui
+from gui import easygui
 import numpy as np
 from collections import defaultdict
 import subprocess

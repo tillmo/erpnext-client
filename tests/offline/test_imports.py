@@ -8,7 +8,7 @@ import pytest
 from support.deps import HAVE_PDFTOTEXT
 from support.fakes import FakeFrappeClient
 
-MODULES = ["version", "frappe", "frappeclient", "api_wrapper", "api", "settings", "utils", "doc",
+MODULES = ["version", "gui", "frappe", "frappeclient", "api_wrapper", "api", "settings", "utils", "doc",
            "company", "invoice", "payment", "journal", "bank", "stock", "project", "supplier_item",
            "table", "report", "lead", "sales_invoice",
            "purchase_invoice_parser"]

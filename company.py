@@ -5,7 +5,7 @@ JOURNAL_LIMIT = 100
 from typing import Any
 
 from doc import Doc
-import FreeSimpleGUI as sg
+from gui import sg
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
 import invoice

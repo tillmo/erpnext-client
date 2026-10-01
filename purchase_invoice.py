@@ -11,8 +11,8 @@ import utils
 import lead_rules
 import einvoice
 import claude_parser
-import FreeSimpleGUI as sg
-import easygui
+from gui import sg
+from gui import easygui
 import subprocess
 import re
 from api import Api, LIMIT

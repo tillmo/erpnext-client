@@ -65,7 +65,7 @@ def api_wrapper_test(f: Callable[..., Any], *args: Any, **kwargs: Any) -> bool:
     result = api_wrapper(f,*args, **kwargs)
     return not(result['err_msg'] or result['exception'])
     
-import easygui
+from gui import easygui
 
 def gui_api_wrapper(f: Callable[..., Any], *args: Any, **kwargs: Any) -> Any:
     result = api_wrapper(f,*args, **kwargs)

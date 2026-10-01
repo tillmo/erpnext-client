@@ -7,7 +7,7 @@ from frappeclient import FrappeClient
 from collections import defaultdict
 from settings import WAREHOUSE, DEFAULT_SUPPLIER_GROUP
 import itertools
-import FreeSimpleGUI as sg
+from gui import sg
 import re
 import requests
 from difflib import SequenceMatcher

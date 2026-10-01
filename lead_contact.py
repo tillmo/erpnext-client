@@ -13,8 +13,8 @@ import textwrap
 from dataclasses import dataclass, fields as dataclass_fields
 from typing import Any
 
-import easygui
-import FreeSimpleGUI as sg
+from gui import easygui
+from gui import sg
 
 import lead_rules
 import settings

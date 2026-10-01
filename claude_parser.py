@@ -15,7 +15,7 @@ import json
 import os
 from typing import Any
 
-import FreeSimpleGUI as sg
+from gui import sg
 
 import settings
 

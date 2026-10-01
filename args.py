@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import FreeSimpleGUI as sg
+from gui import sg
 
 import argparse
 import purchase_invoice

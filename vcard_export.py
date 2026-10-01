@@ -31,11 +31,7 @@ from dataclasses import dataclass
 from typing import Any
 from urllib.parse import quote, unquote
 
-try:
-    import FreeSimpleGUI as sg
-except Exception:                 # headless (cron): the credentials come from the environment
-    sg = None                     # type: ignore[assignment]
-
+from gui import sg
 import lead_contact
 import settings
 from api import Api, LIMIT
@@ -60,12 +56,11 @@ MKCOL_BODY = ('<?xml version="1.0" encoding="utf-8"?>\n'
 def credentials() -> tuple[str | None, str | None, str | None]:
     """Nextcloud URL, user and app password from the client settings or the environment."""
     url = user = password = None
-    if sg is not None:
-        try:
-            s = sg.UserSettings()
-            url, user, password = s.get('-nextcloud-url-'), s.get('-nextcloud-user-'), s.get('-nextcloud-password-')
-        except Exception:
-            pass
+    try:
+        s = sg.UserSettings()         # headless (cron): holds nothing, the environment decides
+        url, user, password = s.get('-nextcloud-url-'), s.get('-nextcloud-user-'), s.get('-nextcloud-password-')
+    except Exception:
+        pass
     return (url or os.environ.get('NEXTCLOUD_URL') or None,
             user or os.environ.get('NEXTCLOUD_USER') or None,
             password or os.environ.get('NEXTCLOUD_PASSWORD') or None)

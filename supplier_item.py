@@ -3,7 +3,7 @@ from __future__ import annotations
 import random
 import string
 from typing import TYPE_CHECKING, Any
-import easygui
+from gui import easygui
 import utils
 from api_wrapper import gui_api_wrapper
 from api import Api, LIMIT

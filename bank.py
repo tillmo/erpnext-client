@@ -8,11 +8,11 @@ from doc import Doc
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
 import settings
-import FreeSimpleGUI as sg # type: ignore
+from gui import sg
 import company
 import payment
 import journal
-import easygui # type: ignore
+from gui import easygui
 from numpy import sign
 from collections import defaultdict
 import invoice

@@ -7,7 +7,7 @@ import lead_rules
 import lead_contact
 import utils
 import vcard_export
-import easygui
+from gui import easygui
 import json
 import table
 

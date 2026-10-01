@@ -86,7 +86,13 @@ NEXTCLOUD_URL, NEXTCLOUD_USER and NEXTCLOUD_PASSWORD:
     python3 vcard_export.py --server URL --key KEY --secret SECRET
     python3 vcard_export.py --server URL --key KEY --secret SECRET --apply --create --delete
 
-Without `--apply` it only reports what it would write.
+Without `--apply` it only reports what it would write. `cron/vcard_export.sh` wraps this for a
+cron job on a server: it needs only python3 with `requests` (no GUI - `gui.py` provides headless
+stand-ins when tkinter is missing), takes the credentials from
+`~/.config/erpnext-client/vcard-export.env` (template `cron/vcard-export.env.example`) and is
+meant to run every 15 minutes under `flock`; the crontab line is in the script's header.
+On erpnext.bremer-solidarstrom.de it runs as user `docker` from `~/erpnext-client`, logging to
+`~/logs/vcard-export.log`.
  
 ## reading purchase invoices: e-invoice XML, Claude, fixed parsers
 `purchase_invoice.parse_invoice` tries, in this order:

@@ -12,8 +12,8 @@ from settings import STANDARD_PRICE_LIST, VALIDITY_DATE
 from api_wrapper import gui_api_wrapper
 from api import Api, LIMIT
 import menu
-import easygui
-import FreeSimpleGUI as sg
+from gui import easygui
+from gui import sg
 import prerechnung
 from typing import Any
 
