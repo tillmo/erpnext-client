@@ -14,12 +14,22 @@ sg: Any
 easygui: Any
 
 try:
-    import FreeSimpleGUI as _sg
-    import easygui as _easygui
-    sg, easygui = _sg, _easygui
+    import tkinter  # noqa: F401  - missing only on servers; a desktop without it is not supported
     HEADLESS = False
 except ImportError:
     HEADLESS = True
+
+if not HEADLESS:
+    try:
+        import FreeSimpleGUI as _sg
+        import easygui as _easygui
+    except ImportError as e:
+        # a missing GUI package must not silently become the headless mode: the settings
+        # (server, API key) would then be empty and the client fail with a confusing error
+        raise ImportError("{}. Bitte im Verzeichnis des Clients 'pip install -r requirements.txt' ausführen "
+                          "(seit Oktober 2026 FreeSimpleGUI statt PySimpleGUI).".format(e)) from e
+    sg, easygui = _sg, _easygui
+else:
 
     class HeadlessError(RuntimeError):
         pass
