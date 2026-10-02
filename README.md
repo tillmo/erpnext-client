@@ -92,7 +92,7 @@ stand-ins when tkinter is missing), takes the credentials from
 `~/.config/erpnext-client/vcard-export.env` (template `cron/vcard-export.env.example`) and is
 meant to run every 15 minutes under `flock`; the crontab line is in the script's header.
 On erpnext.bremer-solidarstrom.de it runs as user `docker` from `~/erpnext-client`, logging to
-`~/logs/vcard-export.log`.
+`~/logs/vcard-export.log`, which `cron/logrotate.conf` rotates monthly (twelve months kept).
  
 ## reading purchase invoices: e-invoice XML, Claude, fixed parsers
 `purchase_invoice.parse_invoice` tries, in this order:
