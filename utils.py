@@ -197,6 +197,10 @@ def store_temp_file(data: bytes, ext: str) -> str:
     
 def get_current_location(window: Any) -> tuple[int | None, int | None]:
     import inspect
+    was_closed = getattr(window, 'was_closed', None)
+    if callable(was_closed) and was_closed():
+        # after the user closed the window, Tk is gone: asking would only produce a warning
+        return (None, None)
     if 'more_accurate' in inspect.signature(window.current_location).parameters:
         return window.current_location(more_accurate=True)
 

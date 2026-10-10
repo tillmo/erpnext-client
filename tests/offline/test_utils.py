@@ -260,3 +260,11 @@ class TestMisc:
                 return (5, 5)
         assert utils.get_current_location(Accurate()) == (10, 20)
         assert utils.get_current_location(Inaccurate()) == (None, None)
+
+        class Closed(Accurate):
+            def was_closed(self) -> bool:
+                return True
+
+            def current_location(self, more_accurate: bool = False) -> tuple[int, int]:
+                raise AssertionError("ein geschlossenes Fenster darf nicht befragt werden")
+        assert utils.get_current_location(Closed()) == (None, None)
