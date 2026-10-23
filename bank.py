@@ -175,7 +175,7 @@ class BankTransaction(Doc):
                 party_type: str | None=None) -> dict[str, Any] | None:
         amount = abs(self.doc['unallocated_amount'])
         if inv:
-            amount = min([amount,inv.outstanding])
+            amount = min([amount,abs(inv.outstanding)])      # returns have a negative outstanding amount
             p = inv.payment(self.baccount.e_account,amount,self.date)
         else:
             p = payment.create_payment(is_recv,self.company,
@@ -216,7 +216,7 @@ class BankTransaction(Doc):
                 pass
         account_names = jaccs + account_names
         # find invoices that could match
-        invs.sort(key=lambda inv: abs(inv.outstanding-abs(self.amount)))
+        invs.sort(key=lambda inv: abs(abs(inv.outstanding)-abs(self.amount)))
         inv_texts = list(map(lambda inv: utils.showlist([inv.name,inv.party,inv.reference,inv.outstanding]),invs))
         # find bank transactions in other bank accounts that could match
         filters = {'company':self.company.name,

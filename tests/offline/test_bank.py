@@ -185,6 +185,20 @@ class TestBankTransactionBooking:
         stored = fake_api.get_doc("Bank Transaction", doc["name"])
         assert stored["unallocated_amount"] == 200.0 and stored["status"] == "Pending"
 
+    def test_deposit_for_purchase_return(self, bacc: bank.BankAccount, fake_api: FakeFrappeClient, somiko: Company) -> None:
+        # the supplier refunds a credit note: money comes in, the return invoice is settled
+        doc = add_bt(fake_api, bacc, deposit=83.18, description="Konto bei Ihnen Nr.1626401183 Heckert Solar GmbH")
+        ret = fake_api.add("Purchase Invoice", company=somiko.name, supplier="Heckert", bill_no="1626401183", status="Return",
+                           posting_date="2026-09-11", grand_total=-83.18, outstanding_amount=-83.18, is_return=1, docstatus=1)
+        inv = invoice.Invoice(fake_api.get_doc("Purchase Invoice", ret), False)
+        p = bank.BankTransaction(doc).payment(inv)
+        assert p["payment_type"] == "Receive" and p["paid_amount"] == 83.18
+        assert p["references"][0]["allocated_amount"] == -83.18
+        stored = fake_api.get_doc("Bank Transaction", doc["name"])
+        assert stored["status"] == "Reconciled" and stored["allocated_amount"] == 83.18
+        row = stored["payment_entries"][0]
+        assert (row["payment_document"], row["payment_entry"], row["allocated_amount"]) == ("Payment Entry", p["name"], 83.18)
+
     def test_advance_payment_without_invoice(self, bacc: bank.BankAccount, fake_api: FakeFrappeClient) -> None:
         doc = add_bt(fake_api, bacc, deposit=100.0, description="Anzahlung Auftrag 12345")
         p = bank.BankTransaction(doc).payment(None, is_recv=True, party="Kunde K", party_type="Customer")

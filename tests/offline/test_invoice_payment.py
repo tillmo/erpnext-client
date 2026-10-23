@@ -61,7 +61,7 @@ class TestInvoiceInit:
         d = sinv_doc()
         del d["is_return"]
         inv = invoice.Invoice(d, True)
-        assert not hasattr(inv, "is_return")
+        assert inv.is_return is False
 
 
 class TestInvoicePayment:
@@ -126,7 +126,37 @@ class TestCreatePayment:
     def test_negative_amount_flips_direction(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         p = payment.create_payment(True, somiko, "Bank - SoMiKo", -40.0, "2026-01-01", "Kunde", "Customer", "ref", [])
         assert p["payment_type"] == "Pay" and p["paid_amount"] == 40.0
-        assert p["paid_from"] == "Bank - SoMiKo" and p["paid_to"] == somiko.payable_account
+        # a customer is paid against the receivables (refund), whatever the direction
+        assert p["paid_from"] == "Bank - SoMiKo" and p["paid_to"] == somiko.receivable_account
+
+    def test_supplier_refund_is_received_against_payables(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
+        p = payment.create_payment(True, somiko, "Bank - SoMiKo", 83.18, "2026-10-07", "Heckert", "Supplier", "r", [])
+        assert p["payment_type"] == "Receive"
+        assert p["paid_from"] == somiko.payable_account and p["paid_to"] == "Bank - SoMiKo"
+
+    def test_customer_refund_is_paid_against_receivables(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
+        p = payment.create_payment(False, somiko, "Bank - SoMiKo", 50.0, "2026-10-07", "Kunde", "Customer", "r", [])
+        assert p["payment_type"] == "Pay"
+        assert p["paid_from"] == "Bank - SoMiKo" and p["paid_to"] == somiko.receivable_account
+
+    def test_purchase_return_payment(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
+        # credit note of a supplier, refunded to the bank account: Receive with a negative allocation
+        name = fake_api.add("Purchase Invoice", company=somiko.name, supplier="Heckert", bill_no="G-1", status="Return",
+                            posting_date="2026-09-11", grand_total=-83.18, outstanding_amount=-83.18, is_return=1, docstatus=1)
+        inv = invoice.Invoice(fake_api.get_doc("Purchase Invoice", name), False)
+        p = inv.payment("Bank - SoMiKo", 83.18, "2026-10-07")
+        assert p["payment_type"] == "Receive" and p["paid_amount"] == 83.18
+        assert p["paid_from"] == somiko.payable_account and p["paid_to"] == "Bank - SoMiKo"
+        assert p["references"] == [{"reference_doctype": "Purchase Invoice", "reference_name": name, "allocated_amount": -83.18}]
+        assert p["unallocated_amount"] == 0.0
+
+    def test_sales_return_payment(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
+        name = fake_api.add("Sales Invoice", company=somiko.name, customer="Kunde K", status="Return", custom_ebay=0,
+                            posting_date="2026-09-11", grand_total=-50.0, outstanding_amount=-50.0, is_return=1, docstatus=1)
+        inv = invoice.Invoice(fake_api.get_doc("Sales Invoice", name), True)
+        p = inv.payment("Bank - SoMiKo", 50.0, "2026-10-07")
+        assert p["payment_type"] == "Pay" and p["paid_to"] == somiko.receivable_account
+        assert p["references"][0]["allocated_amount"] == -50.0
 
     def test_exchange_rates_and_company(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         p = payment.create_payment(False, somiko, "Bank - SoMiKo", 10.0, "2026-01-01", "L", "Supplier", "r", [])

@@ -31,8 +31,7 @@ class Invoice(Doc):
         self.status = doc['status']
         self.amount = doc['grand_total']
         self.outstanding = doc['outstanding_amount']
-        if 'is_return' in doc:
-            self.is_return = doc['is_return']
+        self.is_return = bool(doc.get('is_return'))
         if self.is_sales:
             self.reference = doc['name']
             self.party = doc['customer']
@@ -57,13 +56,16 @@ class Invoice(Doc):
             print("Ausstehender Betrag ist 0")
             return None
         ref = self.reference if self.reference else ""
+        # a return (credit note) has a negative outstanding amount: the money flows the other
+        # way and the allocation against it is negative as well
+        sign = -1 if self.outstanding < 0 else 1
         references =  \
             [{'reference_doctype' : 'Sales Invoice' if self.is_sales else 'Purchase Invoice',
               'reference_name' : self.name,
-              'allocated_amount' : amount}]
+              'allocated_amount' : sign * abs(amount)}]
         comp = company.Company.get_company(self.company_name)
-        return payment.create_payment(self.is_sales,comp,account,
-                                      amount,date,self.party,self.party_type,
+        return payment.create_payment(self.is_sales == (sign > 0),comp,account,
+                                      abs(amount),date,self.party,self.party_type,
                                       ref,references)
     
     def use_advance_payment(self,py: Doc) -> None:

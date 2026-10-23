@@ -289,7 +289,7 @@ class FakeFrappeClient:
             doc["total_credit"] = credit
         elif doctype == "Payment Entry":
             paid = doc.get("paid_amount", 0.0)
-            allocated = sum(r.get("allocated_amount", 0.0) for r in doc.get("references", []))
+            allocated = sum(abs(r.get("allocated_amount", 0.0)) for r in doc.get("references", []))
             doc["unallocated_amount"] = round(paid - allocated, 2)
 
     def _server_side(self, doc: dict[str, Any]) -> None:

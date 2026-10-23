@@ -15,13 +15,16 @@ def create_payment(is_recv: bool | None, company: Company, account: str,
     # convert to positive amount, changed payment type, if needed
     is_recv = bool(is_recv) != bool(amount < 0)
     amount = abs(amount)
+    # the party account follows the party, not the direction: a refund from a supplier is
+    # received against the payables, a refund to a customer paid against the receivables
+    party_account = company.payable_account if party_type == 'Supplier' else company.receivable_account
     if is_recv:
-        paid_from: str | None = company.receivable_account
+        paid_from: str | None = party_account
         paid_to: str | None = account
         payment_type = 'Receive'
     else:
         paid_from = account
-        paid_to = company.payable_account
+        paid_to = party_account
         payment_type = 'Pay'
     entry: dict[str, Any] = {'doctype' : 'Payment Entry',
              'title' : party+" "+ref,
