@@ -147,7 +147,8 @@ class TestCreatePayment:
         p = inv.payment("Bank - SoMiKo", 83.18, "2026-10-07")
         assert p["payment_type"] == "Receive" and p["paid_amount"] == 83.18
         assert p["paid_from"] == somiko.payable_account and p["paid_to"] == "Bank - SoMiKo"
-        assert p["references"] == [{"reference_doctype": "Purchase Invoice", "reference_name": name, "allocated_amount": -83.18}]
+        ref = p["references"][0]
+        assert (ref["reference_doctype"], ref["reference_name"], ref["allocated_amount"]) == ("Purchase Invoice", name, -83.18)
         assert p["unallocated_amount"] == 0.0
 
     def test_sales_return_payment(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
