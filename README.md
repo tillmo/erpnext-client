@@ -121,6 +121,11 @@ ERPNext suppliers by VAT id or by name, tolerating legal forms and address suffi
 ERPNext name (`Api.find_supplier`). Claude additionally gets the list of ERPNext supplier names
 as a cached part of the prompt and returns the matching name directly.
 
+## server scripts in ERPNext
+Two rules run in ERPNext itself and are kept as reference copies in `server_scripts/` (see the
+README there): the income account of every sales invoice item follows the business and the VAT of
+the invoice, and purchase invoices with stock items but without stock update are refused.
+
 ## VAT transfers (SKR03)
 Per SKR03 the input VAT accounts (1571, 1576, 1577) and the output VAT accounts (1771, 1776,
 1787) are transferred to 1780 "Umsatzsteuer-Vorauszahlung" at the end of every declaration
