@@ -5,7 +5,7 @@ JOURNAL_LIMIT = 20000   # account rows; the whole history feeds the account sugg
 from typing import Any
 
 from doc import Doc
-from gui import sg
+from gui import sg, easygui
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
 import invoice
@@ -210,9 +210,34 @@ class Company(Doc):
                               fields=bank.BT_FIELDS,
                               filters={'company':self.name,
                                        'status':'Pending'})
+        docs = []
         for bt in bts:
             bt = gui_api_wrapper(Api.api.get_doc,'Bank Transaction',bt['name'])
             if (not 'payment_entries' in bt) or (not bt['payment_entries']):
+                docs.append(bt)
+        # recurring bookings (same counterparty, same amount, always the same account) are booked
+        # in one go after confirmation; everything else goes through the dialog one by one
+        recurring = []
+        for bt in docs:
+            amount = bt['deposit'] if bt['deposit'] else -bt['withdrawal']
+            found = bank.recurring_account(bt['description'] or '',amount,self.journal)
+            if found:
+                recurring.append((bt,found[0],found[1]))
+        booked: set[str] = set()
+        if recurring:
+            texts = ["{} {:>10.2f} €  {}  ->  {}  ({} x)".format(bt['date'],bt['deposit'] if bt['deposit'] else -bt['withdrawal'],
+                                                            (bt['description'] or '')[:60],acc,n)
+                     for bt,acc,n in recurring]
+            msg = "Diese Banktransaktionen sehen aus wie frühere Buchungen (gleicher Zahlungspartner, gleicher Betrag, "\
+                  "immer dasselbe Konto). Angekreuzte werden so gebucht, die anderen einzeln abgefragt."
+            chosen = easygui.multchoicebox(msg,"Wiederkehrende Buchungen",texts,preselect=list(range(len(texts)))) or []
+            for text,(bt,acc,n) in zip(texts,recurring):
+                if text in chosen:
+                    bank.BankTransaction(bt).journal_entry(acc,False)
+                    booked.add(bt['name'])
+            print("{} wiederkehrende Buchungen gebucht".format(len(booked)))
+        for bt in docs:
+            if bt['name'] not in booked:
                 bank.BankTransaction(bt).transfer(sinvs,pinvs)
     def open_bank_transactions(self) -> list[dict[str, Any]]:
         bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',

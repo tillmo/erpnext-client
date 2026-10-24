@@ -248,6 +248,23 @@ class TestSuggestAccounts:
         assert bank.suggest_accounts("Miete", -1.0, [{"account": "X"}, {"user_remark": "Miete"}]) == []
         assert len(bank.suggest_accounts("Miete Humboldtstrasse November", -950.0, journal, limit=1)) == 1
 
+    def test_recurring_account(self) -> None:
+        rent = [{"account": "4210 - Miete und Nebenkosten - SoMiKo", "user_remark": "Miete Lager %s IBAN: DE02120300000000202051" % m,
+                 "debit_in_account_currency": 950.0, "credit_in_account_currency": 0} for m in ("Juli", "August", "September")]
+        bt = "Miete Lager Oktober IBAN: DE02120300000000202051"
+        assert bank.recurring_account(bt, -950.0, rent) == ("4210 - Miete und Nebenkosten - SoMiKo", 3)
+        assert bank.recurring_account(bt, -960.0, rent) is None                       # other amount
+        assert bank.recurring_account(bt, -950.0, rent[:2]) is None                   # too few entries
+        mixed = rent + [{"account": "1525 - Kautionen - SoMiKo", "user_remark": "Kaution IBAN: DE02120300000000202051",
+                         "debit_in_account_currency": 950.0, "credit_in_account_currency": 0}]
+        assert bank.recurring_account(bt, -950.0, mixed) is None                      # not always the same account
+        # without IBAN the cleaned purpose has to be identical
+        fees = [{"account": "4970 - Kontoführung - SoMiKo", "user_remark": "Kontoführung %s" % m, "debit_in_account_currency": 12.5, "credit_in_account_currency": 0}
+                for m in ("07/2026", "08/2026", "09/2026")]
+        assert bank.recurring_account("Kontoführung 10/2026", -12.5, fees) == ("4970 - Kontoführung - SoMiKo", 3)
+        assert bank.recurring_account("Kontoführung Sonderentgelt", -12.5, fees) is None
+        assert bank.recurring_account("", -12.5, fees) is None
+
     def test_unknown_purpose_gives_no_suggestion(self) -> None:
         journal = [{"account": "4210 - Miete und Nebenkosten - SoMiKo", "user_remark": "Miete Humboldtstrasse"}]
         assert bank.suggest_accounts("Spende Solarverein Nord", 50.0, journal) == []
