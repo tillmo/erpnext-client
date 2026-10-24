@@ -84,6 +84,7 @@ class BankAccount(Doc):
 BANK_NOISE = re.compile(r'\b(?:eref|mref|kref|cred|debt|svwz|iban|bic)\s*:?\s*\S+', re.IGNORECASE)
 IBAN_LABELLED = re.compile(r'IBAN:?\s*([A-Z0-9 ]{15,45})', re.IGNORECASE)
 IBAN = re.compile(r'\b([A-Z]{2}\d{2}[A-Z0-9]{11,30})\b')
+IBAN_SPACED = re.compile(r'\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]){11,34}')
 MIN_SUGGESTION_SCORE = 0.4
 
 
@@ -105,8 +106,12 @@ def counterparty_iban(text: str) -> str | None:
         cand = ''.join(tokens)
         if IBAN.fullmatch(cand):
             return cand
-    for cand in IBAN.findall((text or '').upper()):
-        if 'ZZZ' not in cand:
+    for m2 in IBAN_SPACED.finditer((text or '').upper()):
+        tokens = m2.group(0).split()
+        while len(tokens) > 1 and not any(c.isdigit() for c in tokens[-1]):
+            tokens.pop()
+        cand = ''.join(tokens)
+        if IBAN.fullmatch(cand) and 'ZZZ' not in cand:
             return cand
     return None
 
