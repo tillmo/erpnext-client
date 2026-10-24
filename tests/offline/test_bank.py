@@ -214,6 +214,45 @@ class TestBankTransactionBooking:
         assert fake_api.get_doc("Bank Transaction", doc["name"])["status"] == "Pending"
 
 
+class TestSuggestAccounts:
+    def test_clean_purpose_drops_sepa_noise_and_numbers(self) -> None:
+        text = "2609-SEP/BRE/36577 EREF: BRE000000000011132000000016252525 MREF: BRE-36577-1 CRED: DE88ZZZ00000962565 " \
+               "IBAN: DE79370205000008182600 BIC: BFSWDE33XXX StadtAuto Bremen Car-sharing GmbH"
+        assert bank.clean_purpose(text) == "sep/bre/ stadtauto bremen car-sharing gmbh"
+        assert bank.counterparty_iban(text) == "DE79370205000008182600"
+        assert bank.counterparty_iban("Miete Oktober") is None
+        assert bank.counterparty_iban("Spende DE02 1203 0000 0000 2020 51 Danke") == "DE02120300000000202051"
+        assert bank.counterparty_iban("CRED: DE88ZZZ00000962565 Lastschrift") is None
+        assert bank.clean_purpose("") == ""
+
+    def test_ranking_by_similarity_iban_and_amount(self) -> None:
+        journal = [
+            {"account": "4595 - Carsharing - SoMiKo", "user_remark": "2608-SEP/BRE/36577 EREF: X MREF: BRE-36577-1 IBAN: DE79370205000008182600 StadtAuto Bremen Car-sharing GmbH",
+             "debit_in_account_currency": 43.2, "credit_in_account_currency": 0},
+            {"account": "4210 - Miete und Nebenkosten - SoMiKo", "user_remark": "Miete Humboldtstrasse Oktober IBAN: DE02120300000000202051",
+             "debit_in_account_currency": 950.0, "credit_in_account_currency": 0},
+            {"account": "4360 - Versicherungen - SoMiKo", "user_remark": "Beitrag Haftpflicht 2025 IBAN: DE02120300000000202051",
+             "debit_in_account_currency": 120.0, "credit_in_account_currency": 0},
+            {"account": "4390 - sonstige Ausgaben - SoMiKo", "user_remark": "ganz etwas anderes"},
+        ]
+        # same counterparty, new reference numbers: the car-sharing account wins by text and IBAN
+        got = bank.suggest_accounts("2609-SEP/BRE/36577 EREF: Y MREF: BRE-36577-1 IBAN: DE79370205000008182600 StadtAuto Bremen Car-sharing GmbH", -43.2, journal)
+        assert got[0] == "4595 - Carsharing - SoMiKo"
+        assert "4390 - sonstige Ausgaben - SoMiKo" not in got          # below the minimum score
+        # same IBAN for two accounts: the amount decides
+        got = bank.suggest_accounts("Beitrag IBAN: DE02120300000000202051", -120.0, journal)
+        assert got[0] == "4360 - Versicherungen - SoMiKo" and got[1] == "4210 - Miete und Nebenkosten - SoMiKo"
+        got = bank.suggest_accounts("Miete IBAN: DE02120300000000202051", -950.0, journal)
+        assert got[0] == "4210 - Miete und Nebenkosten - SoMiKo"
+        # entries without remark or account are ignored, the limit is kept
+        assert bank.suggest_accounts("Miete", -1.0, [{"account": "X"}, {"user_remark": "Miete"}]) == []
+        assert len(bank.suggest_accounts("Miete Humboldtstrasse November", -950.0, journal, limit=1)) == 1
+
+    def test_unknown_purpose_gives_no_suggestion(self) -> None:
+        journal = [{"account": "4210 - Miete und Nebenkosten - SoMiKo", "user_remark": "Miete Humboldtstrasse"}]
+        assert bank.suggest_accounts("Spende Solarverein Nord", 50.0, journal) == []
+
+
 class TestTransfer:
     def _open_invoices(self, fake_api: FakeFrappeClient, somiko: Company) -> tuple[list[invoice.Invoice], list[invoice.Invoice]]:
         fake_api.add("Sales Invoice", company=somiko.name, customer="Kunde K", status="Unpaid", custom_ebay=0,

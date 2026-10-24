@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-JOURNAL_LIMIT = 100
+JOURNAL_LIMIT = 20000   # account rows; the whole history feeds the account suggestions in bank.py
 
 from typing import Any
 
@@ -85,17 +85,17 @@ class Company(Doc):
             self.set_accounts(self.doc)
         self.leaf_accounts_for_debit = self.leaf_accounts_starting_with_root_type("Income")
         self.leaf_accounts_for_credit = self.leaf_accounts_starting_with_root_type("Expense")
+        # booked journal entries with their counter account (second row): the history from which
+        # bank.suggest_accounts derives the account suggestions for new bank transactions
         self.journal = gui_api_wrapper(Api.api.get_list,
             'Journal Entry',
-            fields=['name','title','company','posting_date','user_remark',
-                'total_debit','total_credit','remark','is_opening',
+            fields=['name','posting_date','user_remark',
                 "`tabJournal Entry Account`.account as account",
                 "`tabJournal Entry Account`.idx as idx",
-                "`tabJournal Entry Account`.cost_center as cost_center",
                 "`tabJournal Entry Account`.debit_in_account_currency as debit_in_account_currency",
                 "`tabJournal Entry Account`.credit_in_account_currency as credit_in_account_currency"
                  ],
-            filters={'company': self.name},
+            filters={'company': self.name, 'docstatus': 1},
             limit_page_length=JOURNAL_LIMIT,
             order_by='posting_date DESC')
         self.journal = [je for je in self.journal if je['idx']==2]

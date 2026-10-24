@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import re
 import utils
 from datetime import datetime
+from difflib import SequenceMatcher
 from doc import Doc
 from api import Api, LIMIT
 from api_wrapper import gui_api_wrapper
@@ -77,6 +79,69 @@ class BankAccount(Doc):
         bank_accounts = BankAccount.baccounts_by_company[comp_name]
         return [ba.name for ba in bank_accounts]
         
+# noise in bank purposes that carries no information about the account: SEPA references,
+# the counterparty's IBAN/BIC (used separately), dates, amounts and other numbers
+BANK_NOISE = re.compile(r'\b(?:eref|mref|kref|cred|debt|svwz|iban|bic)\s*:?\s*\S+', re.IGNORECASE)
+IBAN_LABELLED = re.compile(r'IBAN:?\s*([A-Z0-9 ]{15,45})', re.IGNORECASE)
+IBAN = re.compile(r'\b([A-Z]{2}\d{2}[A-Z0-9]{11,30})\b')
+MIN_SUGGESTION_SCORE = 0.4
+
+
+def clean_purpose(text: str) -> str:
+    """The words of a bank purpose that identify the counterparty and the business."""
+    text = BANK_NOISE.sub(' ', text or '')
+    text = re.sub(r'\d[\d.,/-]*', ' ', text)
+    return ' '.join(text.lower().split())
+
+
+def counterparty_iban(text: str) -> str | None:
+    """The IBAN in a bank purpose: the one labelled 'IBAN:', else any IBAN-like token that is not a
+    SEPA creditor identifier (those contain 'ZZZ')."""
+    m = IBAN_LABELLED.search(text or '')
+    if m:
+        tokens = m.group(1).upper().split()
+        while len(tokens) > 1 and not any(c.isdigit() for c in tokens[-1]):   # a following label such as BIC
+            tokens.pop()
+        cand = ''.join(tokens)
+        if IBAN.fullmatch(cand):
+            return cand
+    for cand in IBAN.findall((text or '').upper()):
+        if 'ZZZ' not in cand:
+            return cand
+    return None
+
+
+def suggest_accounts(description: str, amount: float, journal: list[dict[str, Any]],
+                     limit: int = 5) -> list[str]:
+    """Accounts for a bank transaction, best first, learned from the booked journal entries.
+
+    Every journal entry (purpose in user_remark, counter account in account) scores by the
+    similarity of the cleaned purposes, plus a bonus for the same counterparty IBAN and for the
+    same amount; an account counts with its best entry. Accounts below MIN_SUGGESTION_SCORE
+    are not suggested."""
+    purpose = clean_purpose(description)
+    iban = counterparty_iban(description)
+    amount = abs(amount or 0)
+    best: dict[str, float] = {}
+    for je in journal:
+        remark = je.get('user_remark')
+        if not remark or not je.get('account'):
+            continue
+        if '_clean' not in je:
+            je['_clean'] = clean_purpose(remark)
+            je['_iban'] = counterparty_iban(remark)
+        score = SequenceMatcher(None, purpose, je['_clean']).ratio() if purpose and je['_clean'] else 0.0
+        if iban and je['_iban'] == iban:
+            score += 0.5
+        je_amount = abs((je.get('debit_in_account_currency') or 0) - (je.get('credit_in_account_currency') or 0))
+        if amount and je_amount and abs(je_amount - amount) < 0.01:
+            score += 0.1
+        if score > best.get(je['account'], 0.0):
+            best[je['account']] = score
+    ranked = sorted(best.items(), key=lambda kv: -kv[1])
+    return [account for account, score in ranked if score >= MIN_SUGGESTION_SCORE][:limit]
+
+
 class BankTransaction(Doc):
     date: str
     withdrawal: float
@@ -204,11 +269,7 @@ class BankTransaction(Doc):
         # find accounts that could match, using previous journal entries    
         account_names = list(map(lambda acc: acc['name'],accounts))
         account_names.sort()
-        jaccs = [(je['account'],
-                 utils.similar(self.description,je['user_remark'])) \
-                   for je in self.company.journal if 'user_remark' in je and je['user_remark']]
-        jaccs.sort(key=lambda x: x[1],reverse=True)
-        jaccs = list(set([j for (j,desc) in jaccs[0:5]]))
+        jaccs = suggest_accounts(self.description,self.amount,self.company.journal)
         for j in jaccs:
             try:
                 account_names.remove(j)
