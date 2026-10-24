@@ -101,7 +101,7 @@ class TestBankPipeline:
         assert len(b.transactions) == 2
         assert len(comp.open_bank_transactions()) == 2
 
-        def choose(msg: str, title: str, options: list[str]) -> str:
+        def choose(msg: str, title: str, options: list[str], **kw: Any) -> str:
             if "Miete" in msg:
                 return "4210 - Miete und Nebenkosten - SoMiKo"
             return "8401 - Selbstbauanlagen 19% - SoMiKo"

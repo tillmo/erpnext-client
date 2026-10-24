@@ -86,6 +86,7 @@ IBAN_LABELLED = re.compile(r'IBAN:?\s*([A-Z0-9 ]{15,45})', re.IGNORECASE)
 IBAN = re.compile(r'\b([A-Z]{2}\d{2}[A-Z0-9]{11,30})\b')
 IBAN_SPACED = re.compile(r'\b[A-Z]{2}\d{2}(?:\s?[A-Z0-9]){11,34}')
 MIN_SUGGESTION_SCORE = 0.4
+KEYWORD_BOOST = 0.6          # a matching keyword rule counts like a good textual match
 
 
 def clean_purpose(text: str) -> str:
@@ -116,14 +117,26 @@ def counterparty_iban(text: str) -> str | None:
     return None
 
 
-def suggest_accounts(description: str, amount: float, journal: list[dict[str, Any]],
-                     limit: int = 5) -> list[str]:
-    """Accounts for a bank transaction, best first, learned from the booked journal entries.
+def keyword_account(purpose: str, accounts: list[str] | None) -> str | None:
+    """The account of the first settings.ACCOUNT_KEYWORDS rule matching the cleaned purpose."""
+    if not accounts:
+        return None
+    for pattern, number in settings.ACCOUNT_KEYWORDS:
+        if re.search(pattern, purpose, re.IGNORECASE):
+            for name in accounts:
+                if name.startswith(number + ' - '):
+                    return name
+    return None
 
-    Every journal entry (purpose in user_remark, counter account in account) scores by the
+
+def score_accounts(description: str, amount: float, journal: list[dict[str, Any]],
+                   accounts: list[str] | None = None) -> list[tuple[str, float]]:
+    """Accounts for a bank transaction with their score, best first.
+
+    Every booked journal entry (purpose in user_remark, counter account in account) scores by the
     similarity of the cleaned purposes, plus a bonus for the same counterparty IBAN and for the
-    same amount; an account counts with its best entry. Accounts below MIN_SUGGESTION_SCORE
-    are not suggested."""
+    same amount; an account counts with its best entry. A keyword rule (settings.ACCOUNT_KEYWORDS)
+    adds KEYWORD_BOOST to its account. Accounts below MIN_SUGGESTION_SCORE are dropped."""
     purpose = clean_purpose(description)
     iban = counterparty_iban(description)
     amount = abs(amount or 0)
@@ -143,8 +156,16 @@ def suggest_accounts(description: str, amount: float, journal: list[dict[str, An
             score += 0.1
         if score > best.get(je['account'], 0.0):
             best[je['account']] = score
+    rule = keyword_account(purpose, accounts)
+    if rule:
+        best[rule] = best.get(rule, 0.0) + KEYWORD_BOOST
     ranked = sorted(best.items(), key=lambda kv: -kv[1])
-    return [account for account, score in ranked if score >= MIN_SUGGESTION_SCORE][:limit]
+    return [(account, score) for account, score in ranked if score >= MIN_SUGGESTION_SCORE]
+
+
+def suggest_accounts(description: str, amount: float, journal: list[dict[str, Any]],
+                     limit: int = 5, accounts: list[str] | None = None) -> list[str]:
+    return [account for account, _ in score_accounts(description, amount, journal, accounts)[:limit]]
 
 
 class BankTransaction(Doc):
@@ -274,13 +295,14 @@ class BankTransaction(Doc):
         # find accounts that could match, using previous journal entries    
         account_names = list(map(lambda acc: acc['name'],accounts))
         account_names.sort()
-        jaccs = suggest_accounts(self.description,self.amount,self.company.journal)
-        for j in jaccs:
+        scored = score_accounts(self.description,self.amount,self.company.journal,
+                                [acc['name'] for acc in self.company.leaf_accounts])[:5]
+        suggestion_texts = ["{}   (Vorschlag, {:.0f} %)".format(acc,min(score,1.0)*100) for acc,score in scored]
+        for acc,_ in scored:
             try:
-                account_names.remove(j)
+                account_names.remove(acc)
             except Exception:
                 pass
-        account_names = jaccs + account_names
         # find invoices that could match
         invs.sort(key=lambda inv: abs(abs(inv.outstanding)-abs(self.amount)))
         inv_texts = list(map(lambda inv: utils.showlist([inv.name,inv.party,inv.reference,inv.outstanding]),invs))
@@ -294,11 +316,20 @@ class BankTransaction(Doc):
                               fields=BT_FIELDS,
                               filters=filters,limit_page_length=LIMIT)
         bt_texts = list(map(lambda bt: utils.showlist([bt['name'],bt['deposit'] if bt['deposit'] else -bt['withdrawal'],bt['description'],bt['unallocated_amount']]),bts))
-        # let the user choose between all these
+        # let the user choose between all these: suggestions first, an invoice or bank transaction
+        # with exactly the amount is preselected, otherwise the best suggestion
         title = "Rechnung, Banktransaktion oder Buchungskonto wählen"
         msg = "Bankbuchung:\n"+self.show()+"\n\n"+title+"\n"
-        options = ["Anzahlung"]+bt_texts+inv_texts+account_names
-        choice = easygui.choicebox(msg, title, options)
+        options = suggestion_texts+["Anzahlung"]+bt_texts+inv_texts+account_names
+        preselect = 0
+        exact = [i for i,inv in enumerate(invs) if abs(abs(inv.outstanding)-abs(self.amount)) < 0.005]
+        if exact:
+            preselect = len(suggestion_texts)+1+len(bt_texts)+exact[0]
+        elif bt_texts:
+            preselect = len(suggestion_texts)+1
+        choice = easygui.choicebox(msg, title, options, preselect=preselect)
+        if choice in suggestion_texts:
+            choice = scored[suggestion_texts.index(choice)][0]
         # and process the choice
         if choice=="Anzahlung":
             if self.deposit:

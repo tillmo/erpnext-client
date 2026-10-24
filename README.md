@@ -121,6 +121,18 @@ ERPNext suppliers by VAT id or by name, tolerating legal forms and address suffi
 ERPNext name (`Api.find_supplier`). Claude additionally gets the list of ERPNext supplier names
 as a cached part of the prompt and returns the matching name directly.
 
+## account suggestions for bank transactions
+When a bank transaction is booked against an account, `bank.score_accounts` ranks the accounts of
+the company from the booked journal entries: the purpose is cleaned of SEPA references, IBAN/BIC,
+dates and amounts, compared with the purposes of all earlier entries (the whole history is loaded
+at start), with a bonus for the same counterparty IBAN and the same amount; each account counts
+with its best entry. Keyword rules in `settings.ACCOUNT_KEYWORDS` (regex -> account number, e.g.
+"spende" -> 2502, "mitgliedsbeitrag" -> 4380) add to the score of their account, which covers the
+one-off bookings the history cannot know. The dialog shows the suggestions first with their score
+and preselects an open invoice or bank transaction with exactly the amount, otherwise the best
+suggestion. Backtest on the 2026 entries: 94% first suggestion right, 96% within three (before:
+78%, as only the last 100 account rows were loaded).
+
 ## server scripts in ERPNext
 Two rules run in ERPNext itself and are kept as reference copies in `server_scripts/` (see the
 README there): the income account of every sales invoice item follows the business and the VAT of

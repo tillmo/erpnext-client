@@ -22,6 +22,26 @@ STOCK_ITEM_GROUPS = ['Solarmodul','Balkon-Solarmodule','Wechselrichter','Steckdo
 BUNDLE_ITEM_GROUPS = ['Balkon-Anlage']
 AGGREGATE_ITEMS: dict[str, str] = {'Elektro-Komponenten':'000.100.302','default':'000.100.301'}
 AGGREGATE_ITEM_VALUE = 100.0
+# keyword rules for the account suggestions of bank transactions (bank.score_accounts): the first
+# pattern (regex, case-insensitive) that matches the cleaned purpose boosts the account with this
+# number; specific words come before generic ones. The history decides among equally boosted accounts.
+ACCOUNT_KEYWORDS: list[tuple[str, str]] = [
+    (r'mitgliedsbeitrag', '4380'),
+    (r'\bsbkw\b|subventioniert', '8293'),
+    (r'spende|schenkung', '2502'),
+    (r'tagesgeld', '1220'),
+    (r'kaution|schlüsselpfand|schluesselpfand', '1525'),
+    (r'rücküberweisung|rueckueberweisung|restüberweisung|rückerstattung|rueckerstattung|durchlaufend|\bprer\b', '1590'),
+    (r'\bgehalt|\blohn\b|lohnst', '4120'),
+    (r'ust-bereinigung|umsatzsteuer|finanzkasse|landeshauptkasse|finanzamt|steuernummer', '1780'),
+    (r'kontoführung|kontofuehrung|rechnungsabschluss|entgelte|kontogebühr', '4970'),
+    (r'krankenkasse|rentenversicherung|knappschaft|ersatzkasse|sozialversicherung|barmer|minijob', '4130'),
+    (r'versicherung|allianz|haftpflicht', '4360'),
+    (r'\bmiete\b|nebenkosten', '4210'),
+    (r'cambio|stadtauto|carsharing|car-sharing|fahrtkosten', '4595'),
+    (r'\bebay\b', '1230'),
+    (r'bundesagentur|förder|foerder|zuschuss', '2700'),
+]
 # modules are billed by the pallet (Wagner: "1 Palette Artikelnr. ..."), the stock counts pieces
 PALLET_SIZE = 30
 PALLET_UNITS = ('palette', 'paletten', 'pal', 'xpx')

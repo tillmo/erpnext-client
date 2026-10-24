@@ -272,17 +272,43 @@ class TestTransfer:
         gui.answers["choicebox"] = None
         bank.BankTransaction(doc).transfer(sinvs, pinvs)
         msg, title, options = gui.calls[0][1]
-        assert options[0] == "Anzahlung"
-        assert options[1].startswith(fake_api.get_list("Bank Transaction", filters={"description": "Gegenbuchung"})[0]["name"])
-        assert "-100.0" in options[1]
-        assert options[2].startswith(sinvs[0].name) and "Kunde K" in options[2]
-        # accounts from similar journal entries first, then income accounts
-        assert options[3] in ("8403 - Balkonmodule 19% - SoMiKo", "8401 - Selbstbauanlagen 19% - SoMiKo")
+        # the suggestion from the similar journal entry comes first, with its score; "ganz anders" is no suggestion
+        assert options[0] == "8403 - Balkonmodule 19% - SoMiKo   (Vorschlag, 100 %)"
+        assert options[1] == "Anzahlung"
+        assert options[2].startswith(fake_api.get_list("Bank Transaction", filters={"description": "Gegenbuchung"})[0]["name"])
+        assert "-100.0" in options[2]
+        assert options[3].startswith(sinvs[0].name) and "Kunde K" in options[3]
         income_names = [a["name"] for a in somiko.leaf_accounts_for_debit]
-        assert set(options[3:]) == set(income_names)
-        assert len(options) == 3 + len(income_names)
+        assert options[4:] == sorted(n for n in income_names if n != "8403 - Balkonmodule 19% - SoMiKo")
+        # the sales invoice has exactly the amount: it is preselected
+        assert gui.calls[0][2] == {"preselect": 3}
         assert "Bankbuchung:" in msg
         assert fake_api.calls_of("insert") == []
+
+    def test_choose_suggestion_creates_journal_entry(self, bacc: bank.BankAccount, fake_api: FakeFrappeClient,
+                                                     somiko: Company, gui: EasyguiStub) -> None:
+        somiko.journal.append({"account": "4595 - Carsharing - SoMiKo", "user_remark": "cambio CarSharing Monatsabrechnung"})
+        doc = add_bt(fake_api, bacc, withdrawal=43.2, description="cambio CarSharing Monatsabrechnung EREF: 123")
+        gui.answers["choicebox"] = lambda msg, title, options, **kw: options[0]
+        bank.BankTransaction(doc).transfer([], [])
+        options = gui.calls[0][1][2]
+        assert options[0].startswith("4595 - Carsharing - SoMiKo   (Vorschlag")
+        assert gui.calls[0][2] == {"preselect": 0}            # no invoice, no other bank transaction: best suggestion
+        j = fake_api.get_doc("Journal Entry", fake_api.get_list("Journal Entry")[0]["name"])
+        assert j["accounts"][1]["account"] == "4595 - Carsharing - SoMiKo" and j["accounts"][1]["debit"] == 43.2
+        assert fake_api.get_doc("Bank Transaction", doc["name"])["status"] == "Reconciled"
+
+    def test_keyword_rule_without_history(self, bacc: bank.BankAccount, fake_api: FakeFrappeClient,
+                                          somiko: Company, gui: EasyguiStub) -> None:
+        # the fixture company has no 2502, but 4210 for "Miete": the rule finds the account by its number
+        doc = add_bt(fake_api, bacc, withdrawal=950.0, description="Miete Lager Oktober Neue Vermieterin")
+        gui.answers["choicebox"] = None
+        bank.BankTransaction(doc).transfer([], [])
+        options = gui.calls[0][1][2]
+        assert options[0].startswith("4210 - Miete und Nebenkosten - SoMiKo   (Vorschlag")
+        assert bank.keyword_account("spende lisa", ["2502 - Spenden subv. Balkonmodule - SoMiKo"]) == "2502 - Spenden subv. Balkonmodule - SoMiKo"
+        assert bank.keyword_account("spende lisa", ["4210 - Miete und Nebenkosten - SoMiKo"]) is None
+        assert bank.keyword_account("sbkw aus den spenden", ["2502 - Spenden subv. Balkonmodule - SoMiKo", "8293 - Balkonmodule 0% - SoMiKo"]) == "8293 - Balkonmodule 0% - SoMiKo"
 
     def test_choose_account_creates_journal_entry(self, bacc: bank.BankAccount, fake_api: FakeFrappeClient,
                                                   somiko: Company, gui: EasyguiStub) -> None:
@@ -301,7 +327,7 @@ class TestTransfer:
                                             gui: EasyguiStub) -> None:
         sinvs, pinvs = self._open_invoices(fake_api, somiko)
         doc = add_bt(fake_api, bacc, deposit=100.0, description="Zahlung Kunde")
-        gui.answers["choicebox"] = lambda msg, title, options: options[1]
+        gui.answers["choicebox"] = lambda msg, title, options, **kw: options[1]
         bank.BankTransaction(doc).transfer(sinvs, pinvs)
         pe = fake_api.get_doc("Payment Entry", fake_api.get_list("Payment Entry")[0]["name"])
         assert pe["payment_type"] == "Receive" and pe["party"] == "Kunde K" and pe["paid_amount"] == 100.0
@@ -312,7 +338,7 @@ class TestTransfer:
         fake_api.add("Supplier", supplier_name="Alpha AG")
         doc = add_bt(fake_api, bacc, withdrawal=100.0, description="Vorkasse 998877")
         answers = iter(["Anzahlung", "Alpha AG"])
-        gui.answers["choicebox"] = lambda msg, title, options: next(answers)
+        gui.answers["choicebox"] = lambda msg, title, options, **kw: next(answers)
         bank.BankTransaction(doc).transfer([], [])
         assert gui.calls[1][1][2] == ["Alpha AG", "zeta GmbH"]     # sorted by casefold
         pe = fake_api.get_doc("Payment Entry", fake_api.get_list("Payment Entry")[0]["name"])
@@ -324,7 +350,7 @@ class TestTransfer:
         other = F.make_bank_account(fake_api, somiko, name="Sparda - SoMiKo", iban=F.IBAN_SPARDA, account="Bank2 - SoMiKo")
         other_doc = add_bt(fake_api, other, withdrawal=100.0, description="Gegenbuchung")
         doc = add_bt(fake_api, bacc, deposit=100.0, description="Umbuchung")
-        gui.answers["choicebox"] = lambda msg, title, options: options[1]
+        gui.answers["choicebox"] = lambda msg, title, options, **kw: options[1]
         bank.BankTransaction(doc).transfer([], [])
         assert fake_api.get_doc("Bank Transaction", other_doc["name"])["status"] == "Reconciled"
         assert fake_api.get_doc("Bank Transaction", doc["name"])["status"] == "Reconciled"
