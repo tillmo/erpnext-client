@@ -8,6 +8,7 @@
 #   */15 * * * * flock -n /tmp/vcard-export.lock $HOME/erpnext-client/cron/vcard_export.sh >> $HOME/logs/vcard-export.log 2>&1
 #
 # The log is rotated monthly by cron/logrotate.conf (crontab line in its header).
+# cron/mail_quarantine.sh is the second job on that server (mails that would stall the mail pull).
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="${ERPNEXT_CLIENT_ENV:-$HOME/.config/erpnext-client/vcard-export.env}"

@@ -121,6 +121,15 @@ ERPNext suppliers by VAT id or by name, tolerating legal forms and address suffi
 ERPNext name (`Api.find_supplier`). Claude additionally gets the list of ERPNext supplier names
 as a cached part of the prompt and returns the matching name directly.
 
+## mails that stall the lead import (Frappe 14)
+Frappe 14 stops the whole mail pull when a mail embeds an image Pillow cannot decode ("Truncated
+File Read" in the Error Log), until that mail is moved out of the inbox by hand. `cron/mail_quarantine.py`
+checks the new inbox mails shortly before every pull - inside the ERPNext backend container, with
+the Pillow Frappe uses - and moves mails with a broken embedded image to the folder "Fehlerhaft";
+`cron/mail_quarantine.sh` wraps it for cron (credentials in `~/.config/erpnext-client/mail-quarantine.env`,
+template `cron/mail-quarantine.env.example`, log in `~/logs/mail-quarantine.log`). Frappe 15 catches
+the error itself, so the job can go with the update.
+
 ## account suggestions for bank transactions
 When a bank transaction is booked against an account, `bank.score_accounts` ranks the accounts of
 the company from the booked journal entries: the purpose is cleaned of SEPA references, IBAN/BIC,
