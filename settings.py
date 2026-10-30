@@ -34,6 +34,8 @@ ACCOUNT_KEYWORDS: list[tuple[str, str]] = [
     (r'rücküberweisung|rueckueberweisung|restüberweisung|rückerstattung|rueckerstattung|durchlaufend|\bprer\b', '1590'),
     (r'\bgehalt|\blohn\b|lohnst', '4120'),
     (r'ust-bereinigung|umsatzsteuer|finanzkasse|landeshauptkasse|finanzamt|steuernummer', '1780'),
+    (r'hetzner|hosting|\bdomain|\binternet', '4922'),
+    (r'wartung|homepage|webseite|website|\bsupport', '4806'),
     (r'kontoführung|kontofuehrung|rechnungsabschluss|entgelte|kontogebühr', '4970'),
     (r'krankenkasse|rentenversicherung|knappschaft|ersatzkasse|sozialversicherung|barmer|minijob', '4130'),
     (r'versicherung|allianz|haftpflicht', '4360'),

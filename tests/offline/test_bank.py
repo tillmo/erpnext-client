@@ -326,6 +326,9 @@ class TestTransfer:
         assert bank.keyword_account("spende lisa", ["2502 - Spenden subv. Balkonmodule - SoMiKo"]) == "2502 - Spenden subv. Balkonmodule - SoMiKo"
         assert bank.keyword_account("spende lisa", ["4210 - Miete und Nebenkosten - SoMiKo"]) is None
         assert bank.keyword_account("sbkw aus den spenden", ["2502 - Spenden subv. Balkonmodule - SoMiKo", "8293 - Balkonmodule 0% - SoMiKo"]) == "8293 - Balkonmodule 0% - SoMiKo"
+        accounts = ["4922 - Internet - SoMiKo", "4806 - Wartungskosten für Hard- und Software - SoMiKo"]
+        assert bank.keyword_account("hetzner online gmbh server", accounts) == "4922 - Internet - SoMiKo"
+        assert bank.keyword_account("wartung homepage oktober", accounts) == "4806 - Wartungskosten für Hard- und Software - SoMiKo"
 
     def test_choose_account_creates_journal_entry(self, bacc: bank.BankAccount, fake_api: FakeFrappeClient,
                                                   somiko: Company, gui: EasyguiStub) -> None:
