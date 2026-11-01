@@ -250,11 +250,20 @@ class TestReconcile:
         rent = fake_api.add("Bank Transaction", **F.bank_transaction_doc(bacc.name, withdrawal=980.0, description="Miete Lager Oktober IBAN: DE02120300000000202051"))
         seen = []
         monkeypatch.setattr(bank.BankTransaction, "transfer", lambda self, s, p: seen.append(self.description))
+        # a recurring car-sharing booking with a later date: the checklist is sorted by account, not by date
+        for m in ("Juli", "August", "September"):
+            somiko.journal.append({"account": "4595 - Carsharing - SoMiKo", "user_remark": "cambio %s IBAN: DE79370205000008182600" % m,
+                                   "debit_in_account_currency": 43.2, "credit_in_account_currency": 0})
+        car = fake_api.add("Bank Transaction", **F.bank_transaction_doc(bacc.name, withdrawal=43.2, date="2026-08-01",
+                                                                        description="cambio Oktober IBAN: DE79370205000008182600"))
         gui.answers["multchoicebox"] = lambda msg, title, choices, **kw: list(choices)
         somiko.reconcile_all()
         choices = gui.calls[0][1][2]
-        assert len(choices) == 1 and choices[0].endswith("->  4210 - Miete und Nebenkosten - SoMiKo  (100 %)")
-        assert fake_api.get_doc("Bank Transaction", rent)["status"] == "Reconciled" and seen == []
+        assert len(choices) == 2
+        assert choices[0].endswith("->  4210 - Miete und Nebenkosten - SoMiKo  (100 %)")
+        assert choices[1].endswith("->  4595 - Carsharing - SoMiKo  (3 x)")
+        assert fake_api.get_doc("Bank Transaction", rent)["status"] == "Reconciled"
+        assert fake_api.get_doc("Bank Transaction", car)["status"] == "Reconciled" and seen == []
 
     def test_reconcile_swaps_return_invoices(self, somiko: Company, fake_api: FakeFrappeClient,
                                              monkeypatch: pytest.MonkeyPatch) -> None:
