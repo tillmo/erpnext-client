@@ -24,8 +24,9 @@ AGGREGATE_ITEMS: dict[str, str] = {'Elektro-Komponenten':'000.100.302','default'
 AGGREGATE_ITEM_VALUE = 100.0
 # keyword rules for the account suggestions of bank transactions (bank.score_accounts): the first
 # pattern (regex, case-insensitive) that matches the cleaned purpose boosts the account with this
-# number; specific words come before generic ones. The history decides among equally boosted accounts.
+# number (or, for unnumbered accounts, this account name); specific words come before generic ones. The history decides among equally boosted accounts.
 ACCOUNT_KEYWORDS: list[tuple[str, str]] = [
+    (r'plan international', 'Globale Solidarität'),
     (r'mitgliedsbeitrag', '4380'),
     (r'\bsbkw\b|subventioniert', '8293'),
     (r'spende|schenkung', '2502'),

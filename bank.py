@@ -119,13 +119,15 @@ def counterparty_iban(text: str) -> str | None:
 
 
 def keyword_account(purpose: str, accounts: list[str] | None) -> str | None:
-    """The account of the first settings.ACCOUNT_KEYWORDS rule matching the cleaned purpose."""
+    """The account of the first settings.ACCOUNT_KEYWORDS rule matching the cleaned purpose.
+    A rule names the account by its number ("4210 - ...") or, for the unnumbered accounts of the
+    community companies, by its full account name ("Globale Solidarität - Cafe")."""
     if not accounts:
         return None
-    for pattern, number in settings.ACCOUNT_KEYWORDS:
+    for pattern, target in settings.ACCOUNT_KEYWORDS:
         if re.search(pattern, purpose, re.IGNORECASE):
             for name in accounts:
-                if name.startswith(number + ' - '):
+                if name.startswith(target + ' - ') or name.rsplit(' - ', 1)[0] == target:
                     return name
     return None
 
