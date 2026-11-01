@@ -227,12 +227,12 @@ class TestReconcile:
         new = fake_api.add("Bank Transaction", **F.bank_transaction_doc(bacc.name, deposit=10.0, description="etwas Neues"))
         seen = []
         monkeypatch.setattr(bank.BankTransaction, "transfer", lambda self, s, p: seen.append(self.description))
-        # the user unticks the second rent transaction
-        gui.answers["multchoicebox"] = lambda msg, title, choices, **kw: [choices[0]]
+        # the user unticks the November rent (the list is sorted by account, purpose, date)
+        gui.answers["multchoicebox"] = lambda msg, title, choices, **kw: [c for c in choices if "Oktober" in c]
         somiko.reconcile_all()
         msg, title, choices = gui.calls[0][1]
         assert title == "Eindeutige Buchungen" and len(choices) == 2
-        assert choices[0].endswith("->  4210 - Miete und Nebenkosten - SoMiKo  (3 x)") and "-950.00" in choices[0]
+        assert all(c.endswith("->  4210 - Miete und Nebenkosten - SoMiKo  (3 x)") and "-950.00" in c for c in choices)
         assert gui.calls[0][2] == {"preselect": [0, 1]}
         assert fake_api.get_doc("Bank Transaction", rent)["status"] == "Reconciled"
         j = fake_api.get_doc("Journal Entry", fake_api.get_list("Journal Entry")[0]["name"])
@@ -256,12 +256,18 @@ class TestReconcile:
                                    "debit_in_account_currency": 43.2, "credit_in_account_currency": 0})
         car = fake_api.add("Bank Transaction", **F.bank_transaction_doc(bacc.name, withdrawal=43.2, date="2026-08-01",
                                                                         description="cambio Oktober IBAN: DE79370205000008182600"))
+        # same account and purpose text (apart from numbers), later date: comes after the rent above; a
+        # different purpose on the same account ("Garage") comes before it alphabetically
+        garage = fake_api.add("Bank Transaction", **F.bank_transaction_doc(bacc.name, withdrawal=980.0, date="2026-06-01",
+                                                                           description="Garage Miete Lager Juni IBAN: DE02120300000000202051"))
         gui.answers["multchoicebox"] = lambda msg, title, choices, **kw: list(choices)
         somiko.reconcile_all()
         choices = gui.calls[0][1][2]
-        assert len(choices) == 2
-        assert choices[0].endswith("->  4210 - Miete und Nebenkosten - SoMiKo  (100 %)")
-        assert choices[1].endswith("->  4595 - Carsharing - SoMiKo  (3 x)")
+        assert len(choices) == 3
+        assert "Garage" in choices[0] and choices[0].endswith("->  4210 - Miete und Nebenkosten - SoMiKo  (100 %)")
+        assert "Oktober" in choices[1] and choices[1].endswith("->  4210 - Miete und Nebenkosten - SoMiKo  (100 %)")
+        assert choices[2].endswith("->  4595 - Carsharing - SoMiKo  (3 x)")
+        assert fake_api.get_doc("Bank Transaction", garage)["status"] == "Reconciled"
         assert fake_api.get_doc("Bank Transaction", rent)["status"] == "Reconciled"
         assert fake_api.get_doc("Bank Transaction", car)["status"] == "Reconciled" and seen == []
 

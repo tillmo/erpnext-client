@@ -230,7 +230,7 @@ class Company(Doc):
                 automatic.append((bt,found[0],found[1]))
         booked: set[str] = set()
         if automatic:
-            automatic.sort(key=lambda x: (x[1],x[0]['date']))      # by suggested account, then date
+            automatic.sort(key=lambda x: (x[1],bank.clean_purpose(x[0]['description'] or ''),x[0]['date']))   # account, purpose, date
             texts = ["{} {:>10.2f} €  {}  ->  {}  ({})".format(bt['date'],bt['deposit'] if bt['deposit'] else -bt['withdrawal'],
                                                             (bt['description'] or '')[:60],acc,reason)
                      for bt,acc,reason in automatic]
