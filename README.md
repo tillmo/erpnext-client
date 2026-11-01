@@ -142,10 +142,13 @@ and preselects an open invoice or bank transaction with exactly the amount, othe
 suggestion. Backtest on the 2026 entries: 94% first suggestion right, 96% within three (before:
 78%, as only the last 100 account rows were loaded).
 
-"Banktransaktionen einzeln" first collects the recurring transactions (`bank.recurring_account`:
-at least three earlier entries of the same counterparty, nine of ten on the same account, one of
-them with exactly this amount - rent, insurance, car sharing, fees) and books them in one go after
-a confirmation dialog in which single ones can be unticked; the rest is asked one by one as before.
+"Banktransaktionen einzeln" first collects the transactions that can be booked without asking
+(`bank.automatic_account`): recurring ones (at least three earlier entries of the same counterparty,
+nine of ten on the same account, one of them with exactly this amount - rent, insurance, car
+sharing, fees) and those with a single suggestion rated 100 %. They are booked in one go after a
+confirmation checklist in which single ones can be unticked; the rest is asked one by one as
+before. Backtest on the 2026 entries: 40% recurring (no errors) plus 33% at 100 % (3 errors, all
+manual tax corrections that never come from the bank).
 
 ## server scripts in ERPNext
 Two rules run in ERPNext itself and are kept as reference copies in `server_scripts/` (see the

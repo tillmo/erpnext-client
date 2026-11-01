@@ -215,27 +215,29 @@ class Company(Doc):
             bt = gui_api_wrapper(Api.api.get_doc,'Bank Transaction',bt['name'])
             if (not 'payment_entries' in bt) or (not bt['payment_entries']):
                 docs.append(bt)
-        # recurring bookings (same counterparty, same amount, always the same account) are booked
-        # in one go after confirmation; everything else goes through the dialog one by one
-        recurring = []
+        # recurring bookings (same counterparty, same amount, always the same account) and
+        # transactions with a single suggestion at 100 % are booked in one go after confirmation;
+        # everything else goes through the dialog one by one
+        account_names = [acc['name'] for acc in self.leaf_accounts]
+        automatic = []
         for bt in docs:
             amount = bt['deposit'] if bt['deposit'] else -bt['withdrawal']
-            found = bank.recurring_account(bt['description'] or '',amount,self.journal)
+            found = bank.automatic_account(bt['description'] or '',amount,self.journal,account_names)
             if found:
-                recurring.append((bt,found[0],found[1]))
+                automatic.append((bt,found[0],found[1]))
         booked: set[str] = set()
-        if recurring:
-            texts = ["{} {:>10.2f} €  {}  ->  {}  ({} x)".format(bt['date'],bt['deposit'] if bt['deposit'] else -bt['withdrawal'],
-                                                            (bt['description'] or '')[:60],acc,n)
-                     for bt,acc,n in recurring]
-            msg = "Diese Banktransaktionen sehen aus wie frühere Buchungen (gleicher Zahlungspartner, gleicher Betrag, "\
-                  "immer dasselbe Konto). Angekreuzte werden so gebucht, die anderen einzeln abgefragt."
-            chosen = easygui.multchoicebox(msg,"Wiederkehrende Buchungen",texts,preselect=list(range(len(texts)))) or []
-            for text,(bt,acc,n) in zip(texts,recurring):
+        if automatic:
+            texts = ["{} {:>10.2f} €  {}  ->  {}  ({})".format(bt['date'],bt['deposit'] if bt['deposit'] else -bt['withdrawal'],
+                                                            (bt['description'] or '')[:60],acc,reason)
+                     for bt,acc,reason in automatic]
+            msg = "Diese Banktransaktionen sehen aus wie frühere Buchungen (gleicher Zahlungspartner und Betrag: 'n x'; "\
+                  "einziger Vorschlag mit 100 %). Angekreuzte werden so gebucht, die anderen einzeln abgefragt."
+            chosen = easygui.multchoicebox(msg,"Eindeutige Buchungen",texts,preselect=list(range(len(texts)))) or []
+            for text,(bt,acc,reason) in zip(texts,automatic):
                 if text in chosen:
                     bank.BankTransaction(bt).journal_entry(acc,False)
                     booked.add(bt['name'])
-            print("{} wiederkehrende Buchungen gebucht".format(len(booked)))
+            print("{} eindeutige Buchungen gebucht".format(len(booked)))
         for bt in docs:
             if bt['name'] not in booked:
                 bank.BankTransaction(bt).transfer(sinvs,pinvs)

@@ -228,7 +228,7 @@ class TestReconcile:
         gui.answers["multchoicebox"] = lambda msg, title, choices, **kw: [choices[0]]
         somiko.reconcile_all()
         msg, title, choices = gui.calls[0][1]
-        assert title == "Wiederkehrende Buchungen" and len(choices) == 2
+        assert title == "Eindeutige Buchungen" and len(choices) == 2
         assert choices[0].endswith("->  4210 - Miete und Nebenkosten - SoMiKo  (3 x)") and "-950.00" in choices[0]
         assert gui.calls[0][2] == {"preselect": [0, 1]}
         assert fake_api.get_doc("Bank Transaction", rent)["status"] == "Reconciled"
@@ -237,6 +237,21 @@ class TestReconcile:
         # the unticked and the unknown transaction go through the dialog
         assert seen == ["Miete Lager November IBAN: DE02120300000000202051", "etwas Neues"]
         assert fake_api.get_doc("Bank Transaction", other)["status"] == "Pending"
+
+    def test_reconcile_all_books_single_full_suggestion(self, somiko: Company, fake_api: FakeFrappeClient,
+                                                        monkeypatch: pytest.MonkeyPatch, gui: EasyguiStub) -> None:
+        bacc = F.make_bank_account(fake_api, somiko)
+        # one earlier entry only (not recurring), but same IBAN and a near-identical purpose: a single 100 % suggestion
+        somiko.journal.append({"account": "4210 - Miete und Nebenkosten - SoMiKo", "user_remark": "Miete Lager September IBAN: DE02120300000000202051",
+                               "debit_in_account_currency": 950.0, "credit_in_account_currency": 0})
+        rent = fake_api.add("Bank Transaction", **F.bank_transaction_doc(bacc.name, withdrawal=980.0, description="Miete Lager Oktober IBAN: DE02120300000000202051"))
+        seen = []
+        monkeypatch.setattr(bank.BankTransaction, "transfer", lambda self, s, p: seen.append(self.description))
+        gui.answers["multchoicebox"] = lambda msg, title, choices, **kw: list(choices)
+        somiko.reconcile_all()
+        choices = gui.calls[0][1][2]
+        assert len(choices) == 1 and choices[0].endswith("->  4210 - Miete und Nebenkosten - SoMiKo  (100 %)")
+        assert fake_api.get_doc("Bank Transaction", rent)["status"] == "Reconciled" and seen == []
 
     def test_reconcile_swaps_return_invoices(self, somiko: Company, fake_api: FakeFrappeClient,
                                              monkeypatch: pytest.MonkeyPatch) -> None:

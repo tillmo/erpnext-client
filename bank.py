@@ -169,6 +169,21 @@ def suggest_accounts(description: str, amount: float, journal: list[dict[str, An
     return [account for account, _ in score_accounts(description, amount, journal, accounts)[:limit]]
 
 
+def automatic_account(description: str, amount: float, journal: list[dict[str, Any]],
+                      accounts: list[str] | None = None) -> tuple[str, str] | None:
+    """The account a bank transaction can be booked to without asking, with a short reason, or None:
+    a recurring booking ("3 x"), else the single account the suggestions rate at 100 % ("100 %").
+    Backtest on the 2026 entries: 40% recurring without error, another 33% at 100 % with 3 errors
+    (manual tax corrections) - hence the confirmation checklist in Company.reconcile_all."""
+    recurring = recurring_account(description, amount, journal)
+    if recurring:
+        return recurring[0], '{} x'.format(recurring[1])
+    scored = score_accounts(description, amount, journal, accounts)
+    if scored and scored[0][1] >= 1.0 and (len(scored) == 1 or scored[1][1] < 1.0):
+        return scored[0][0], '100 %'
+    return None
+
+
 def recurring_account(description: str, amount: float, journal: list[dict[str, Any]]) -> tuple[str, int] | None:
     """The account of a recurring booking, with the number of earlier entries, or None.
 

@@ -265,6 +265,19 @@ class TestSuggestAccounts:
         assert bank.recurring_account("Kontoführung Sonderentgelt", -12.5, fees) is None
         assert bank.recurring_account("", -12.5, fees) is None
 
+    def test_automatic_account(self) -> None:
+        rent = [{"account": "4210 - Miete und Nebenkosten - SoMiKo", "user_remark": "Miete Lager %s IBAN: DE02120300000000202051" % m,
+                 "debit_in_account_currency": 950.0, "credit_in_account_currency": 0} for m in ("Juli", "August", "September")]
+        bt = "Miete Lager Oktober IBAN: DE02120300000000202051"
+        assert bank.automatic_account(bt, -950.0, rent) == ("4210 - Miete und Nebenkosten - SoMiKo", "3 x")
+        # other amount: not recurring, but the single suggestion scores 100 % (text + IBAN)
+        assert bank.automatic_account(bt, -980.0, rent) == ("4210 - Miete und Nebenkosten - SoMiKo", "100 %")
+        # two accounts at 100 %: no automatic booking
+        two = rent + [{"account": "1525 - Kautionen - SoMiKo", "user_remark": "Miete Lager Kaution IBAN: DE02120300000000202051",
+                       "debit_in_account_currency": 980.0, "credit_in_account_currency": 0}]
+        assert bank.automatic_account(bt, -980.0, two) is None
+        assert bank.automatic_account("Spende Lisa", 50.0, rent) is None
+
     def test_unknown_purpose_gives_no_suggestion(self) -> None:
         journal = [{"account": "4210 - Miete und Nebenkosten - SoMiKo", "user_remark": "Miete Humboldtstrasse"}]
         assert bank.suggest_accounts("Spende Solarverein Nord", 50.0, journal) == []
