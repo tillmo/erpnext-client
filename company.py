@@ -206,10 +206,13 @@ class Company(Doc):
         Api.load_account_data()
         sinvs = self.get_sales_invoices(True)
         pinvs = self.get_purchase_invoices(True)
+        # without limit_page_length Frappe returns 20 rows only
         bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
                               fields=bank.BT_FIELDS,
                               filters={'company':self.name,
-                                       'status':'Pending'})
+                                       'status':'Pending'},
+                              order_by='date asc',
+                              limit_page_length=LIMIT)
         docs = []
         for bt in bts:
             bt = gui_api_wrapper(Api.api.get_doc,'Bank Transaction',bt['name'])

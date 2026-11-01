@@ -203,6 +203,9 @@ class TestReconcile:
     def test_reconcile_all_only_pending_without_payments(self, somiko: Company, fake_api: FakeFrappeClient,
                                                          monkeypatch: pytest.MonkeyPatch) -> None:
         bacc = F.make_bank_account(fake_api, somiko)
+        for i in range(25):      # more than Frappe's default page of 20, newest first in the fake
+            fake_api.add("Bank Transaction", **F.bank_transaction_doc(bacc.name, deposit=1.0 + i, description="alt %02d" % i,
+                                                                      date="2026-07-%02d" % (i + 1)))
         fake_api.add("Bank Transaction", **F.bank_transaction_doc(bacc.name, deposit=10.0, description="offen"))
         fake_api.add("Bank Transaction", **F.bank_transaction_doc(bacc.name, deposit=10.0, description="verknüpft",
                                                                   payment_entries=[{"payment_entry": "X"}]))
@@ -211,7 +214,7 @@ class TestReconcile:
         seen = []
         monkeypatch.setattr(bank.BankTransaction, "transfer", lambda self, s, p: seen.append(self.description))
         somiko.reconcile_all()
-        assert seen == ["offen"]
+        assert seen == ["alt %02d" % i for i in range(25)] + ["offen"]      # all pending ones, oldest first
 
     def test_reconcile_all_books_recurring_after_confirmation(self, somiko: Company, fake_api: FakeFrappeClient,
                                                               monkeypatch: pytest.MonkeyPatch, gui: EasyguiStub) -> None:
