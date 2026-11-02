@@ -8,7 +8,7 @@ import pytest
 
 import settings
 
-ACCOUNT_RE = re.compile(r"^(\d{4} - )?.+ - (SoMiKo|Laden)$")
+ACCOUNT_RE = re.compile(r"^(\d{4} - )?.+ - (SoMiKo|Laden|Colab-neu)$")
 
 
 def all_account_strings() -> list[str]:
@@ -16,7 +16,7 @@ def all_account_strings() -> list[str]:
 
     def walk(x: object) -> None:
         if isinstance(x, str):
-            if " - " in x and x.rsplit(" - ", 1)[1] in ("SoMiKo", "Laden"):
+            if " - " in x and x.rsplit(" - ", 1)[1] in ("SoMiKo", "Laden", "Colab-neu"):
                 found.append(x)
         elif isinstance(x, dict):
             for v in x.values():
@@ -44,7 +44,7 @@ class TestAccounts:
         assert set(settings.BALANCE_ACCOUNTS) <= companies
 
     def test_accounts_belong_to_their_company_abbreviation(self) -> None:
-        abbr = {"Bremer SolidarStrom": "SoMiKo", "Laden": "Laden"}
+        abbr = {"Bremer SolidarStrom": "SoMiKo", "Laden": "Laden", "Colab-neu": "Colab-neu"}
         for company, accs in settings.TAX_ACCOUNTS.items():
             if company not in abbr:
                 continue

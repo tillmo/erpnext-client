@@ -324,21 +324,28 @@ class TestVatFunctions:
         assert journal.pretax(somiko.name, "2026-04-01", "2026-06-30") == 190.0
 
     def test_unconfigured_company(self, fake_api: FakeFrappeClient, capsys: pytest.CaptureFixture[str]) -> None:
-        assert journal.income("Colab-neu", "a", "b") == {}
-        assert journal.pretax("Colab-neu", "a", "b") == 0.0
+        assert journal.income("Café Leuchtturm", "a", "b") == {}
+        assert journal.pretax("Café Leuchtturm", "a", "b") == 0.0
         assert journal.pretax("Soli e.V.", "a", "b") == 0.0          # configured, but without input tax accounts
-        assert "Keine Ertragskonten für Colab-neu" in capsys.readouterr().out
+        assert "Keine Ertragskonten für Café Leuchtturm" in capsys.readouterr().out
         assert fake_api.calls_of("query_report") == []
 
     def test_vat_declaration_skips_unconfigured_descendants(self, somiko: Company, fake_api: FakeFrappeClient,
                                                             capsys: pytest.CaptureFixture[str]) -> None:
         fake_api.add("Company", **F.company_doc())
-        fake_api.add("Company", **dict(F.company_doc("Colab-neu", "CN"), parent_company=somiko.name))
-        Company(F.company_doc("Colab-neu", "CN"))     # somiko is already registered, init_companies does not load again
+        fake_api.add("Company", **dict(F.company_doc("Café Leuchtturm", "CafeL"), parent_company=somiko.name))
+        Company(F.company_doc("Café Leuchtturm", "CafeL"))  # somiko is already registered, init_companies does not load again
         fake_api.set_report("General ledger", gl_handler({INCOME_ACCOUNTS[somiko.name][19][0]: -500.0}))
         journal.vat_declaration(somiko.name, "2026-02")
         out = capsys.readouterr().out
-        assert "Keine Ertragskonten für Colab-neu" in out and "19 : 500.00" in out
+        assert "Keine Ertragskonten für Café Leuchtturm" in out and "19 : 500.00" in out
+
+    def test_colab_is_configured(self, fake_api: FakeFrappeClient) -> None:
+        accs = INCOME_ACCOUNTS["Colab-neu"]
+        balances = {accs[19][1]: -529.42, TAX_ACCOUNTS["Colab-neu"]["pre_tax_accounts"][0]: 30.34}
+        fake_api.set_report("General ledger", gl_handler(balances))
+        assert journal.income("Colab-neu", "2025-10-01", "2025-12-31") == {19: 529.42}
+        assert journal.pretax("Colab-neu", "2025-10-01", "2025-12-31") == 30.34
 
     def test_pretax_details_only_purchase_invoices(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         acc = TAX_ACCOUNTS[somiko.name]["pre_tax_accounts"][0]

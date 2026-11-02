@@ -129,6 +129,11 @@ TAX_ACCOUNTS: dict[str, dict[str, Any]] = \
                          '1571 - Abziehbare VSt. 7% - Laden'],
    'tax_accounts' : ['1776 - Umsatzsteuer 19% - Laden',
                      '1771 - Umsatzsteuer 7% - Laden']},
+  'Colab-neu':
+  {'tax_pay_account' : '1780 - Umsatzsteuer-Vorauszahlung - Colab-neu',
+   'pre_tax_accounts' : ['1576 - Abziehbare VSt. 19% - Colab-neu',
+                         '1571 - Abziehbare VSt. 7% - Colab-neu'],
+   'tax_accounts' : ['1776 - Umsatzsteuer 19% - Colab-neu']},
   'Soli e.V.':
   {'tax_pay_account' : None,
    'pre_tax_accounts' : [],
@@ -170,5 +175,10 @@ INCOME_ACCOUNTS: dict[str, dict[int, list[str]]] = \
           '8402 - Selbstbausets 19% - SoMiKo',
           '8403 - Balkonmodule 19% - SoMiKo',
           '8404 - Neukund*innen Ökostrom 19% - SoMiKo']},
+  # without 8419: the room use by SolidarStrom is internal to the Verein, not a turnover
+  'Colab-neu':
+    {19: ['8410 - CoLab Vollzeitnutzung 19% - Colab-neu',
+          '8411 - CoLab Teilzeitnutzung 19% - Colab-neu',
+          '8412 - CoLab Community-Mitgliedschaft 19% - Colab-neu']},
   'Soli e.V.': {}
  }
