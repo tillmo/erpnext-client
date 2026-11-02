@@ -209,6 +209,11 @@ class TestGeneralLedgerHelpers:
         assert report.format_GL({"account": "'Total'"})["account"] == "Total"
         assert report.format_GL({"account": "'Closing (Opening + Total)'"})["account"] == "Abschluss (Eröffnung + Total)"
         assert report.format_GL({"account": "Bank", "remarks": "x"}) == {"account": "Bank", "remarks": "x"}
+        # the server returns the summary rows in the user's language
+        assert report.format_GL({"account": "'Eröffnung'"})["account"] == "Eröffnung"
+        assert report.format_GL({"account": "'Summe'"})["account"] == "Total"
+        assert report.format_GL({"account": "'Schließen (Eröffnung + Gesamt)'"})["account"] == \
+            "Abschluss (Eröffnung + Total)"
 
     def test_is_relevat_GL(self) -> None:
         assert report.is_relevat_GL({"debit": 0, "credit": 0, "balance": 0}) is True
@@ -227,6 +232,10 @@ class TestGeneralLedgerHelpers:
         assert report.format_gl({"account": "'Closing (Opening + Total)'"})["posting_date"] == "Abschluss"
         assert report.format_gl({"account": "1234 - Konto - X", "remarks": "r"})["account"] == "1234 "
         assert report.format_gl({"remarks": ""})["remarks"] is None
+        for label, shown in [("'Eröffnung'", "Eröffnung"), ("'Summe'", "Total"),
+                             ("'Schließen (Eröffnung + Gesamt)'", "Abschluss")]:
+            gle = report.format_gl({"account": label})
+            assert gle["posting_date"] == shown and gle["account"] == "" and gle["bold"] == 3
 
     def test_general_ledger_account(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         rows = [{"account": "'Opening'", "debit": 0, "credit": 0, "balance": 10.0, "remarks": "No Remarks"},

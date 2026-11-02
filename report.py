@@ -235,17 +235,22 @@ def build_report(company_name: str,filename: str = "",consolidated: bool = False
     return table.Table(r_data,['account_name']+col_fields,header,title,
                        filename=filename,enable_events=True)
 
+# summary rows of the General Ledger report, in English or in the user's language
+GL_OPENING = ["'Opening'","'Eröffnung'"]
+GL_TOTAL = ["'Total'","'Summe'"]
+GL_CLOSING = ["'Closing (Opening + Total)'","'Schließen (Eröffnung + Gesamt)'"]
+
 def format_GL(r: dict[str, Any]) -> dict[str, Any]:
     if 'remarks' in r:
         if r['remarks'] in ['Keine Anmerkungen','No Remarks']:
             r['remarks'] = ''
-    if r['account'] == "'Opening'":
+    if r['account'] in GL_OPENING:
         r['account'] = 'Eröffnung'
         r['bold'] = 3
-    elif r['account'] == "'Total'":
+    elif r['account'] in GL_TOTAL:
         r['account'] = 'Total'
         r['bold'] = 3
-    elif r['account'] == "'Closing (Opening + Total)'":
+    elif r['account'] in GL_CLOSING:
         r['account'] = 'Abschluss (Eröffnung + Total)'
         r['bold'] = 3
     return r
@@ -289,10 +294,10 @@ def general_ledger_account(company_name: str,account: str) -> table.Table:
     headings = ['Datum','Konto','Soll','Haben','Stand','Gegenkonto',
                 'Bemerkungen','Beleg']
     report_data = [r for r in report['result'] if is_relevat_GL(r)]
-    report_data = keep_first(report_data,["'Opening'"])
+    report_data = keep_first(report_data,GL_OPENING)
     report_data.reverse()
-    report_data = keep_first(report_data,["'Total'"])
-    report_data = keep_first(report_data,["'Closing (Opening + Total)'"])
+    report_data = keep_first(report_data,GL_TOTAL)
+    report_data = keep_first(report_data,GL_CLOSING)
     report_data.reverse()
     report_data = [format_GL(r) for r in report_data]
     return table.Table(report_data,columns,headings,'Hauptbuch für '+account)
@@ -492,7 +497,7 @@ def balance(company: str,accounts: list[str],factor: float,start_date_str: str,e
     r = r['result']
     r[0]['posting_date'] = start_date_str
     r[-1]['posting_date'] = end_date_str
-    r = [adapt(e,factor) for e in r if 'account' in e and 'posting_date' in e and e['account']!="'Total'"]
+    r = [adapt(e,factor) for e in r if 'account' in e and 'posting_date' in e and e['account'] not in GL_TOTAL]
     return r
 
 def balances(company: str,account_areas: dict[str, tuple[list[str], float]]) -> None:
@@ -584,15 +589,15 @@ def format_gl(gle: dict[str, Any]) -> dict[str, Any]:
     if gle.get('remarks'):
         gle['remarks'] = gle['remarks'][:70]
     if 'account' in gle:
-        if gle['account'] == "'Opening'":
+        if gle['account'] in GL_OPENING:
             gle['posting_date'] = 'Eröffnung'
             gle['bold'] = 3
             gle['account'] = ""
-        elif gle['account'] == "'Total'":
+        elif gle['account'] in GL_TOTAL:
             gle['posting_date'] = 'Total'
             gle['bold'] = 3
             gle['account'] = ""
-        elif gle['account'] == "'Closing (Opening + Total)'":
+        elif gle['account'] in GL_CLOSING:
             gle['posting_date'] = 'Abschluss'
             gle['bold'] = 3
             gle['account'] = ""
