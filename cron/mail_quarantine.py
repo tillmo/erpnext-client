@@ -83,8 +83,12 @@ def main() -> int:
     host, user, password = os.environ['IMAP_HOST'], os.environ['IMAP_USER'], os.environ['IMAP_PASSWORD']
     folder = os.environ.get('IMAP_FOLDER') or 'Fehlerhaft'
     last = os.environ.get('LAST_UID') or ''
-    imap = imaplib.IMAP4_SSL(host, int(os.environ.get('IMAP_PORT') or 993))
-    imap.login(user, password)
+    try:
+        imap = imaplib.IMAP4_SSL(host, int(os.environ.get('IMAP_PORT') or 993))
+        imap.login(user, password)
+    except (OSError, imaplib.IMAP4.error) as e:   # usually a transient outage at the provider
+        log('IMAP-Anmeldung bei {} fehlgeschlagen: {}'.format(host, e))
+        return 1
     imap.select('INBOX')
     validity = (imap.response('UIDVALIDITY')[1] or [b''])[0]
     validity = (validity or b'').decode()

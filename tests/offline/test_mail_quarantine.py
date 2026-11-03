@@ -49,3 +49,22 @@ def test_svg_and_decode_header() -> None:
     assert mq.broken_images(mail('<img src="data:image/svg+xml;base64,PHN2Zy8+">')) == []
     assert mq.decode_header("=?utf-8?q?Aw=3A_Balkonkraftwerk?=") == "Aw: Balkonkraftwerk"
     assert mq.decode_header(None) == ""
+
+
+def test_login_failure_is_logged_without_state(monkeypatch, capsys) -> None:
+    import imaplib
+
+    class FailingImap:
+        def __init__(self, host, port):
+            pass
+
+        def login(self, user, password):
+            raise imaplib.IMAP4.error(b"authentication failed")
+
+    monkeypatch.setattr(mq.imaplib, "IMAP4_SSL", FailingImap)
+    for k, v in {"IMAP_HOST": "imap.example.org", "IMAP_USER": "u", "IMAP_PASSWORD": "p"}.items():
+        monkeypatch.setenv(k, v)
+    assert mq.main() == 1
+    out = capsys.readouterr().out
+    assert "IMAP-Anmeldung bei imap.example.org fehlgeschlagen" in out
+    assert "STATE" not in out
