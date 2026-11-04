@@ -150,10 +150,12 @@ confirmation checklist in which single ones can be unticked; the rest is asked o
 before. Backtest on the 2026 entries: 40% recurring (no errors) plus 33% at 100 % (3 errors, all
 manual tax corrections that never come from the bank).
 
-## server scripts in ERPNext
-Two rules run in ERPNext itself and are kept as reference copies in `server_scripts/` (see the
+## server and client scripts in ERPNext
+Three rules run in ERPNext itself and are kept as reference copies in `server_scripts/` (see the
 README there): the income account of every sales invoice item follows the business and the VAT of
-the invoice, and purchase invoices with stock items but without stock update are refused.
+the invoice, purchase invoices with stock items but without stock update are refused, and the
+sales invoice form ticks Balkonmodul when SBKW is ticked, which sets project, stock update, VAT
+and payment terms.
 
 ## VAT transfers (SKR03)
 Per SKR03 the input VAT accounts (1571, 1576, 1577) and the output VAT accounts (1771, 1776,
