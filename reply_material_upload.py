@@ -36,8 +36,9 @@ def upload(path: str) -> dict[str, Any]:
     for old in Api.api.get_list('File', filters={'file_name': file_name, 'folder': FOLDER, 'is_private': 1},
                                 fields=['name'], limit_page_length=10):
         Api.api.delete('File', old['name'])
+    headers = {k: v for k, v in Api.api.headers.items() if k.lower() != 'content-type'}   # multipart, not JSON
     with open(path, 'rb') as f:
-        response = Api.api.session.post(Api.api.url + '/api/method/upload_file', headers=Api.api.headers,
+        response = Api.api.session.post(Api.api.url + '/api/method/upload_file', headers=headers,
                                         data={'is_private': 1, 'folder': FOLDER, 'file_name': file_name},
                                         files={'file': (file_name, f)})
     response.raise_for_status()
