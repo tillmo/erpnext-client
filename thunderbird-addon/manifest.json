@@ -1,0 +1,28 @@
+{
+  "manifest_version": 2,
+  "name": "ERPNext Antwortentwurf",
+  "description": "Entwirft mit Claude eine Antwort auf die angezeigte Mail: Verlauf aus ERPNext, Wissensdatei und frühere Antworten des Teams.",
+  "version": "0.1.0",
+  "author": "Bremer SolidarStrom",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "antwortentwurf@bremer-solidarstrom.de",
+      "strict_min_version": "128.0"
+    }
+  },
+  "icons": { "64": "icon.svg" },
+  "permissions": [
+    "messagesRead",
+    "compose",
+    "storage",
+    "notifications",
+    "https://api.anthropic.com/*"
+  ],
+  "optional_permissions": [ "https://*/*", "http://*/*" ],
+  "background": { "page": "background.html" },
+  "options_ui": { "page": "options.html", "open_in_tab": true },
+  "message_display_action": {
+    "default_title": "Antwort entwerfen",
+    "default_icon": "icon.svg"
+  }
+}

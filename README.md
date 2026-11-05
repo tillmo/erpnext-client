@@ -193,6 +193,15 @@ the own earlier replies as examples), optional name for the closing, Thunderbird
 knowledge file and the corpus come from the private mytools repository, cloned as `mytools/`
 inside the client directory.
 
+## Thunderbird add-on: reply drafts without the client
+`thunderbird-addon/` is a MailExtension with the same logic as "Antwort entwerfen": a button in
+the message header fetches the conversation with the sender from ERPNext, the knowledge file and
+the reply corpus (private files in the ERPNext folder "Home/Antworten", uploaded with
+`reply_material_upload.py`), asks Claude and opens the draft as a proper reply (In-Reply-To,
+quote and signature by Thunderbird). It needs only Thunderbird, an ERPNext API key and a Claude
+key, see `thunderbird-addon/README.md` (German, for the team). `thunderbird-addon/build.sh`
+packs the `.xpi`; `node --test thunderbird-addon/test/material.test.mjs` tests the logic.
+
 ## VAT transfers (SKR03)
 Per SKR03 the input VAT accounts (1571, 1576, 1577) and the output VAT accounts (1771, 1776,
 1787) are transferred to 1780 "Umsatzsteuer-Vorauszahlung" at the end of every declaration

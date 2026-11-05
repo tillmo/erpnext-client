@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>ERPNext Antwortentwurf – Einstellungen</title>
+<style>
+  body { font-family: sans-serif; max-width: 42em; margin: 2em auto; padding: 0 1em; }
+  label { display: block; margin-top: 1em; font-weight: bold; }
+  input { width: 100%; box-sizing: border-box; padding: .4em; font-size: 1em; }
+  small { color: #555; }
+  button { margin-top: 1.5em; margin-right: .5em; padding: .5em 1em; font-size: 1em; }
+  #status { margin-top: 1em; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<h1>ERPNext Antwortentwurf</h1>
+<p>Der Knopf „Antwort entwerfen“ in der Nachrichtenansicht holt den Mailverlauf aus ERPNext, die Wissensdatei und
+frühere Antworten des Teams und lässt Claude eine Antwort entwerfen, die als Antwort-Mail geöffnet wird.</p>
+
+<label for="server">ERPNext-Server</label>
+<input id="server" placeholder="https://erpnext.bremer-solidarstrom.de">
+<label for="apiKey">ERPNext API-Schlüssel</label>
+<input id="apiKey">
+<small>In ERPNext unter „Meine Einstellungen – API-Zugang“ erzeugen (API Key und API Secret).</small>
+<label for="apiSecret">ERPNext API-Secret</label>
+<input id="apiSecret" type="password">
+<label for="claudeKey">Anthropic API-Schlüssel</label>
+<input id="claudeKey" type="password">
+<label for="model">Claude-Modell</label>
+<input id="model" placeholder="claude-opus-5-5">
+<label for="sender">Eigene Absenderadresse</label>
+<input id="sender" placeholder="vorname.nachname@bremer-solidarstrom.de">
+<small>Wählt die eigenen früheren Antworten als Beispiele.</small>
+<label for="name">Vorname für die Grußformel</label>
+<input id="name" placeholder="leer: aus der Adresse">
+
+<button id="save">Speichern</button>
+<button id="test">Verbindung testen</button>
+<button id="reload">Wissensdatei neu laden</button>
+<div id="status"></div>
+<script type="module" src="options.js"></script>
+</body>
+</html>
