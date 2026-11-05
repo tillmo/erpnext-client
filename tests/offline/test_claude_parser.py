@@ -59,7 +59,7 @@ class TestConfiguration:
         assert claude_parser.api_key() == "env-key"
         user_settings["-claude-key-"] = "settings-key"
         assert claude_parser.api_key() == "settings-key" and claude_parser.configured()
-        assert claude_parser.model() == "claude-opus-5"
+        assert claude_parser.model() == "claude-opus-5-5"
         user_settings["-claude-model-"] = "claude-sonnet-5"
         assert claude_parser.model() == "claude-sonnet-5"
 
@@ -71,7 +71,7 @@ class TestExtract:
                                   suppliers=["Krannich Solar GmbH & Co KG", "Muster Solartechnik GmbH"])
         assert d["source"] == "claude" and d["problems"] == [] and d["bill_no"] == "2026-0815"
         req = client.requests[0]
-        assert req["model"] == "claude-opus-5" and req["output_config"]["format"]["schema"] is claude_parser.SCHEMA
+        assert req["model"] == "claude-opus-5-5" and req["output_config"]["format"]["schema"] is claude_parser.SCHEMA
         # rules first, then the cached supplier list
         assert req["system"][0]["text"] == claude_parser.SYSTEM and "cache_control" not in req["system"][0]
         assert "Krannich Solar GmbH & Co KG\nMuster Solartechnik GmbH" in req["system"][1]["text"]
