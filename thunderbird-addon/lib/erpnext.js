@@ -32,8 +32,9 @@ export class ErpNext {
     return (await this.get('/api/method/frappe.auth.get_logged_user')).message;
   }
 
-  // The last mails exchanged with the address (sent by or to it), oldest first.
-  async conversation(address, limit = THREAD_MAILS) {
+  // The last mails exchanged with the address (sent by or to it), oldest first; with `until`
+  // only mails up to that date, so that a reply to an older mail does not use what came later.
+  async conversation(address, limit = THREAD_MAILS, until = '') {
     const common = { order_by: 'communication_date desc', limit_page_length: String(limit) };
     const sent = await this.getList('Communication', FIELDS,
       [['communication_type', '=', 'Communication'], ['sender', 'like', `%${address}%`]], common);
@@ -41,7 +42,15 @@ export class ErpNext {
       [['communication_type', '=', 'Communication'], ['recipients', 'like', `%${address}%`]], common);
     const byName = new Map();
     for (const m of [...sent, ...received]) byName.set(m.name, m);
-    return [...byName.values()].sort((a, b) => (a.communication_date || '').localeCompare(b.communication_date || '')).slice(-limit);
+    let ordered = [...byName.values()].sort((a, b) => (a.communication_date || '').localeCompare(b.communication_date || ''));
+    if (until) ordered = ordered.filter(m => (m.communication_date || '') <= until);
+    return ordered.slice(-limit);
+  }
+
+  // Mails of the address newer than the answered one: the user should know before replying.
+  async laterMails(address, after) {
+    const all = await this.conversation(address);
+    return all.filter(m => (m.communication_date || '') > after && (m.sender || '').toLowerCase().includes(address));
   }
 
   // Private file by name in the material folder: {file_url, modified} or null.

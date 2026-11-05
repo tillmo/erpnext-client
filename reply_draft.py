@@ -65,7 +65,9 @@ mit Adresse (die fügt Thunderbird an).
 steht, formulierst du als Rückfrage oder markierst es mit [bitte prüfen].
 - Beantworte alles, was in der Mail gefragt wird, und frage nach, was das Team üblicherweise braucht.
 - Kurz und konkret, Aufzählungen bei mehreren Punkten, keine Floskelketten.
-- Jeder Absatz ist eine Zeile; Absätze werden durch eine Leerzeile getrennt. Keine Zeilenumbrüche innerhalb eines Absatzes."""
+- Jeder Absatz ist eine Zeile; Absätze werden durch eine Leerzeile getrennt. Keine Zeilenumbrüche innerhalb eines Absatzes.
+- Wenn aus der Mail nicht klar hervorgeht, was die Person will, deute nichts hinein und unterstelle nichts: frage \
+freundlich nach, worum es geht. Keine Absage auf Verdacht."""
 
 
 # ---- knowledge file ---------------------------------------------------------------------------
@@ -159,8 +161,9 @@ def recent_mails(days: int = RECENT_DAYS) -> list[dict[str, Any]]:
     return out[:MAX_CHOICES]
 
 
-def conversation(addr: str, limit: int = THREAD_MAILS) -> list[dict[str, Any]]:
-    """The last mails exchanged with the address (sent by or to it), oldest first."""
+def conversation(addr: str, limit: int = THREAD_MAILS, until: str = '') -> list[dict[str, Any]]:
+    """The last mails exchanged with the address (sent by or to it), oldest first; with ``until``
+    only mails up to that date, so that a reply to an older mail does not use what came later."""
     sent = Api.api.get_list('Communication', fields=reply_corpus.FIELDS,
                             filters={'communication_type': 'Communication', 'sender': ['like', '%' + addr + '%']},
                             order_by='communication_date desc', limit_page_length=limit)
@@ -168,7 +171,15 @@ def conversation(addr: str, limit: int = THREAD_MAILS) -> list[dict[str, Any]]:
                                 filters={'communication_type': 'Communication', 'recipients': ['like', '%' + addr + '%']},
                                 order_by='communication_date desc', limit_page_length=limit)
     mails = {m['name']: m for m in sent + received}
-    return sorted(mails.values(), key=lambda m: m.get('communication_date') or '')[-limit:]
+    ordered = sorted(mails.values(), key=lambda m: m.get('communication_date') or '')
+    if until:
+        ordered = [m for m in ordered if (m.get('communication_date') or '') <= until]
+    return ordered[-limit:]
+
+
+def later_mails(addr: str, after: str) -> list[dict[str, Any]]:
+    """Mails of the address newer than the answered one: the user should know before replying."""
+    return [m for m in conversation(addr) if (m.get('communication_date') or '') > after and address(m) == addr]
 
 
 def choice_text(m: dict[str, Any]) -> str:
@@ -327,9 +338,12 @@ def draft_reply() -> None:
     if not choice:
         return
     mail = mails[texts.index(choice)]
-    thread = conversation(address(mail))
+    when = mail.get('communication_date') or ''
+    thread = conversation(address(mail), until=when)
     if all(m['name'] != mail['name'] for m in thread):
         thread.append(mail)
+    for m in later_mails(address(mail), when):
+        print('Achtung: neuere Mail dieses Absenders vom {}: {}'.format((m.get('communication_date') or '')[:16], m.get('subject') or ''))
     print('Entwurf für {} ({} Mails im Verlauf, {} Beispiele im Korpus) ...'.format(
         address(mail), len(thread), len(corpus)))
     try:

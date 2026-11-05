@@ -31,9 +31,21 @@ async function displayedMail(tab) {
     sender: header.author,
     sender_full_name: nameOf(header.author),
     subject: header.subject,
-    communication_date: new Date(header.date).toISOString().replace('T', ' ').slice(0, 19),
+    communication_date: localDateTime(new Date(header.date)),      // ERPNext stores server-local time
     content: bodyOf(full),
   };
+}
+
+function localDateTime(d) {
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+function sameMail(m, mail) {
+  // The ERPNext copy of the displayed mail: same sender, received within two minutes.
+  const t = Date.parse((m.communication_date || '').replace(' ', 'T'));
+  return addressOf(m.sender) === addressOf(mail.sender) &&
+    Math.abs(t - Date.parse(mail.communication_date.replace(' ', 'T'))) < 120000;
 }
 
 function bodyOf(part) {
@@ -54,7 +66,12 @@ async function draft(tab) {
   const erp = new ErpNext(s.server, s.apiKey, s.apiSecret);
   const material = await loadMaterial(erp, storage);
   const knowledge = new Knowledge(material.knowledgeText);
-  const thread = await erp.conversation(address);
+  const thread = (await erp.conversation(address, undefined, mail.communication_date)).filter(m => !sameMail(m, mail));
+  const later = await erp.laterMails(address, mail.communication_date);
+  if (later.length) {
+    await notify(`Neuere Mail dieses Absenders vom ${later[later.length - 1].communication_date.slice(0, 16)}: ` +
+      `${later[later.length - 1].subject || ''}`, 'Hinweis');
+  }
   const request = claudeRequest(s.model, knowledge, mail, thread, material.corpus || [], s.sender, s.name);
   const result = await complete(s.claudeKey, request);
   const composeTab = await messenger.compose.beginReply(mail.id, 'replyToSender');

@@ -89,6 +89,9 @@ class TestMails:
         fake_api.add('Communication', **comm('c3', 'other@example.org', '2026-03-03 10:00:00'))
         thread = rd.conversation('anna@example.org')
         assert [m['name'] for m in thread] == ['c1', 'c2']
+        assert [m['name'] for m in rd.conversation('anna@example.org', until='2026-03-01 10:00:00')] == ['c1']
+        fake_api.add('Communication', **comm('c4', 'anna@example.org', '2026-03-05 10:00:00', subject='Nachtrag'))
+        assert [m['name'] for m in rd.later_mails('anna@example.org', '2026-03-01 10:00:00')] == ['c4']
         text = rd.conversation_text(thread)
         assert 'Absender*in (anna@example.org) am 2026-03-01' in text and 'Team (Mia Muster) am 2026-03-02' in text
 
@@ -161,7 +164,9 @@ class TestDraftReply:
         arg = opened[0][2]
         assert arg.startswith("from='{}',to='anna@example.org',subject='Re: Balkonkraftwerk',format=html,body='<p>Hallo Anna,<br>ja.<br>LG Mia</p>".format(TEAM))
         assert '<blockquote type="cite">Hallo, was kostet ein Balkonkraftwerk?</blockquote>' in arg
-        assert 'Entwurf in Thunderbird geöffnet: anna@example.org - Re: Balkonkraftwerk' in capsys.readouterr().out
+        out = capsys.readouterr().out
+        assert 'Entwurf in Thunderbird geöffnet: anna@example.org - Re: Balkonkraftwerk' in out
+        assert 'Achtung' not in out
 
     def test_missing_settings(self, user_settings: UserSettings, capsys: pytest.CaptureFixture[str]) -> None:
         user_settings['-reply-from-'] = ''

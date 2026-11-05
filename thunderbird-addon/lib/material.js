@@ -32,7 +32,9 @@ mit Adresse (die fügt Thunderbird an).
 steht, formulierst du als Rückfrage oder markierst es mit [bitte prüfen].
 - Beantworte alles, was in der Mail gefragt wird, und frage nach, was das Team üblicherweise braucht.
 - Kurz und konkret, Aufzählungen bei mehreren Punkten, keine Floskelketten.
-- Jeder Absatz ist eine Zeile; Absätze werden durch eine Leerzeile getrennt. Keine Zeilenumbrüche innerhalb eines Absatzes.`;
+- Jeder Absatz ist eine Zeile; Absätze werden durch eine Leerzeile getrennt. Keine Zeilenumbrüche innerhalb eines Absatzes.
+- Wenn aus der Mail nicht klar hervorgeht, was die Person will, deute nichts hinein und unterstelle nichts: frage \
+freundlich nach, worum es geht. Keine Absage auf Verdacht.`;
 
 // ---- addresses -------------------------------------------------------------------------------
 export function addressOf(text) {
