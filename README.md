@@ -168,6 +168,16 @@ out. The pairs, with author, date, lead, addressee and supplier, go to
 material for drafting replies in the team's words: the most similar earlier pairs serve as
 examples in the prompt. First run on 2026-11-05: 4245 pairs from 7506 team mails since 2024.
 
+## knowledge file for replies: drafted by Claude from the corpus
+`reply_knowledge.py` sends a stratified sample of the corpus (default 250 pairs since 2025, no
+author above 70 %, 15 % supplier pairs) to Claude and writes `mytools/reply-knowledge.md`: tone
+and form per author, facts and standard details with the date they stem from, model answers per
+kind of request, what the team asks back, and a checklist of outdated or contradictory points.
+A draft that hits the output limit is continued automatically (`--resume` continues an earlier
+cut-off file). Greeting lines in model answers are reduced to "[Vorname]"; the team reads the
+draft, corrects it and removes any remaining personal detail before it is used. The first draft
+(2026-11-05, 250 pairs, two rounds) cost about 390k input and 38k output tokens.
+
 ## VAT transfers (SKR03)
 Per SKR03 the input VAT accounts (1571, 1576, 1577) and the output VAT accounts (1771, 1776,
 1787) are transferred to 1780 "Umsatzsteuer-Vorauszahlung" at the end of every declaration
