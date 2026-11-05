@@ -178,6 +178,21 @@ cut-off file). Greeting lines in model answers are reduced to "[Vorname]"; the t
 draft, corrects it and removes any remaining personal detail before it is used. The first draft
 (2026-11-05, 250 pairs, two rounds) cost about 390k input and 38k output tokens.
 
+## reply drafts in Thunderbird
+"Lead - Antwort entwerfen" (`reply_draft.py`) offers the newest incoming mail of every external
+sender of the last three weeks. For the chosen mail the client collects the conversation with that
+sender from ERPNext (mails sent by or to the address, quotes and signatures stripped), the two or
+three model answers of the knowledge file that match the request and the four most similar pairs
+of the reply corpus, and asks Claude for the reply in the user's words. The draft opens as a new
+mail in Thunderbird (`thunderbird -compose` with recipient, subject, the text as HTML
+paragraphs in the standard font, and the quoted original) and is edited and sent there;
+Thunderbird's command line cannot set In-Reply-To, so the reply threads by subject. The stable parts of the knowledge file (tone, facts, what to ask back)
+go as a cached system prompt, so a draft costs roughly 25k input tokens, a few cents. Settings
+under "Einstellungen - Antworten": own sender address (the Thunderbird identity; it also selects
+the own earlier replies as examples), optional name for the closing, Thunderbird program. The
+knowledge file and the corpus come from the private mytools repository, cloned as `mytools/`
+inside the client directory.
+
 ## VAT transfers (SKR03)
 Per SKR03 the input VAT accounts (1571, 1576, 1577) and the output VAT accounts (1771, 1776,
 1787) are transferred to 1780 "Umsatzsteuer-Vorauszahlung" at the end of every declaration

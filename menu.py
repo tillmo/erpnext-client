@@ -6,6 +6,7 @@ from typing import Any
 import utils
 from gui import sg
 import report
+import reply_draft
 import company
 import bank
 from invoice import Invoice, accrual
@@ -232,6 +233,23 @@ def event_handler(event: Any,window: sg.Window) -> str:
             user_settings['-nextcloud-password-'] = values['-password-'].strip()
             print("Neue Einstellung gespeichert" if vcard_export.configured()
                   else "Nextcloud-Zugang unvollständig: der vCard-Export bleibt aus")
+        window1.close()
+    elif event == 'Antworten':
+        layout = [  [sg.Text('Eigene Absenderadresse (Thunderbird-Identität, wählt auch die eigenen Beispielantworten)')],
+                    [sg.Input(default_text = user_settings['-reply-from-'] or '', k='-from-', size=(70,1))],
+                    [sg.Text('Name für die Grußformel (leer: aus der Adresse)')],
+                    [sg.Input(default_text = user_settings['-reply-name-'] or '', k='-name-', size=(70,1))],
+                    [sg.Text('Thunderbird-Programm (leer: thunderbird bzw. Standardpfad unter Windows)')],
+                    [sg.Input(default_text = user_settings['-thunderbird-'] or '', k='-thunderbird-', size=(70,1))],
+                    [sg.Button('Speichern')] ]
+        window1 = sg.Window("Einstellungen für Antwortentwürfe", layout, finalize=True)
+        window1.bring_to_front()
+        event, values = window1.read()
+        if event == 'Speichern' and values:
+            user_settings['-reply-from-'] = values['-from-'].strip()
+            user_settings['-reply-name-'] = values['-name-'].strip()
+            user_settings['-thunderbird-'] = values['-thunderbird-'].strip()
+            print("Neue Einstellung gespeichert")
         window1.close()
     elif event == 'Claude':
         layout = [  [sg.Text('Anthropic API key für die Rechnungserkennung mit Claude')],
@@ -718,6 +736,8 @@ def event_handler(event: Any,window: sg.Window) -> str:
         vcard_export.export_all(apply=True, create=True, delete=True)
     elif event == 'vCards exportieren':
         vcard_export.export_all(apply=True, create=True, delete=True)
+    elif event == 'Antwort entwerfen':
+        reply_draft.draft_reply()
     elif event == 'Zahlungen für EBay-Rechnungen':
         sales_invoice.ebay_sales(user_settings['-company-'],
                                  user_settings['-buchen-'])
@@ -773,8 +793,8 @@ def menus() -> bool:
                 ['Bereich', company.Company.all()], 
                 ['Steuer', ['Einnahmen nach Steuersätzen umverteilen','USt-Voranmeldung','USt-Buchungen',
                             'USt-Rechnungen zusammenstellen','EK-Rechnungen nach Konto']],
-                ['Lead',['Leads bearbeiten', 'Leadübersicht', 'Kontaktdaten nachtragen', 'vCards exportieren']],
-                ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Claude', 'Nextcloud', 'Update']], 
+                ['Lead',['Leads bearbeiten', 'Leadübersicht', 'Kontaktdaten nachtragen', 'vCards exportieren', 'Antwort entwerfen']],
+                ['&Einstellungen', ['Daten neu laden','Sofort buchen','&ERPNext-Server', 'Claude', 'Nextcloud', 'Antworten', 'Update']], 
                 ['&Hilfe', ['Hilfe Server', 'Hilfe Banktransaktionen', 'Hilfe Rechnungen', 'Hilfe Buchen', 'Über']], ]
 
 
