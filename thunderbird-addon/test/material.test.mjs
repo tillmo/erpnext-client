@@ -84,6 +84,7 @@ test('prompt and request', () => {
 
 test('draft html', () => {
   assert.equal(m.draftHtml('Hallo Anna,\n\nja & nein.\n- a\n\nLG\nMia'), '<p>Hallo Anna,</p><p>ja &amp; nein.<br>- a</p><p>LG<br>Mia</p>');
+  assert.equal(m.hintHtml('a < b'), '<p style="color:#b00000;border:1px solid #b00000;padding:.4em">a &lt; b</p>');
 });
 
 test('material cache', async () => {

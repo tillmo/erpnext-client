@@ -222,6 +222,11 @@ export function escapeHtml(s) {
   return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// A visible hint at the top of the draft, to be deleted before sending.
+export function hintHtml(text) {
+  return '<p style="color:#b00000;border:1px solid #b00000;padding:.4em">' + escapeHtml(text) + '</p>';
+}
+
 export function draftHtml(text) {
   return text.trim().split(/\n\s*\n/).map(block => '<p>' + escapeHtml(block).replace(/\n/g, '<br>') + '</p>').join('');
 }

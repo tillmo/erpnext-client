@@ -3,12 +3,16 @@
 
 import { ErpNext, loadMaterial } from './lib/erpnext.js';
 import { complete, usageText, DEFAULT_MODEL } from './lib/claude.js';
-import { Knowledge, claudeRequest, draftHtml, addressOf, nameOf, isExternal, nameFromAddress } from './lib/material.js';
+import { Knowledge, claudeRequest, draftHtml, hintHtml, addressOf, nameOf, isExternal, nameFromAddress } from './lib/material.js';
 
 const storage = messenger.storage.local;
 
 async function notify(message, title = 'Antwort entwerfen') {
-  await messenger.notifications.create({ type: 'basic', iconUrl: 'icon.svg', title, message });
+  try {
+    await messenger.notifications.create({ type: 'basic', iconUrl: 'icon.svg', title, message });
+  } catch (e) {
+    console.warn('Benachrichtigung fehlgeschlagen', e);
+  }
 }
 
 async function settings() {
@@ -68,16 +72,22 @@ async function draft(tab) {
   const knowledge = new Knowledge(material.knowledgeText);
   const thread = (await erp.conversation(address, undefined, mail.communication_date)).filter(m => !sameMail(m, mail));
   const later = await erp.laterMails(address, mail.communication_date);
+  let hint = '';
   if (later.length) {
-    await notify(`Neuere Mail dieses Absenders vom ${later[later.length - 1].communication_date.slice(0, 16)}: ` +
-      `${later[later.length - 1].subject || ''}`, 'Hinweis');
+    const last = later[later.length - 1];
+    hint = `Hinweis: Es gibt ${later.length === 1 ? 'eine neuere Mail' : later.length + ' neuere Mails'} dieses Absenders, ` +
+      `zuletzt vom ${(last.communication_date || '').slice(0, 16)} („${last.subject || ''}“). Der Entwurf kennt sie nicht. ` +
+      'Diesen Hinweis vor dem Senden löschen.';
+    console.log(hint);
+    await notify(hint, 'Hinweis');
   }
   const request = claudeRequest(s.model, knowledge, mail, thread, material.corpus || [], s.sender, s.name);
   const result = await complete(s.claudeKey, request);
   const composeTab = await messenger.compose.beginReply(mail.id, 'replyToSender');
   const details = await messenger.compose.getComposeDetails(composeTab.id);
   const quoted = details.isPlainText ? '' : (details.body || '');
-  await messenger.compose.setComposeDetails(composeTab.id, { isPlainText: false, body: draftHtml(result.text) + quoted });
+  await messenger.compose.setComposeDetails(composeTab.id, {
+    isPlainText: false, body: (hint ? hintHtml(hint) : '') + draftHtml(result.text) + quoted });
   console.log('Antwortentwurf', usageText(result.usage, result.model));
 }
 
