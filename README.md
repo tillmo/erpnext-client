@@ -157,6 +157,17 @@ the invoice, purchase invoices with stock items but without stock update are ref
 sales invoice form ticks Balkonmodul when SBKW is ticked, which sets project, stock update, VAT
 and payment terms.
 
+## reply corpus: the team's own answers as examples for Claude
+The central inbox gets a copy of every mail the team sends, so ERPNext holds the team's replies
+to customers and suppliers as Communications, each linked by In-Reply-To to the mail it answers.
+`reply_corpus.py --server URL --key KEY --secret SECRET` pairs them: a team reply (sender in
+`settings.OWN_DOMAINS`) with the external mail it answers, both without quoted mails and without
+the signature; internal mails, forwards, replies to automatic senders and empty replies are left
+out. The pairs, with author, date, lead, addressee and supplier, go to
+`mytools/reply-corpus.json` (personal data: the private mytools repository, never this one). They are the
+material for drafting replies in the team's words: the most similar earlier pairs serve as
+examples in the prompt. First run on 2026-11-05: 4245 pairs from 7506 team mails since 2024.
+
 ## VAT transfers (SKR03)
 Per SKR03 the input VAT accounts (1571, 1576, 1577) and the output VAT accounts (1771, 1776,
 1787) are transferred to 1780 "Umsatzsteuer-Vorauszahlung" at the end of every declaration
