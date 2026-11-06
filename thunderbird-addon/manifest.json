@@ -2,7 +2,7 @@
   "manifest_version": 2,
   "name": "ERPNext Antwortentwurf",
   "description": "Entwirft mit Claude eine Antwort auf die angezeigte Mail: Verlauf aus ERPNext, Wissensdatei und frühere Antworten des Teams.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "author": "Bremer SolidarStrom",
   "browser_specific_settings": {
     "gecko": {

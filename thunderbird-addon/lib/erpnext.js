@@ -1,6 +1,8 @@
 // ERPNext REST access with the user's API key: the conversation with an address and the private
 // files that hold the knowledge file and the reply corpus (uploaded by reply_material_upload.py).
 
+import { networkError } from './claude.js';
+
 export const FIELDS = ['name', 'sender', 'sender_full_name', 'recipients', 'subject', 'content',
   'communication_date', 'reference_doctype', 'reference_name'];
 export const THREAD_MAILS = 12;
@@ -8,6 +10,20 @@ export const MATERIAL_FOLDER = 'Home/Antworten';
 export const KNOWLEDGE_FILE = 'reply-knowledge.md';
 export const CORPUS_FILE = 'reply-corpus.json';
 export const MATERIAL_MAX_AGE_MS = 24 * 3600 * 1000;
+export const TIMEOUT_MS = 60 * 1000;          // one REST call
+export const FILE_TIMEOUT_MS = 300 * 1000;    // the corpus is a few MB
+
+// A fetch() that fails before a response (no network, no permission for the origin, timeout)
+// raises a TypeError with little information; say what it usually means.
+async function fetchOrExplain(url, options, timeoutMs, what) {
+  try {
+    return await fetch(url, { ...options, signal: AbortSignal.timeout(timeoutMs) });
+  } catch (e) {
+    throw new Error(`ERPNext nicht erreichbar ${what}: ${networkError(e, timeoutMs)}` +
+      (e && e.name === 'TypeError' ? ' (Server falsch, offline, oder der Zugriff auf den Server ist dem Add-on nicht erlaubt: ' +
+        'in den Add-on-Einstellungen „Speichern“ drücken)' : ''));
+  }
+}
 
 export class ErpNext {
   constructor(server, key, secret) {
@@ -18,7 +34,7 @@ export class ErpNext {
   async get(path, params = {}) {
     const url = new URL(this.server + path);
     for (const [k, v] of Object.entries(params)) url.searchParams.set(k, typeof v === 'string' ? v : JSON.stringify(v));
-    const r = await fetch(url, { headers: this.headers });
+    const r = await fetchOrExplain(url, { headers: this.headers }, TIMEOUT_MS, `bei ${path}`);
     if (!r.ok) throw new Error(`ERPNext ${r.status} bei ${path}: ${(await r.text()).slice(0, 200)}`);
     return r.json();
   }
@@ -61,7 +77,7 @@ export class ErpNext {
   }
 
   async fileText(fileUrl) {
-    const r = await fetch(this.server + fileUrl, { headers: this.headers });
+    const r = await fetchOrExplain(this.server + fileUrl, { headers: this.headers }, FILE_TIMEOUT_MS, `beim Laden von ${fileUrl}`);
     if (!r.ok) throw new Error(`ERPNext ${r.status} beim Laden von ${fileUrl}`);
     return r.text();
   }

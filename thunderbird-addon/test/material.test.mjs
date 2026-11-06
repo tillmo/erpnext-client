@@ -36,6 +36,9 @@ test('addresses', () => {
   assert.ok(m.isExternal('anna@example.org'));
   assert.ok(!m.isExternal('noreply@shop.example.org'));
   assert.equal(m.nameFromAddress('mia.muster@bremer-solidarstrom.de'), 'Mia Muster');
+  assert.equal(m.effectiveSender('moin@bremer-solidarstrom.de', 'Anna Meier <anna@example.org>'), 'Anna Meier <anna@example.org>');
+  assert.equal(m.effectiveSender('anna@example.org', ''), 'anna@example.org');
+  assert.equal(m.effectiveSender('anna@example.org', 'noreply@example.org'), 'anna@example.org');
 });
 
 test('quotes and signatures', () => {

@@ -31,11 +31,22 @@ nachbearbeitet und gesendet; nichts geht automatisch raus.
 
 ## Benutzung
 
-Mail öffnen, in der Kopfzeile der Nachricht auf „Antwort entwerfen“ klicken. Nach 10 bis 30
-Sekunden öffnet sich das Antwortfenster mit dem Entwurf über dem zitierten Original. Bei Fehlern
-erscheint eine Benachrichtigung (fehlende Einstellung, Absender ist das Team, ERPNext oder
-Claude nicht erreichbar). Der Knopf ist nur für Mails von außen gedacht; interne Mails und
-Automaten lehnt er ab.
+Mail öffnen, in der Kopfzeile der Nachricht auf „Antwort entwerfen“ klicken. Solange der
+Entwurf entsteht, heißt der Knopf „Entwurf läuft …“; nach 10 bis 30 Sekunden öffnet sich das
+Antwortfenster mit dem Entwurf über dem zitierten Original. Gibt es neuere Mails des Absenders
+in ERPNext, die der Entwurf nicht kennt, steht ein roter Hinweis darüber.
+
+Schlägt etwas fehl (fehlende Einstellung, Absender ist das Team, ERPNext oder Claude nicht
+erreichbar, Zeitüberschreitung), öffnet sich ebenfalls das Antwortfenster, mit der Fehlermeldung
+im roten Kasten statt eines Entwurfs. ERPNext-Aufrufe brechen nach 60 Sekunden ab (Dateien nach
+5 Minuten), der Claude-Aufruf nach 3 Minuten. Einzelheiten stehen in der Konsole des Add-ons:
+„Add-ons und Themes“, Zahnrad, „Add-ons debuggen“ (oder `about:debugging` in der Adresszeile),
+beim Add-on „Untersuchen“, Reiter „Konsole“. Der Knopf ist nur für Mails von außen gedacht;
+interne Mails und Automaten lehnt er ab. Mails des Webformulars kommen von der eigenen
+Adresse mit der Kundenadresse im Reply-To; die zählt dann als Absender, so wie in ERPNext.
+
+Ein temporär geladenes Add-on verschwindet beim Beenden von Thunderbird; nach Änderungen am
+Code genügt dort „Neu laden“. Die Einstellungen bleiben erhalten.
 
 ## Was an Claude geht und was es kostet
 
@@ -52,4 +63,4 @@ Anthropic trainiert laut API-Bedingungen nicht mit diesen Daten.
 - `lib/erpnext.js`: REST-Zugriff und Zwischenspeicher für Wissensdatei und Korpus.
 - `lib/claude.js`: der Aufruf der Messages-API.
 - `background.js`: der Knopf; `options.*`: Einstellungen.
-- Tests: `node --test thunderbird-addon/test/material.test.mjs`.
+- Tests: `node --test thunderbird-addon/test/material.test.mjs thunderbird-addon/test/claude.test.mjs`.

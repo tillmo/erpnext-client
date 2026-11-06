@@ -63,6 +63,12 @@ export function isExternal(address) {
   return Boolean(addr) && !isTeam(addr) && !AUTOMATIC.test(addr);
 }
 
+// Whom a reply goes to: the Reply-To address when it is an external one (web form mails come
+// from the team's own address with the customer in Reply-To; ERPNext stores them that way too).
+export function effectiveSender(author, replyTo) {
+  return replyTo && isExternal(replyTo) ? replyTo : (author || '');
+}
+
 export function nameFromAddress(address) {
   const local = addressOf(address).split('@')[0];
   return local.split(/[._-]+/).filter(Boolean).map(p => p[0].toUpperCase() + p.slice(1)).join(' ');

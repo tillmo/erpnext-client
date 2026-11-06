@@ -3,23 +3,36 @@
 
 export const API_URL = 'https://api.anthropic.com/v1/messages';
 export const DEFAULT_MODEL = 'claude-opus-5-5';
+export const TIMEOUT_MS = 180 * 1000;
 
-export async function complete(apiKey, request) {
-  const r = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'anthropic-dangerous-direct-browser-access': 'true',
-    },
-    body: JSON.stringify(request),
-  });
+export async function complete(apiKey, request, timeoutMs = TIMEOUT_MS) {
+  let r;
+  try {
+    r = await fetch(API_URL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify(request),
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+  } catch (e) {
+    throw new Error('Claude nicht erreichbar: ' + networkError(e, timeoutMs));
+  }
   const data = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(`Claude ${r.status}: ${(data.error && data.error.message) || 'unbekannter Fehler'}`);
   if (data.stop_reason === 'refusal') throw new Error('Claude hat die Anfrage abgelehnt');
   const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim();
   return { text, usage: data.usage || {}, model: data.model };
+}
+
+// A fetch() rejection as a sentence: timeout or the browser's network error.
+export function networkError(e, timeoutMs) {
+  if (e && (e.name === 'TimeoutError' || e.name === 'AbortError')) return `keine Antwort nach ${Math.round(timeoutMs / 1000)} s`;
+  return String((e && e.message) || e);
 }
 
 export function usageText(usage, model) {
