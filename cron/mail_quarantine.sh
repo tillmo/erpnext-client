@@ -3,9 +3,10 @@
 # stalls on them (cron/mail_quarantine.py). Runs the check inside the ERPNext backend container
 # so that it uses the very Pillow that Frappe uses. Credentials in $ERPNEXT_CLIENT_MAIL_ENV
 # (default ~/.config/erpnext-client/mail-quarantine.env, template mail-quarantine.env.example).
-# Crontab line - one minute before Frappe's pull, which runs every ten minutes on the full ten:
+# Crontab line - every two minutes: Frappe pulls every ten minutes, and a broken mail that arrives
+# shortly before a pull still stalls that one pull (two Error Logs on 2026-11-04), but no more:
 #
-#   8-59/10 * * * * flock -n /tmp/mail-quarantine.lock $HOME/erpnext-client/cron/mail_quarantine.sh >> $HOME/logs/mail-quarantine.log 2>&1
+#   */2 * * * * flock -n /tmp/mail-quarantine.lock $HOME/erpnext-client/cron/mail_quarantine.sh >> $HOME/logs/mail-quarantine.log 2>&1
 set -euo pipefail
 DIR="$(cd "$(dirname "$0")/.." && pwd)"
 ENV_FILE="${ERPNEXT_CLIENT_MAIL_ENV:-$HOME/.config/erpnext-client/mail-quarantine.env}"
