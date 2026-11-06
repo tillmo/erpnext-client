@@ -61,7 +61,7 @@ class TestInvoiceLists:
         for inv in invs:
             assert isinstance(inv, Invoice) and not inv.is_sales
             assert inv.outstanding != 0 and inv.company_name == comp.name
-            assert inv.status in ("Draft", "Unpaid", "Overdue", "Partly Paid", "Return")
+            assert inv.status in ("Draft", "Unpaid", "Overdue", "Partly Paid", "Return", "Debit Note Issued")
             assert inv.party_type == "Supplier"
 
     def test_paid_sales_invoices(self, comp: Company) -> None:

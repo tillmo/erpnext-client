@@ -297,3 +297,28 @@ class TestReconcile:
         # the purchase credit note moves to the sales side
         assert seen["s"] == [fake_api.get_list("Sales Invoice")[0]["name"], "1"]
         assert seen["p"] == []
+
+    def test_reconcile_offers_invoice_with_credit_note(self, somiko: Company, fake_api: FakeFrappeClient,
+                                                       monkeypatch: pytest.MonkeyPatch) -> None:
+        # a credit note booked against a paid invoice leaves itself at 0 and the invoice at -100
+        # ('Credit Note Issued'); the refund to the customer settles the invoice
+        bacc = F.make_bank_account(fake_api, somiko)
+        name = fake_api.add("Bank Transaction", **F.bank_transaction_doc(bacc.name, withdrawal=100.0))
+        orig = fake_api.add("Sales Invoice", company=somiko.name, customer="Mia Muster", status="Credit Note Issued",
+                            custom_ebay=0, posting_date="2026-06-01", grand_total=2790.0, outstanding_amount=-100.0,
+                            is_return=0, docstatus=1)
+        fake_api.add("Sales Invoice", company=somiko.name, customer="Mia Muster", status="Return", custom_ebay=0,
+                     posting_date="2026-10-26", grand_total=-100.0, outstanding_amount=0.0, is_return=1,
+                     return_against=orig, docstatus=1)
+        fake_api.add("Purchase Invoice", company=somiko.name, supplier="Beispiel Solar GmbH", bill_no="G-7",
+                     status="Debit Note Issued", posting_date="2026-06-01", grand_total=500.0,
+                     outstanding_amount=-20.0, is_return=0, docstatus=1)
+        seen = {}
+
+        def transfer(self, sinvs: list[Any], pinvs: list[Any]) -> None:
+            seen["s"] = [i.reference for i in sinvs]
+            seen["p"] = [i.reference for i in pinvs]
+        monkeypatch.setattr(bank.BankTransaction, "transfer", transfer)
+        somiko.reconcile({"name": name})
+        assert seen["p"] == [orig]
+        assert seen["s"] == ["G-7"]

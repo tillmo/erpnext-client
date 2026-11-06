@@ -160,7 +160,10 @@ class Company(Doc):
         is_sales = (inv_type=='Sales Invoice')
         filters: dict[str, Any] = {'company':self.name}
         if open_invs:
-            filters['status'] = ['in',['Draft','Unpaid','Overdue','Partly Paid','Return']]
+            # a credit note booked against an invoice moves the outstanding amount onto that
+            # invoice, which then carries a negative balance under 'Credit/Debit Note Issued'
+            filters['status'] = ['in',['Draft','Unpaid','Overdue','Partly Paid','Return',
+                                       'Credit Note Issued','Debit Note Issued']]
         else:    
             filters['status'] = ['in',['Paid']]
         fields = ['name','status','posting_date','grand_total',
@@ -195,19 +198,25 @@ class Company(Doc):
                          'nuruk', 'nurelektromaterial'],
                 limit_page_length=LIMIT)
 
+    def open_invoices_by_direction(self) -> tuple[list[invoice.Invoice], list[invoice.Invoice]]:
+        """Open invoices settled by money coming in and by money going out.
+
+        The sign of the outstanding amount decides, not the doctype: a credit note, or an
+        invoice that a credit note was booked against, is settled by a payment the other way."""
+        invs = self.get_sales_invoices(True) + self.get_purchase_invoices(True)
+        incoming = [inv for inv in invs if (inv.outstanding > 0) == inv.is_sales]
+        outgoing = [inv for inv in invs if (inv.outstanding > 0) != inv.is_sales]
+        return incoming, outgoing
+
     def reconcile(self,bt: dict[str, Any]) -> None:
         Api.load_account_data()
-        sinvs = self.get_sales_invoices(True)
-        pinvs = self.get_purchase_invoices(True)
-        sinvs1 = [inv for inv in sinvs if not inv.is_return]+[inv for inv in pinvs if inv.is_return]
-        pinvs1 = [inv for inv in pinvs if not inv.is_return]+[inv for inv in sinvs if inv.is_return]
+        sinvs, pinvs = self.open_invoices_by_direction()
         bt = gui_api_wrapper(Api.api.get_doc,'Bank Transaction',bt['name'])
-        bank.BankTransaction(bt).transfer(sinvs1,pinvs1)
+        bank.BankTransaction(bt).transfer(sinvs,pinvs)
 
     def reconcile_all(self) -> None:
         Api.load_account_data()
-        sinvs = self.get_sales_invoices(True)
-        pinvs = self.get_purchase_invoices(True)
+        sinvs, pinvs = self.open_invoices_by_direction()
         # without limit_page_length Frappe returns 20 rows only
         bts = gui_api_wrapper(Api.api.get_list,'Bank Transaction',
                               fields=bank.BT_FIELDS,

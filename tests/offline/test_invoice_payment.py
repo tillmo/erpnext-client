@@ -159,6 +159,17 @@ class TestCreatePayment:
         assert p["payment_type"] == "Pay" and p["paid_to"] == somiko.receivable_account
         assert p["references"][0]["allocated_amount"] == -50.0
 
+    def test_refund_of_credit_note_issued_invoice(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
+        # the credit note was booked against the invoice: the refund is allocated to the invoice
+        name = fake_api.add("Sales Invoice", company=somiko.name, customer="Mia Muster", status="Credit Note Issued",
+                            custom_ebay=0, posting_date="2026-06-01", grand_total=2790.0, outstanding_amount=-100.0,
+                            is_return=0, docstatus=1)
+        inv = invoice.Invoice(fake_api.get_doc("Sales Invoice", name), True)
+        p = inv.payment("Bank - SoMiKo", 100.0, "2026-10-26")
+        assert p["payment_type"] == "Pay" and p["paid_amount"] == 100.0
+        ref = p["references"][0]
+        assert (ref["reference_doctype"], ref["reference_name"], ref["allocated_amount"]) == ("Sales Invoice", name, -100.0)
+
     def test_exchange_rates_and_company(self, somiko: Company, fake_api: FakeFrappeClient) -> None:
         p = payment.create_payment(False, somiko, "Bank - SoMiKo", 10.0, "2026-01-01", "L", "Supplier", "r", [])
         assert p["company"] == somiko.name
