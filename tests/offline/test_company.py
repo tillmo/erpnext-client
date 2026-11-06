@@ -110,6 +110,14 @@ class TestLoadData:
             {"4996 - Herstellungskosten - SoMiKo", "3800 - Bezugsnebenkosten - SoMiKo"}
         assert "Lade Daten für " + F.COMPANY in capsys.readouterr().out
 
+    def test_load_data_limits(self, seeded: FakeFrappeClient) -> None:
+        Company.init_companies()
+        Company.get_company(F.COMPANY).load_data()
+        limits = {c[1][0]: c[2]["limit_page_length"] for c in seeded.calls_of("get_list")}
+        # the bank suggestions need the whole journal, the supplier accounts only the recent invoices
+        assert limits["Journal Entry"] == company.JOURNAL_LIMIT
+        assert limits["Purchase Invoice"] == company.PURCHASE_INVOICE_LIMIT == 100
+
     def test_load_data_only_once(self, seeded: FakeFrappeClient) -> None:
         Company.init_companies()
         comp = Company.get_company(F.COMPANY)

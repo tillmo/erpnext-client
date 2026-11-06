@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 JOURNAL_LIMIT = 20000   # account rows; the whole history feeds the account suggestions in bank.py
+# item rows; the whole history slowed down the start of the client considerably on some machines
+PURCHASE_INVOICE_LIMIT = 100
 
 from typing import Any
 
@@ -110,7 +112,7 @@ class Company(Doc):
                 'is_opening','against_expense_account',
                 "`tabPurchase Invoice Item`.expense_account as expense_account"
                 ],
-            limit_page_length=JOURNAL_LIMIT,
+            limit_page_length=PURCHASE_INVOICE_LIMIT,
             order_by='posting_date DESC')
         self.purchase_invoices = defaultdict(list)
         for pi in pis:
