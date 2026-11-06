@@ -121,6 +121,19 @@ ERPNext suppliers by VAT id or by name, tolerating legal forms and address suffi
 ERPNext name (`Api.find_supplier`). Claude additionally gets the list of ERPNext supplier names
 as a cached part of the prompt and returns the matching name directly.
 
+## micro inverters: item by the number of modules
+When a stock-relevant invoice is read in (PreRechnung or PDF), a line that is a micro inverter gets its
+ERPNext item from its nominal power instead of the item dialog (`supplier_item.micro_inverter_code`,
+items in `settings.MICRO_INVERTER_ITEMS`): below 800 W "Wechselrichter für 1 Modul", from 800 W
+"Balkonwechselrichter für 2 Module", from 1200 W "Balkonwechselrichter für 3-4 Module". An inverter
+throttled to 800 W counts with its nominal power ("HMS 1600W gedrosselt auf 800W" is one for 3-4
+modules), so the largest wattage in the line decides; Wp of modules does not count. A line is a
+micro inverter if it says so (Mikro-/Micro-/Modul-/Balkonwechselrichter, Microinverter) or names a
+Hoymiles model (HMS-1600-4T, whose number is the power). The rule comes before the supplier article
+numbers learned earlier. Lines that start with an accessory, a throttling service, a kit or a storage
+system and only mention the inverter afterwards ("Anschlusskabel ... für Mikrowechselrichter"), and
+lines without a recognisable power, go to the item dialog as before.
+
 ## mails that stall the lead import (Frappe 14)
 Frappe 14 stops the whole mail pull when a mail embeds an image Pillow cannot decode ("Truncated
 File Read" in the Error Log), until that mail is moved out of the inbox by hand. `cron/mail_quarantine.py`

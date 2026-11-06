@@ -88,7 +88,7 @@ class TestItemsAndMisc:
     def test_item_codes_format(self) -> None:
         code_re = re.compile(r"^\d{3}\.\d{3}\.\d{3}$")
         for code in [settings.DEFAULT_ITEM_CODE, settings.PLANNING_ITEM] + settings.DEFAULT_ITEMS + \
-                list(settings.AGGREGATE_ITEMS.values()):
+                list(settings.AGGREGATE_ITEMS.values()) + [code for _, code in settings.MICRO_INVERTER_ITEMS]:
             assert code_re.match(code), code
 
     def test_aggregate_items_have_default(self) -> None:

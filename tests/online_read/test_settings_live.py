@@ -87,7 +87,7 @@ def test_uom_exists(api: Any) -> None:
 
 def test_items_exist(api: Any) -> None:
     wanted = {settings.DEFAULT_ITEM_CODE, settings.PLANNING_ITEM} | set(settings.DEFAULT_ITEMS) | \
-        set(settings.AGGREGATE_ITEMS.values())
+        set(settings.AGGREGATE_ITEMS.values()) | {code for _, code in settings.MICRO_INVERTER_ITEMS}
     missing = wanted - existing(api, "Item", wanted)
     assert not missing, "Artikel fehlen: {}".format(sorted(missing))
 

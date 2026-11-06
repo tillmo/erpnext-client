@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import random
+import re
 import string
 from typing import TYPE_CHECKING, Any
 from gui import easygui
@@ -8,10 +9,36 @@ import utils
 from api_wrapper import gui_api_wrapper
 from api import Api, LIMIT
 from settings import STANDARD_ITEM_GROUP, STANDARD_PRICE_LIST, STOCK_ITEM_GROUPS, AGGREGATE_ITEMS, AGGREGATE_ITEM_VALUE,\
-    DEFAULT_ITEMS, WAREHOUSE
+    DEFAULT_ITEMS, WAREHOUSE, MICRO_INVERTER_ITEMS
 
 if TYPE_CHECKING:
     from purchase_invoice import PurchaseInvoice
+
+# invoices name a micro inverter as such or only by its Hoymiles model ("HMS-1600-4T")
+MICRO_INVERTER_RE = re.compile(r'mi[ck]ro-?\s?(?:wechselrichter|inverter)|modulwechselrichter|balkonwechselrichter'
+                               r'|\bHM[ST]?[- ]?\d{3,4}', re.IGNORECASE)
+# accessories, services, kits and storage mention the inverter they belong to after their own name
+# ("Anschlusskabel ... für Hoymiles-Mikrowechselrichter"), a real inverter line starts with the inverter
+NOT_AN_INVERTER_RE = re.compile(r'kabel|stecker|buchse|connector|verbinder|endkappe|\bdtu\b|halter|drosselung'
+                                r'|leistungsbegrenzung|balkonkraftwerk|\bset\b|komplett|speicher|batterie|akku',
+                                re.IGNORECASE)
+# Wp is the power of modules, not of the inverter, and is left out by the \b after W
+WATTS_RE = re.compile(r'(?<![\d.,])(\d{3,4})\s?(?:W|Watt|VA)\b|\bHM[ST]?[- ]?(\d{3,4})', re.IGNORECASE)
+
+
+def micro_inverter_code(text: str) -> str | None:
+    """Item code of a micro inverter by its nominal power, None if the text is not a micro inverter
+    with a recognisable power. The nominal power is the largest one: "1600W gedrosselt auf 800W"."""
+    inverter = MICRO_INVERTER_RE.search(text)
+    if not inverter:
+        return None
+    other = NOT_AN_INVERTER_RE.search(text)
+    if other and other.start() < inverter.start():
+        return None
+    watts = [int(w or model) for w, model in WATTS_RE.findall(text)]
+    if not watts:
+        return None
+    return next(code for min_watts, code in MICRO_INVERTER_ITEMS if max(watts) >= min_watts)
 
 
 class SupplierItem:
@@ -36,7 +63,18 @@ class SupplierItem:
         self.amount = None
         self.item_code = None
 
+    def micro_inverter_item(self) -> dict[str, Any] | None:
+        code = micro_inverter_code(self.long_description or self.description or '')
+        e_item = Api.items_by_code.get(code) if code else None
+        if e_item:
+            print("Mikro-Wechselrichter nach Nennleistung: {} {}".format(code, e_item['item_name']))
+        return e_item
+
     def search_item(self, supplier: str, check_dup: bool = True) -> dict[str, Any] | None:
+        # before the supplier codes: those learned earlier may point to the old per-model inverter items
+        e_item = self.micro_inverter_item()
+        if e_item:
+            return e_item
         if self.item_code:
             if supplier in Api.item_code_translation:
                 trans_table_supplier = Api.item_code_translation[supplier]

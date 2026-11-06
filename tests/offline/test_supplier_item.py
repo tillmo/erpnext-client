@@ -15,7 +15,7 @@ skip_module_without_pdftotext()
 import settings  # noqa: E402
 from api import Api  # noqa: E402
 from company import Company  # noqa: E402
-from supplier_item import SupplierItem  # noqa: E402
+from supplier_item import SupplierItem, micro_inverter_code  # noqa: E402
 
 MODUL = {"name": "010.100.001", "item_code": "010.100.001", "item_name": "Solarmodul 400 Wp", "item_group": "Solarmodul",
          "description": "Solarmodul 400 Wp schwarz", "supplier_items": [],
@@ -119,6 +119,97 @@ class TestSearchItem:
     def test_unanswered_dialog_detected(self, s_item: SupplierItem, catalogue: FakeFrappeClient) -> None:
         with pytest.raises(GuiCalled):
             s_item.search_item(SUPPLIER)
+
+
+ONE, TWO, THREE_FOUR = "026.000.400", "026.001.800", "026.000.800"
+
+
+class TestMicroInverterCode:
+    def test_item_codes_from_settings(self) -> None:
+        assert [code for _, code in settings.MICRO_INVERTER_ITEMS] == [THREE_FOUR, TWO, ONE]
+
+    @pytest.mark.parametrize("text, code", [
+        ("Wechselrichter - HMS-400W-1T EU", ONE),
+        ("Modulwechselrichter HM-300W Ausgangsleistung", ONE),
+        ("Mikrowechselrichter 600 W", ONE),
+        ("Mikrowechselrichter 799 W", ONE),
+        ("Wechselrichter - HMS-800W-2T", TWO),
+        ("Micro-Inverter 800W", TWO),
+        ("HMS-1000-2T Microinverter Modulwechselrichter", TWO),
+        ("Mikrowechselrichter 1199 W", TWO),
+        ("Mikrowechselrichter 1200 W", THREE_FOUR),
+        ("Wechselrichter - HMS-1600-4T", THREE_FOUR),
+        ("Wechselrichter - HMS-1800-4T (15A)", THREE_FOUR),
+        ("Balkonwechselrichter 2000 VA", THREE_FOUR),
+    ])
+    def test_by_nominal_power(self, text: str, code: str) -> None:
+        assert micro_inverter_code(text) == code
+
+    @pytest.mark.parametrize("text", [
+        "HMS 1600W gedrosselt auf 800W Ausgangsleistung.",
+        "Mikrowechselrichter 800 W (gedrosselt von 1600 W)",
+        "HM-1500 + Kostenlose Drosselung",
+        "HMS-1600-4T bei Betrieb mit Speicher volle 1600 W, ohne Speicher 800 W",
+    ])
+    def test_throttled_counts_with_nominal_power(self, text: str) -> None:
+        assert micro_inverter_code(text) == THREE_FOUR
+
+    def test_module_power_does_not_count(self) -> None:
+        assert micro_inverter_code("Mikrowechselrichter 600 W für Module bis 2x 650 Wp") == ONE
+
+    @pytest.mark.parametrize("text", [
+        "Hybridwechselrichter dreiphasig, Pnenn=10000Wac",
+        "Solarmodul 450 Wp schwarz",
+        "Mikrowechselrichter mit WLAN",
+        "HMS Field Connector Verbinder für HMS-Anschlusskabel",
+        "Anschlusskabel Schuko 3 Meter (HMS Stecker) für Mikrowechselrichter HMS-1600-4T",
+        "Drosselung des Mikrowechselrichters auf 800 W",
+        "Balkonkraftwerk 2x 450 Wp mit Mikrowechselrichter 800 W",
+        "Speicher 2 kWh mit integriertem Mikrowechselrichter 800 W",
+        "Montageplatte für Micro Inverter",
+    ])
+    def test_not_a_micro_inverter(self, text: str) -> None:
+        assert micro_inverter_code(text) is None
+
+    def test_inverter_line_mentioning_accessories(self) -> None:
+        assert micro_inverter_code("HMS-800W-2T, die Verlängerungskabel werden paarweise geliefert") == TWO
+
+
+class TestMicroInverterItem:
+    @pytest.fixture
+    def inverters(self, catalogue: FakeFrappeClient) -> None:
+        for code, name in ((ONE, "Wechselrichter für 1 Modul"), (TWO, "Balkonwechselrichter für 2 Module"),
+                           (THREE_FOUR, "Balkonwechselrichter für 3-4 Module"), ("026.000.600", "Balkonwechselrichter 600W")):
+            Api.items_by_code[code] = {"name": code, "item_code": code, "item_name": name,
+                                       "item_group": "Mikro-Wechselrichter", "description": name, "supplier_items": []}
+
+    def test_chosen_without_dialog(self, s_item: SupplierItem, inverters: None, gui: EasyguiStub,
+                                   capsys: pytest.CaptureFixture[str]) -> None:
+        s_item.description = "Wechselrichter - HMS-1600-4T"
+        s_item.long_description = "Wechselrichter - HMS-1600-4T\nbei Betrieb ohne Speicher gedrosselt auf 800 W"
+        assert s_item.search_item(SUPPLIER)["item_code"] == THREE_FOUR
+        assert gui.calls == []
+        assert "Balkonwechselrichter für 3-4 Module" in capsys.readouterr().out
+
+    def test_overrides_learned_supplier_code(self, s_item: SupplierItem, inverters: None, gui: EasyguiStub) -> None:
+        Api.item_code_translation[SUPPLIER]["WR-600"] = "026.000.600"
+        s_item.item_code = "WR-600"
+        s_item.description = s_item.long_description = "Mikrowechselrichter 600 W"
+        assert s_item.search_item(SUPPLIER)["item_code"] == ONE
+
+    def test_missing_item_falls_back_to_dialog(self, s_item: SupplierItem, catalogue: FakeFrappeClient,
+                                               gui: EasyguiStub) -> None:
+        s_item.description = s_item.long_description = "Wechselrichter - HMS-800W-2T"
+        gui.answers["choicebox"] = None
+        assert s_item.search_item(SUPPLIER) is None
+        assert len(gui.calls) == 1
+
+    def test_process_item_books_stock_item(self, s_item: SupplierItem, inverters: None,
+                                           catalogue: FakeFrappeClient) -> None:
+        s_item.description = s_item.long_description = "Wechselrichter - HMS-400W-1T EU"
+        s_item.qty, s_item.rate = 20, 66.8
+        result = s_item.process_item(SUPPLIER, "2026-01-01")
+        assert result == {"item_code": ONE, "qty": 20, "rate": 66.8, "desc": "Wechselrichter - HMS-400W-1T EU"}
 
 
 class TestAddItemPrice:

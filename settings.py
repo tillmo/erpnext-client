@@ -22,6 +22,11 @@ STOCK_ITEM_GROUPS = ['Solarmodul','Balkon-Solarmodule','Wechselrichter','Steckdo
 BUNDLE_ITEM_GROUPS = ['Balkon-Anlage']
 AGGREGATE_ITEMS: dict[str, str] = {'Elektro-Komponenten':'000.100.302','default':'000.100.301'}
 AGGREGATE_ITEM_VALUE = 100.0
+# micro inverters are booked by the number of modules they serve, derived from the nominal power, even if
+# they are throttled to 800 W: (from watts, item code), highest first (supplier_item.micro_inverter_code)
+MICRO_INVERTER_ITEMS: list[tuple[int, str]] = [(1200, '026.000.800'),   # Balkonwechselrichter für 3-4 Module
+                                               (800, '026.001.800'),    # Balkonwechselrichter für 2 Module
+                                               (0, '026.000.400')]      # Wechselrichter für 1 Modul
 # keyword rules for the account suggestions of bank transactions (bank.score_accounts): the first
 # pattern (regex, case-insensitive) that matches the cleaned purpose boosts the account with this
 # number (or, for unnumbered accounts, this account name); specific words come before generic ones. The history decides among equally boosted accounts.
